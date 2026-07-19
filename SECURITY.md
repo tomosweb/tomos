@@ -1,49 +1,28 @@
 # Security Policy
 
-Tomos is designed as a lightweight Markdown publishing engine for general
-shared hosting environments. It avoids requiring a database, Composer, or a
-JavaScript runtime.
+## 対象バージョン
 
-## Default Security Approach
+Tomos `v0.1.0-alpha` は限定テスト用の初期開発版です。
 
-- Raw HTML in Markdown is disabled by default.
-- Page resolution is restricted to files under `content/`.
-- Path traversal, null bytes, backslashes, unsafe URL decoding patterns, and
-  non-Markdown page reads are rejected.
-- Draft pages with `draft: true` are not exposed as public pages.
-- Template variables are escaped by default.
-- HTML output variables are restricted by a whitelist.
-- Dangerous URL schemes such as `javascript:`, `data:`, and `vbscript:` are
-  rejected in generated links and attributes.
-- Themes must not contain PHP files.
-- Theme templates are checked for dangerous PHP and script-like patterns.
-- setup is disabled after completion.
-- Public installations should delete or rename `setup/` after setup completes.
-- `config.php` is generated per installation and is not included in
-  distribution packages.
-- `.htaccess` should be installed with Tomos.
-- `cache/index/pages.json` is generated per installation and is not included in
-  distribution packages.
-- Apache installations include `.htaccess` rules to deny direct access to
-  `config.php`, `config.sample.php`, cache JSON files, and PHP-like files under
-  cache.
+## 基本方針
 
-## Operational Notes
+- Markdown内のRaw HTMLは初期設定で無効です。
+- 公開ページの読み込みは `content/` 配下に制限されます。
+- パストラバーサルや危険なURL形式は拒否されます。
+- `draft: true` のページは公開されません。
+- setup完了後はsetup機能が無効化されます。
+- `config.php`、キャッシュ情報、Markdown原本の直接閲覧を `.htaccess` で制限します。
 
-- Keep a backup of `content/`, `config.php`, and theme customizations before
-  updating Tomos.
-- Confirm that `content/.htaccess` prevents PHP execution under `content/` when
-  using Apache-compatible hosting.
-- Confirm that `cache/` is not used to execute PHP files.
-- If `.htaccess` is missing, top-level pages may work while subpages, search,
-  RSS, and sitemap URLs fail.
-- See `docs/project/security.md` for implementation notes for routing, Markdown,
-  templates, wiki links, images, setup, cache, and theme validation.
+## 運用上の注意
 
-## Reporting Security Issues
+- 設置前に既存データのバックアップを作成してください。
+- `.htaccess` を必ずTomosの設置ディレクトリに配置してください。
+- setup完了後は `setup/` を削除または公開領域外へ移動してください。
+- `config.php`、`content/`、テーマ、画像を定期的にバックアップしてください。
+- WebサーバーとPHPを安全なバージョンに保ってください。
 
-Security contact is not finalized yet.
+## 脆弱性の報告
 
-For now, please report security concerns through the project issue tracker if
-available. Do not publish exploit details publicly before the maintainer has a
-reasonable chance to review them.
+セキュリティ上の問題を確認した場合は、情報を公開する前に、配布元から案内された窓口へ報告してください。
+
+個別の返信、修正、対応時期を保証するものではありません。
