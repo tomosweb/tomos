@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.0-alpha.1 - 2026-07-20
+
+### Fixed
+
+- Allow the existing-page update and rename confirmation actions in Tomos Post to continue immediately after conflict detection, while preserving failed-password blocking.
+
+### Documentation
+
+- Add data-preserving, version-specific update guidance for existing installations.
+
 ## v0.1.0-alpha
 
 Initial alpha release candidate.
