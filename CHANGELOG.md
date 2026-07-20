@@ -1,4 +1,4 @@
-# Changelog
+# 更新履歴
 
 ## v0.1.0-alpha.1 - 2026-07-20
 
@@ -8,52 +8,56 @@
 
 ### ドキュメント
 
-- 既存設置環境のデータを保持する、バージョン別の差分更新案内を追加。
+- 既存設置環境のデータを保持する、バージョン別の差分更新ガイドを追加。
 
 ## v0.1.0-alpha
 
-Initial alpha release candidate.
+初期アルファ版のリリース候補。
 
-### Added
+### 追加
 
-- Tomos Post sequential one-image upload sessions with retry, cancellation, environment-aware limits, and publish-after-complete behavior
-- Adaptive chunk upload for images larger than the current server request limit
-- Preservation of single line breaks inside Markdown paragraphs
-- Clear validation when an image extension and its actual data format do not match
-- JPEG EXIF Orientation 1-8 correction with IFD0 fallback, correct mirrored rotation directions, and diagnostics
-- Phase 9 distribution and documentation audit, including safe existing-installation update guidance
-- Completion of Phase 9 real-environment integration and regression verification with a release-ready final decision
-- Virtual folder index pages when public child articles exist without a folder `index.md`
-- Folder article lists in the tomos-minimal page template
+- Google Analytics 4の測定IDを任意設定できる機能
+- GA4未設定時はGoogleタグを出力しない公開ページ共通処理
+- 全同梱テーマでのGA4共通出力
 
-- Markdown file based page rendering
-- Frontmatter support
-- Draft exclusion
-- Metadata index generation
-- Navigation and breadcrumbs
-- Folder and page lists
-- Wiki links
-- Image embedding
-- Tags
-- Search
-- RSS and sitemap
-- Setup screen
-- Setup guard
-- Theme validation
-- favicon and OGP support
-- Installation documentation
-- Distribution build folder generation
+- Tomos Postで画像を1枚ずつ順番にアップロードするセッション処理（再試行、キャンセル、環境に応じた上限、全画像の完了後に公開）
+- サーバーの現在のリクエスト上限を超える画像に対応する、チャンクサイズ自動調整アップロード
+- Markdown段落内の単一改行を保持
+- 画像の拡張子と実際のデータ形式が一致しない場合の明確な検証メッセージ
+- JPEGのEXIF Orientation 1〜8を補正（IFD0フォールバック、反転を伴う回転方向の修正、診断情報を含む）
+- 既存設置環境を安全に更新する案内を含む、Phase 9の配布物・ドキュメント監査
+- Phase 9の実環境統合・回帰確認を完了し、リリース可能との最終判断を実施
+- フォルダーの`index.md`がなくても公開中の子記事がある場合に、仮想フォルダーの索引ページを生成
+- tomos-minimalのページテンプレートにフォルダー内の記事一覧を追加
 
-### Known limitations
+- Markdownファイルをもとにしたページ表示
+- フロントマター対応
+- 下書きを公開対象から除外
+- メタデータ索引の生成
+- ナビゲーションとパンくずリスト
+- フォルダーとページの一覧
+- Wikiリンク
+- 画像の埋め込み
+- タグ
+- 検索
+- RSSとサイトマップ
+- セットアップ画面
+- セットアップ保護
+- テーマ検証
+- faviconとOGP対応
+- インストール手順書
+- 配布用buildフォルダーの生成
 
-- HTML cache is not implemented yet.
-- Web-based Markdown editing is not implemented.
-- Image upload is not implemented.
-- Login and admin screens are not implemented.
-- Distribution ZIP generation is not implemented yet.
+### 既知の制限
 
-### Fixed
+- HTMLキャッシュは未実装。
+- Web上でのMarkdown編集は未実装。
+- 画像アップロードは未実装。
+- ログイン画面と管理画面は未実装。
+- 配布用ZIPの生成は未実装。
 
-- Preserve virtual folder page type and content-relative folder path through theme rendering so folder article lists are displayed
-- Keep folder article lists limited to direct child articles
-- Refresh the tomos-90s stylesheet URL after removing unintended tag-list bullet markers
+### 修正
+
+- テーマ表示後も仮想フォルダーのページ種別とcontent基準のフォルダーパスを保持し、フォルダー内の記事一覧が表示されるように修正
+- フォルダー内の記事一覧を直下の記事だけに限定
+- tomos-90sのタグ一覧から意図しない箇条書き記号を除去し、スタイルシートURLを更新
