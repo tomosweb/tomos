@@ -2,13 +2,13 @@
 
 ## v0.1.0-alpha.1 - 2026-07-20
 
-### Fixed
+### 修正
 
-- Allow the existing-page update and rename confirmation actions in Tomos Post to continue immediately after conflict detection, while preserving failed-password blocking.
+- Tomos Postで既存ページの競合を検出した直後でも、更新または別名投稿の確認操作を続行できるように修正。合言葉の連続失敗による一時停止は維持。
 
-### Documentation
+### ドキュメント
 
-- Add data-preserving, version-specific update guidance for existing installations.
+- 既存設置環境のデータを保持する、バージョン別の差分更新案内を追加。
 
 ## v0.1.0-alpha
 
