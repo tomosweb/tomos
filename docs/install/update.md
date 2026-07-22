@@ -2,6 +2,24 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
+## v0.1.0-alpha.2からv0.1.0-alpha.3への更新
+
+この更新では、Tomos Postから `index.md` と `about.md` をダウンロードし、編集後に再投稿できるようにします。また、画像を6枚以上選択した場合に最大5枚であることを明示します。
+
+更新対象は次のファイルです。
+
+- `core/PostBasicPage.php`
+- `core/PostUpload.php`
+- `core/PostContentResolver.php`
+- `core/PostWithdraw.php`
+- `core/TrashManager.php`
+- `post/index.php`
+- `docs/install/update.md` などの関連ドキュメント
+
+更新前に設置ディレクトリ全体、または少なくとも `config.php`、`content/`、`themes/`、`cache/`、`trash/` をバックアップしてください。`tomos-0.1.0-alpha.3.zip` をPC上の別フォルダへ展開し、上記の本体ファイルを既存環境の同じパスへ上書きします。配布Zip全体を既存の設置ルートへ上書き展開しません。`config.php`、`content/`、`themes/`、`cache/` 内の生成済みファイル、`trash/` は上書き・削除・初期化しません。
+
+更新後はTomos Postの「サイト設定」から `index.md` と `about.md` をダウンロードできること、編集した各ファイルを再投稿して同じ基本ページを更新できること、画像を6枚選択した場合に「画像は最大5枚まで選択できます。」と表示され投稿されないことを確認します。
+
 ## v0.1.0-alpha.1からv0.1.0-alpha.2への更新
 
 この更新では、フォルダー記事一覧のページング追加、数字だけの第1階層フォルダー名で発生するPHP 8の型エラー修正、サブディレクトリ設置時にTomos Postの公開URLへ設置パスが二重に付く問題、日本語の濁点表現だけがNFC/NFD形式で異なる同名ファイルを更新確認なしで二重公開する問題の修正を行います。
