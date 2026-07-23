@@ -2,6 +2,18 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
+## v0.1.0-alpha.3からv0.1.0-alpha.4への更新
+
+この更新では、管理画面から署名済み更新ZIPを確認し、Tomos本体を更新する「Tomos Update」を追加します。
+
+`v0.1.0-alpha.3` にはTomos Update自体がないため、この更新だけは `tomos-0.1.0-alpha.3-to-alpha.4-manual-update.zip` を一度だけFTPまたはサーバーのファイル管理機能でアップロードしてください。`v0.1.0-alpha.4` 導入後の更新からTomos Updateを利用できます。
+
+更新前に設置ディレクトリ全体、または少なくとも `config.php`、`content/`、`themes/`、`cache/`、`trash/` をバックアップします。手動更新ZIPにはこれらのデータは含まれていません。
+
+アップロード後、`storage/update-backups/`、`storage/update-logs/`、`storage/update-tmp/` をPHPから書き込み可能にします。Tomos Postの「サイト設定」から「Tomos Updateを開く」を選び、現在のバージョンが `0.1.0-alpha.4` と表示されること、`storage/` へWebから直接アクセスできないことを確認します。
+
+Apache以外のWebサーバーでは、サーバー設定でも `storage/` へのアクセスを拒否してください。
+
 ## v0.1.0-alpha.2からv0.1.0-alpha.3への更新
 
 この更新では、Tomos Postから `index.md` と `about.md` をダウンロードし、編集後に再投稿できるようにします。また、画像を6枚以上選択した場合に最大5枚であることを明示します。
