@@ -1,0 +1,38 @@
+<section class="creator-home">
+  <div class="creator-cover">
+    <img src="{{ theme.asset_url }}/header.png?v=1.1.1" alt="{{ site.name }}">
+  </div>
+
+  <div class="creator-home-grid">
+    <aside class="creator-profile">
+      <div class="creator-avatar"><img src="{{ theme.asset_url }}/profile.png?v=1.1.1" alt=""></div>
+      <p class="creator-kicker">PERSONAL PUBLISHING</p>
+      <h1>{{ site.name }}</h1>
+      <p class="creator-description">{{ site.description }}</p>
+      <nav class="creator-profile-links" aria-label="プロフィールリンク">
+        <a href="{{ nav.home_url }}">Home</a>
+        <a href="{{ nav.about_url }}">About</a>
+        {{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+      </nav>
+      <div class="creator-home-content">
+        {{{ page.content }}}
+      </div>
+    </aside>
+
+    <section class="creator-archive" aria-labelledby="creator-archive-title">
+      <header class="creator-section-header">
+        <div>
+          <p class="creator-kicker">LATEST STORIES</p>
+          <h2 id="creator-archive-title">記事一覧</h2>
+        </div>
+        <p>日々の記録と、作って考えたこと。</p>
+      </header>
+      {{{ list.latest_pages }}}
+      <nav class="creator-more" aria-label="記事一覧へのリンク">
+        {{# nav.primary_items }}
+        <a href="{{ url }}" data-nav-type="{{ type }}">{{ label }} の記事を見る <span aria-hidden="true">→</span></a>
+        {{/ nav.primary_items }}
+      </nav>
+    </section>
+  </div>
+</section>

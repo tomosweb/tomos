@@ -2,6 +2,37 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
+## v0.1.0-alpha.7への更新
+
+v0.1.0-alpha.5以前をご利用の場合は、最初にv0.1.0-alpha.6へ手動で更新してください。
+
+alpha.6への移行が完了すると、Tomos Postの「Tomos Update」からv0.1.0-alpha.7へ更新できます。
+
+更新順序:
+
+```text
+v0.1.0-alpha.5以前
+↓
+v0.1.0-alpha.6へ手動更新
+↓
+Tomos Updateからv0.1.0-alpha.7へ更新
+```
+
+すでにv0.1.0-alpha.6をご利用の場合は、そのままTomos Updateからalpha.7へ更新できます。
+
+## v0.1.0-alpha.6からv0.1.0-alpha.7への更新
+
+alpha.6へ移行済みの環境では、署名済みの`tomos-update-0.1.0-alpha.7.zip`をTomos Updateから適用できます。
+
+1. Tomos Postへ認証し、Tomos Update画面（`/update/`）を開きます。
+2. `tomos-update-0.1.0-alpha.7.zip`を選び、「更新内容を確認」を押します。
+3. 現在のバージョンが`0.1.0-alpha.6`、更新後のバージョンが`0.1.0-alpha.7`と表示されていることを確認します。
+4. 更新対象が14ファイルで、`config.php`、`content/`、独自テーマが含まれていないことを確認します。
+5. 「更新する」を押します。
+6. 更新完了後、「現在のバージョン」が`0.1.0-alpha.7`と表示されていることを確認します。
+
+更新前に`config.php`、`content/`、利用中テーマをバックアップしてください。Tomos Updateは更新対象ファイルだけをバックアップし、`config.php`、`content/`、独自テーマを更新しません。
+
 ## v0.1.0-alpha.5以前からv0.1.0-alpha.6への更新
 
 Tomos Updateを今後も安定して提供するため、alpha.6で署名確認に使用する信頼点を更新します。既存環境では、alpha.6への更新だけ手動操作が必要です。alpha.6へ移行した後は、alpha.7以降の署名済み更新ZIPをTomos Updateから利用できます。

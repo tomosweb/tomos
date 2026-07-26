@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="{{ site.language }}">
+<head>
+  {{{ site.analytics_html }}}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }} - {{ site.name }}</title>
+  <meta name="description" content="{{ page.description }}">
+  <link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}">
+  <link rel="apple-touch-icon" href="{{ theme.apple_touch_icon_url }}">
+  {{# site.feed_url }}<link rel="alternate" type="application/rss+xml" title="{{ site.name }}" href="{{ site.feed_url }}">{{/ site.feed_url }}
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ page.title }}">
+  <meta property="og:description" content="{{ page.description }}">
+  <meta property="og:url" content="{{ page.absolute_url }}">
+  <meta property="og:image" content="{{ site.ogp_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ page.title }}">
+  <meta name="twitter:description" content="{{ page.description }}">
+  <meta name="twitter:image" content="{{ site.ogp_url }}">
+  <link rel="stylesheet" href="{{ theme.asset_url }}/style.css?v=20260721-pagination1">
+</head>
+<body>
+  <div class="dark-shell">
+    <header class="site-header">
+      <div class="site-brand">
+        <a class="site-title" href="{{ site.home_url }}">{{ site.name }}</a>
+        <p class="site-description">{{ site.description }}</p>
+      </div>
+
+      <nav class="site-links" aria-label="主要ページ">
+        <a href="{{ nav.home_url }}">Home</a>
+        <a href="{{ nav.about_url }}">About</a>
+        {{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+      </nav>
+
+      <details class="mobile-menu">
+        <summary class="mobile-menu-button" aria-label="ページ一覧を開く">
+          <span class="mobile-menu-icon" aria-hidden="true">☰</span>
+          <span class="mobile-menu-label">Menu</span>
+        </summary>
+
+        <div class="mobile-menu-panel">
+          {{{ nav.mobile_tree }}}
+        </div>
+      </details>
+    </header>
+
+    <div class="site-layout">
+      <aside class="site-sidebar" aria-label="ページ一覧">
+        {{{ nav.tree }}}
+      </aside>
+
+      <main class="site-main">
+        {{{ page.body }}}
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <p>Powered by Tomos</p>
+    </footer>
+  </div>
+</body>
+</html>
