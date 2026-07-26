@@ -13,7 +13,7 @@ Tomos Updateを今後も安定して提供するため、alpha.6で署名確認�
    - `VERSION`
    - `update/public-key.pem`
 5. Tomosの`VERSION`が`0.1.0-alpha.6`になったことを確認します。
-6. Tomos Postへ認証し、`update/`のTomos Update画面が開くことを確認します。
+6. Tomos Postへ認証し、Tomos Update画面（`/update/`）が開くことを確認します。
 7. alpha.7以降は、公式に配布される署名済みUpdate ZIPをTomos Updateで確認して更新します。
 
 新しい公開鍵のフィンガープリントは次のとおりです。
