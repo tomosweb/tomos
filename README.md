@@ -2,7 +2,7 @@
 
 Tomosは、Markdownで書いた文章を自分のWebサイトとして公開するための、軽量なMarkdown公開エンジンです。
 
-現在のバージョンは `v0.1.0-alpha.4` です。限定テスト用の初期開発版であり、正式リリース版ではありません。
+現在のバージョンは `v0.1.0-alpha.6` です。限定テスト用の初期開発版であり、正式リリース版ではありません。
 
 ## 主な機能
 
@@ -42,7 +42,9 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 
 すでにTomosを設置している場合は、データを保持するために[既存環境の更新手順](docs/install/update.md)を確認してください。
 
-`v0.1.0-alpha.3` から `v0.1.0-alpha.4` への更新では、Tomos Update自体を導入するため、一度だけ専用の手動更新差分を使用します。`v0.1.0-alpha.4` 導入後は、Tomos Postの「サイト設定」からTomos Updateを開き、署名済み更新ZIPの対象を確認して本体を更新できます。
+Tomos Updateを今後も安定して提供するため、`v0.1.0-alpha.6`で署名確認に使用する信頼点を更新します。既存環境では、alpha.6への更新だけ専用の手動移行ZIPを使用します。`VERSION`と`update/public-key.pem`だけを上書きし、`config.php`、`content/`、独自テーマは上書きしません。
+
+alpha.6への移行後は、alpha.7以降の署名済み更新ZIPをTomos Updateから利用できます。alpha.6自体の署名済みUpdate ZIPは提供しません。
 
 ## 利用上の注意
 

@@ -2,6 +2,30 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
+## v0.1.0-alpha.5以前からv0.1.0-alpha.6への更新
+
+Tomos Updateを今後も安定して提供するため、alpha.6で署名確認に使用する信頼点を更新します。既存環境では、alpha.6への更新だけ手動操作が必要です。alpha.6へ移行した後は、alpha.7以降の署名済み更新ZIPをTomos Updateから利用できます。
+
+1. 公式URLからalpha.6のGitHub Releaseを開きます。
+2. `tomos-trust-migration-0.1.0-alpha.6.zip`を取得します。
+3. GitHub Releaseに記載されたSHA-256と、ダウンロードしたZIPのSHA-256が一致することを確認します。
+4. ZIPをPC上の別フォルダへ展開し、次の2ファイルだけを既存環境の同じパスへ上書きします。
+   - `VERSION`
+   - `update/public-key.pem`
+5. Tomosの`VERSION`が`0.1.0-alpha.6`になったことを確認します。
+6. Tomos Postへ認証し、`update/`のTomos Update画面が開くことを確認します。
+7. alpha.7以降は、公式に配布される署名済みUpdate ZIPをTomos Updateで確認して更新します。
+
+新しい公開鍵のフィンガープリントは次のとおりです。
+
+```text
+SHA-256: 228636b1c3d2c93cf320063c478c2604b892a287bb346e1f6a3adf98047247cf
+```
+
+フィンガープリントは、この公式更新ドキュメントとalpha.6のGitHub Releaseの両方で同じ値であることを確認してください。alpha.6自体の署名済みUpdate ZIPは提供しません。
+
+手動移行では、`config.php`、`content/`、独自テーマを含む`themes/`、`cache/`、`storage/`、`trash/`を上書き、削除、初期化しません。通常配布ZIP全体を既存サイトへ上書きしないでください。
+
 ## v0.1.0-alpha.3からv0.1.0-alpha.4への更新
 
 この更新では、管理画面から署名済み更新ZIPを確認し、Tomos本体を更新する「Tomos Update」を追加します。
