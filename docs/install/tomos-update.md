@@ -2,11 +2,29 @@
 
 Tomos Updateは、管理画面から署名済み更新ZIPを確認し、Tomos本体を更新する機能です。GitHub接続、自動取得、自動更新には対応しません。
 
+## v0.1.0-alpha.7への更新
+
+v0.1.0-alpha.5以前をご利用の場合は、最初にv0.1.0-alpha.6へ手動で更新してください。
+
+alpha.6への移行が完了すると、Tomos Postの「Tomos Update」からv0.1.0-alpha.7へ更新できます。
+
+更新順序:
+
+```text
+v0.1.0-alpha.5以前
+↓
+v0.1.0-alpha.6へ手動更新
+↓
+Tomos Updateからv0.1.0-alpha.7へ更新
+```
+
+すでにv0.1.0-alpha.6をご利用の場合は、そのままTomos Updateからalpha.7へ更新できます。
+
 ## alpha.6の信頼点移行
 
 Tomos Updateを今後も安定して提供するため、`v0.1.0-alpha.6`で署名確認に使用する信頼点を更新します。既存環境からalpha.6への移行だけは、[既存環境の更新](update.md)に沿って`VERSION`と`update/public-key.pem`を手動で上書きしてください。alpha.6自体の署名済みUpdate ZIPは提供しません。
 
-alpha.6への移行後は、alpha.7以降の署名済みUpdate ZIPをこの画面で確認できます。
+alpha.6への移行後は、alpha.7以降の署名済みUpdate ZIPをこの画面で確認できます。alpha.7のUpdate ZIPは、現在のバージョンが`0.1.0-alpha.6`以上の場合に適用できます。
 
 新しい公開鍵のフィンガープリント:
 
@@ -17,7 +35,7 @@ SHA-256: 228636b1c3d2c93cf320063c478c2604b892a287bb346e1f6a3adf98047247cf
 ## 利用手順
 
 1. Tomos Postを開き、管理用合言葉で認証します。
-2. `update/` を開きます。
+2. Tomos Update画面（`/update/`）を開きます。
 3. 正規のTomos更新ZIPを選び、「更新内容を確認」を押します。
 4. 現在と更新後のバージョン、対象ファイル、テーマ変更の有無を確認します。
 5. 「更新する」を押します。
