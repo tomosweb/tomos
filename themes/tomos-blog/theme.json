@@ -1,0 +1,17 @@
+{
+  "name": "tomos-blog",
+  "display_name": "Tomos Blog",
+  "version": "1.1.1",
+  "description": "プロフィールと新着記事をすっきり見せる、個人ブログ向けの軽量テーマです。",
+  "author": "Tomos Project",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "favicon": true,
+    "ogp": true,
+    "responsive": true
+  }
+}

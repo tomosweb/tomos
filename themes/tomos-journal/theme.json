@@ -1,0 +1,17 @@
+{
+  "name": "tomos-journal",
+  "display_name": "Tomos Journal",
+  "version": "0.1.1",
+  "description": "日記、エッセイ、個人の記録に向いた、静かで読みやすいテーマです。",
+  "author": "Tomos Project",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "favicon": true,
+    "ogp": true,
+    "responsive": true
+  }
+}
