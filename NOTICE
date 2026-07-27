@@ -1,0 +1,49 @@
+Tomos Notice
+============
+
+English
+-------
+
+Tomos is distributed under the MIT License, except for the Tomos name, logo,
+icons, OGP images, and other brand assets used to identify the Tomos project.
+
+The MIT License applies to:
+
+- Tomos source code
+- Bundled Tomos themes, including tomos-minimal, tomos-journal, and tomos-dark
+- Sample content under content/
+
+The MIT License does not apply to:
+
+- Tomos name
+- Tomos logo
+- Tomos icons
+- Tomos OGP images
+- Other brand assets used to identify the Tomos project
+
+See LICENSE for the MIT License text and TRADEMARKS.md for the handling of the
+Tomos name and brand assets.
+
+Japanese
+--------
+
+TomosはMIT Licenseで配布されます。ただし、Tomosの名称、ロゴ、アイコン、
+OGP画像、およびTomosプロジェクトを識別するためのブランド素材はMIT License
+の対象外です。
+
+MIT Licenseが適用されるもの:
+
+- Tomos本体ソースコード
+- tomos-minimal、tomos-journal、tomos-dark を含む同梱Tomosテーマ
+- content/ 配下のサンプルcontent
+
+MIT Licenseが適用されないもの:
+
+- Tomosの名称
+- Tomosのロゴ
+- Tomosのアイコン
+- TomosのOGP画像
+- Tomosプロジェクトを識別するためのその他のブランド素材
+
+MIT License本文はLICENSEを、Tomosの名称とブランド素材の扱いはTRADEMARKS.mdを
+参照してください。

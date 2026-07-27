@@ -1,0 +1,17 @@
+{
+  "name": "tomos-minimal",
+  "display_name": "Tomos Minimal",
+  "version": "0.1.1",
+  "description": "Tomos標準の最小テーマです。",
+  "author": "Tomos",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "favicon": true,
+    "ogp": true,
+    "responsive": true
+  }
+}
