@@ -9,6 +9,7 @@ final class MetadataIndex
     private string $contentDir;
     private string $cacheDir;
     private string $indexFile;
+    private string $managementIndexFile;
     private bool $includeDrafts;
     private FrontMatterParser $frontMatterParser;
     private PageRepository $pageRepository;
@@ -28,6 +29,7 @@ final class MetadataIndex
         $this->contentDir = rtrim($realContentDir, DIRECTORY_SEPARATOR);
         $this->cacheDir = rtrim($cacheDir, DIRECTORY_SEPARATOR);
         $this->indexFile = $this->cacheDir . DIRECTORY_SEPARATOR . 'index' . DIRECTORY_SEPARATOR . 'pages.json';
+        $this->managementIndexFile = $this->cacheDir . DIRECTORY_SEPARATOR . 'index' . DIRECTORY_SEPARATOR . 'post-articles.json';
         $this->includeDrafts = $includeDrafts;
         $this->frontMatterParser = $frontMatterParser ?? new FrontMatterParser();
         $this->pageRepository = new PageRepository($this->contentDir, $this->frontMatterParser);
@@ -90,6 +92,106 @@ final class MetadataIndex
         $this->save($pages);
 
         return $pages;
+    }
+
+    public function buildManagement(): array
+    {
+        $entries = [];
+        foreach ($this->build() as $page) {
+            $path = (string) ($page['path'] ?? '');
+            $entries[] = [
+                'path' => $path,
+                'title' => (string) ($page['title'] ?? ''),
+                'url' => (string) ($page['url'] ?? ''),
+                'draft' => !empty($page['draft']),
+                'mtime' => (int) ($page['mtime'] ?? 0),
+                'filename' => basename($path),
+            ];
+        }
+
+        return $entries;
+    }
+
+    public function saveManagement(array $entries): void
+    {
+        $this->saveJson($this->managementIndexFile, $entries);
+    }
+
+    public function rebuildManagement(): array
+    {
+        $entries = $this->buildManagement();
+        $this->saveManagement($entries);
+
+        return $entries;
+    }
+
+    public function loadFreshManagement(): ?array
+    {
+        if (!is_file($this->managementIndexFile)) {
+            return null;
+        }
+
+        $json = @file_get_contents($this->managementIndexFile);
+        if ($json === false) {
+            return null;
+        }
+
+        $entries = json_decode($json, true);
+        if (!is_array($entries)) {
+            return null;
+        }
+
+        $indexedPaths = [];
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
+                return null;
+            }
+
+            $path = (string) ($entry['path'] ?? '');
+            if (
+                !$this->isIndexableRelativePath($path)
+                || !array_key_exists('title', $entry)
+                || !array_key_exists('url', $entry)
+                || !array_key_exists('draft', $entry)
+                || !array_key_exists('filename', $entry)
+                || !is_bool($entry['draft'])
+                || (string) $entry['filename'] !== basename($path)
+                || (string) $entry['url'] !== $this->pageRepository->urlFromContentPath($path)
+            ) {
+                return null;
+            }
+
+            $fullPath = $this->contentDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
+            if (
+                !is_file($fullPath)
+                || is_link($fullPath)
+                || $this->hasSymlinkSegment($path)
+                || !Security::isPathInside($fullPath, $this->contentDir)
+            ) {
+                return null;
+            }
+
+            $mtime = @filemtime($fullPath);
+            if ($mtime === false || (int) ($entry['mtime'] ?? -1) !== $mtime) {
+                return null;
+            }
+
+            $indexedPaths[$path] = true;
+        }
+
+        foreach ($this->markdownFiles() as $filePath) {
+            $path = $this->relativePath($filePath);
+            if ($path !== null && $this->isIndexableRelativePath($path) && !isset($indexedPaths[$path])) {
+                return null;
+            }
+        }
+
+        return $entries;
+    }
+
+    public function managementIndexFile(): string
+    {
+        return $this->managementIndexFile;
     }
 
     public function load(): array
@@ -189,6 +291,29 @@ final class MetadataIndex
     public function linkAliasIndexFile(): string
     {
         return $this->linkAliasIndex->indexFile();
+    }
+
+    private function saveJson(string $file, array $data): void
+    {
+        $indexDir = dirname($file);
+        if (!is_dir($indexDir) && !mkdir($indexDir, 0775, true) && !is_dir($indexDir)) {
+            throw new \RuntimeException('Metadata index directory could not be created.');
+        }
+
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        if ($json === false) {
+            throw new \RuntimeException('Metadata index could not be encoded.');
+        }
+
+        $tmpFile = $file . '.tmp';
+        if (file_put_contents($tmpFile, $json . "\n", LOCK_EX) === false) {
+            throw new \RuntimeException('Metadata index temporary file could not be written.');
+        }
+
+        if (!rename($tmpFile, $file)) {
+            @unlink($tmpFile);
+            throw new \RuntimeException('Metadata index could not be saved.');
+        }
     }
 
     private function buildPageEntry(string $filePath): ?array
@@ -354,6 +479,19 @@ final class MetadataIndex
         return $relativePath !== null
             && Security::isSafeRelativePath($relativePath)
             && Security::hasAllowedExtension($relativePath, ['md']);
+    }
+
+    private function hasSymlinkSegment(string $relativePath): bool
+    {
+        $current = $this->contentDir;
+        foreach (explode('/', $relativePath) as $segment) {
+            $current .= DIRECTORY_SEPARATOR . $segment;
+            if (is_link($current)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function relativePath(string $filePath): ?string

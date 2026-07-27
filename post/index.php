@@ -36,21 +36,24 @@ $uploadResult = null;
 $withdrawTarget = null;
 $withdrawResult = null;
 $trashResult = null;
+$editableSearchResult = null;
+$editableQuery = '';
+$editablePage = 1;
 $activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'));
 
 if ($config === []) {
-    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, true, $activeSection);
+    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', true, $activeSection);
     exit;
 }
 
 if (empty($config['features']['post'])) {
-    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, true, $activeSection);
+    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', true, $activeSection);
     exit;
 }
 
 $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
 if ($postPasswordHash === '') {
-    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, true, $activeSection);
+    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', true, $activeSection);
     exit;
 }
 
@@ -140,6 +143,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = '送信したファイルを受け付けられませんでした。画面を再読み込みして、もう一度お試しください。';
     } elseif (!hash_equals((string) $_SESSION['tomos_post_token'], $token)) {
         $errors[] = 'フォームの有効期限が切れました。もう一度送信してください。';
+    } elseif ($action === 'search_editable_markdown') {
+        $editableQuery = trim((string) ($_POST['edit_query'] ?? ''));
+        $editablePage = max(1, (int) ($_POST['edit_page'] ?? 1));
+        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
+        $limit = $rateLimiter->checkPostContinuationAllowed();
+        if (!$limit->allowed) {
+            $errors[] = $limit->message;
+        } elseif (
+            empty($_SESSION['tomos_post_authenticated'])
+            && !Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)
+        ) {
+            $rateLimiter->recordFailure();
+            $errors[] = '管理用合言葉が正しくありません。';
+        } else {
+            $rateLimiter->clearFailures();
+            $_SESSION['tomos_post_authenticated'] = true;
+            $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
+            if (empty($editableSearchResult['ok'])) {
+                $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
+            }
+        }
+    } elseif ($action === 'download_editable_markdown') {
+        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
+        $limit = $rateLimiter->checkPostContinuationAllowed();
+        if (!$limit->allowed) {
+            $errors[] = $limit->message;
+        } elseif (
+            empty($_SESSION['tomos_post_authenticated'])
+            && !Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)
+        ) {
+            $rateLimiter->recordFailure();
+            $errors[] = '管理用合言葉が正しくありません。';
+        } else {
+            $rateLimiter->clearFailures();
+            $_SESSION['tomos_post_authenticated'] = true;
+            $downloadError = sendEditableMarkdownDownload($config, $rootDir, (string) ($_POST['content_path'] ?? ''));
+            if ($downloadError !== '') {
+                $errors[] = $downloadError;
+            }
+        }
     } elseif ($action === 'download_basic_page') {
         $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
         $limit = $rateLimiter->checkPostContinuationAllowed();
@@ -313,6 +356,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET'
+    && $activeSection === 'manage'
+    && !empty($_SESSION['tomos_post_authenticated'])
+) {
+    $editableQuery = trim((string) ($_GET['edit_query'] ?? ''));
+    $editablePage = max(1, (int) ($_GET['edit_page'] ?? 1));
+    if ($editableQuery !== '') {
+        $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
+        if (empty($editableSearchResult['ok'])) {
+            $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
+        }
+    }
+}
+
 function isPostRequestTooLarge(): bool
 {
     $contentLength = filter_input(INPUT_SERVER, 'CONTENT_LENGTH', FILTER_VALIDATE_INT);
@@ -324,7 +382,7 @@ function isPostRequestTooLarge(): bool
     return $limit > 0 && $contentLength > $limit;
 }
 
-renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, false, $activeSection);
+renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, false, $activeSection);
 
 function jsonResponse(array $data, int $status = 200): void
 {
@@ -353,6 +411,49 @@ function sendBasicPageDownload(array $config, string $rootDir, string $page): st
     header('Cache-Control: no-store, private');
     header('X-Content-Type-Options: nosniff');
     readfile($download->file);
+    exit;
+}
+
+function searchEditableMarkdown(array $config, string $rootDir, string $query, int $page): array
+{
+    try {
+        return (new Tomos\PostEditableMarkdown($config, $rootDir))->search($query, $page, 30);
+    } catch (Throwable $exception) {
+        return [
+            'ok' => false,
+            'error' => '原稿の検索情報を準備できませんでした。Tomosのファイル構成を確認してください。',
+        ];
+    }
+}
+
+function sendEditableMarkdownDownload(array $config, string $rootDir, string $contentPath): string
+{
+    try {
+        $download = (new Tomos\PostEditableMarkdown($config, $rootDir))->download($contentPath);
+    } catch (Throwable $exception) {
+        return '編集用Markdownを生成できませんでした。';
+    }
+
+    if (empty($download['ok'])) {
+        return (string) ($download['error'] ?? '編集用Markdownを生成できませんでした。');
+    }
+
+    $content = (string) ($download['content'] ?? '');
+    $downloadName = (string) ($download['download_name'] ?? 'download.md');
+    $fallbackName = preg_replace('/[^A-Za-z0-9._-]/', '_', $downloadName) ?? 'download.md';
+    if ($fallbackName === '' || $fallbackName === '.md') {
+        $fallbackName = 'download.md';
+    }
+
+    header('Content-Type: text/markdown; charset=UTF-8');
+    header(
+        'Content-Disposition: attachment; filename="' . $fallbackName
+        . '"; filename*=UTF-8\'\'' . rawurlencode($downloadName)
+    );
+    header('Content-Length: ' . (string) strlen($content));
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    echo $content;
     exit;
 }
 
@@ -405,6 +506,8 @@ function renderPage(
     ?Tomos\PostContentResolveResult $withdrawTarget,
     ?Tomos\PostWithdrawResult $withdrawResult,
     ?Tomos\TrashClearResult $trashResult,
+    ?array $editableSearchResult,
+    string $editableQuery,
     bool $disabled,
     string $activeSection
 ): void {
@@ -433,7 +536,7 @@ label{color:var(--tomos-text);display:block;font-weight:700;margin:1rem 0 0.35re
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,.nav a:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}button:disabled,.button[aria-disabled="true"]{background:var(--tomos-primary-disabled);border-color:var(--tomos-primary-disabled);color:#fff}button.danger{background:var(--tomos-danger);border-color:var(--tomos-danger)}button.danger:hover{background:var(--tomos-danger-hover);border-color:var(--tomos-danger-hover)}button.danger:active{background:var(--tomos-danger-active);border-color:var(--tomos-danger-active)}button.danger:focus-visible{outline:3px solid rgba(180,56,46,0.25);outline-offset:2px}button.secondary,.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}button.secondary:hover,.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}button.secondary:active,.button.secondary:active{background:var(--tomos-button-active)}button.danger.secondary{background:var(--tomos-input);color:var(--tomos-danger-text);border-color:var(--tomos-error-border)}button.danger.secondary:hover{background:var(--tomos-error-bg);border-color:var(--tomos-error-border)}
 code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}.result a{overflow-wrap:anywhere;word-break:break-word}.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}.grid>*{min-width:0}.nav{display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0}.nav a{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:999px;color:var(--tomos-text);padding:0.35rem 0.75rem;text-decoration:none}.nav a:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.meta p{margin:0.35rem 0;min-width:0}
 .image-status-list{list-style:none;margin:0.75rem 0;padding:0}.image-status-item{border-top:1px solid var(--tomos-border-soft);padding:0.75rem 0}.image-status-item:first-child{border-top:0}.image-status-line{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.image-status-ok{color:#2f6131;font-weight:700}.image-status-missing,.image-match-warning{color:var(--tomos-danger-text);font-weight:700}.image-omit-label{align-items:flex-start;display:flex;font-weight:400;gap:0.5rem;margin:0.5rem 0 0}.image-omit-label input{margin-top:0.35rem}
-.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}
+.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 </style></head><body><main class="wrap">';
 
@@ -450,6 +553,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
     echo '<div class="section">';
     renderMessages($errors, $messages, $warnings);
     if ($activeSection === 'manage') {
+        renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);
         renderWithdrawResult($errors, $withdrawResult, $continueUrl);
         renderWithdrawSection($token, $withdrawTarget);
         renderTrashSection($token, $trashSummary);
@@ -1218,6 +1322,111 @@ function renderBasicPageDownloadButton(string $token, string $type, string $labe
     echo '</form>';
 }
 
+function renderEditableMarkdownSection(string $token, array $config, string $query, ?array $result): void
+{
+    $authenticated = !empty($_SESSION['tomos_post_authenticated']);
+    echo '<h2 id="editable-markdown">原稿を編集する</h2>';
+    echo '<p class="hint">公開中の記事、下書き、固定ページを検索し、Tomos Writeで編集するためのMarkdownをダウンロードします。</p>';
+    echo '<form method="post" action="">';
+    echo '<input type="hidden" name="action" value="search_editable_markdown">';
+    echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+    echo '<label for="edit_query">タイトル・URL・保存先で検索</label>';
+    echo '<input id="edit_query" type="text" name="edit_query" value="' . e($query) . '" maxlength="200" autocomplete="off">';
+    echo '<p class="hint">検索語を入力した場合だけ、最大30件ずつ表示します。</p>';
+    if (!$authenticated) {
+        echo '<label for="editable_search_password">管理用合言葉</label>';
+        echo '<input id="editable_search_password" type="password" name="post_password" autocomplete="current-password">';
+    }
+    echo '<div class="actions"><button type="submit">原稿を検索する</button></div>';
+    echo '</form>';
+
+    if ($query === '' || !is_array($result) || empty($result['ok'])) {
+        return;
+    }
+
+    $items = is_array($result['items'] ?? null) ? $result['items'] : [];
+    $total = (int) ($result['total'] ?? 0);
+    if ($items === []) {
+        echo '<div class="result"><p>該当する原稿はありません。</p></div>';
+        return;
+    }
+
+    echo '<p class="hint">' . e((string) $total) . '件見つかりました。</p>';
+    echo '<div class="editable-results">';
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $status = (string) ($item['status'] ?? 'published');
+        $statusLabel = $status === 'draft' ? '下書き' : ($status === 'fixed' ? '固定ページ' : '公開中');
+        $title = trim((string) ($item['title'] ?? ''));
+        if ($title === '') {
+            $title = (string) ($item['filename'] ?? '（タイトルなし）');
+        }
+        $location = $status === 'draft'
+            ? (string) ($item['path'] ?? '')
+            : (string) ($item['url'] ?? '');
+        $mtime = (int) ($item['mtime'] ?? 0);
+        $updated = $mtime > 0 ? formatEditableTimestamp($mtime, $config) : '不明';
+
+        echo '<article class="editable-result">';
+        echo '<p class="editable-status">' . e($statusLabel) . '</p>';
+        echo '<h3>' . e($title) . '</h3>';
+        echo '<p><code>' . e($location) . '</code></p>';
+        echo '<p class="hint">更新：' . e($updated) . '</p>';
+        echo '<form class="inline-form" method="post" action="">';
+        echo '<input type="hidden" name="action" value="download_editable_markdown">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="content_path" value="' . e((string) ($item['path'] ?? '')) . '">';
+        echo '<div class="actions"><button class="secondary" type="submit">編集用Markdownをダウンロード</button></div>';
+        echo '</form>';
+        echo '</article>';
+    }
+    echo '</div>';
+
+    $page = (int) ($result['page'] ?? 1);
+    $totalPages = (int) ($result['total_pages'] ?? 0);
+    if ($totalPages <= 1) {
+        return;
+    }
+
+    $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+    echo '<nav class="pager" aria-label="原稿検索結果のページ">';
+    if ($page > 1) {
+        echo '<a class="button secondary" href="' . e(editableSearchPageUrl($publicBasePath, $query, $page - 1)) . '">前の30件</a>';
+    } else {
+        echo '<span></span>';
+    }
+    echo '<p>' . e((string) $page) . ' / ' . e((string) $totalPages) . 'ページ</p>';
+    if ($page < $totalPages) {
+        echo '<a class="button secondary" href="' . e(editableSearchPageUrl($publicBasePath, $query, $page + 1)) . '">次の30件</a>';
+    } else {
+        echo '<span></span>';
+    }
+    echo '</nav>';
+}
+
+function editableSearchPageUrl(string $publicBasePath, string $query, int $page): string
+{
+    return Tomos\Security::publicUrl('/post/', $publicBasePath)
+        . '?' . http_build_query([
+            'section' => 'manage',
+            'edit_query' => $query,
+            'edit_page' => max(1, $page),
+        ], '', '&', PHP_QUERY_RFC3986);
+}
+
+function formatEditableTimestamp(int $timestamp, array $config): string
+{
+    try {
+        $timezone = new DateTimeZone((string) ($config['site']['timezone'] ?? 'Asia/Tokyo'));
+        return (new DateTimeImmutable('@' . $timestamp))->setTimezone($timezone)->format('Y年n月j日 H:i');
+    } catch (Throwable $exception) {
+        return date('Y年n月j日 H:i', $timestamp);
+    }
+}
+
 function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $target): void
 {
     echo '<h2 id="post-withdraw">投稿を取り下げる</h2>';
@@ -1378,7 +1587,7 @@ function normalizeSection(string $section): string
 
 function sectionForAction(string $action): string
 {
-    if (in_array($action, ['resolve_withdraw', 'withdraw'], true)) {
+    if (in_array($action, ['search_editable_markdown', 'download_editable_markdown', 'resolve_withdraw', 'withdraw'], true)) {
         return 'manage';
     }
     if ($action === 'clear_trash') {
