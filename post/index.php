@@ -215,7 +215,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } else {
         $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
-        $isUploadContinuation = in_array($action, ['update_upload', 'rename_upload'], true);
+        $isUploadContinuation = in_array(
+            $action,
+            ['update_upload', 'rename_upload', 'resolve_editable_upload', 'create_editable_upload'],
+            true
+        );
         $limit = $isUploadContinuation
             ? $rateLimiter->checkPostContinuationAllowed()
             : $rateLimiter->checkPostAllowed();
@@ -275,6 +279,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $errors = array_merge($errors, $uploadResult->errors);
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                     }
+                }
+            } elseif ($action === 'resolve_editable_upload') {
+                $upload = new Tomos\PostUpload($config, $rootDir);
+                $tempId = (string) ($_POST['temp_id'] ?? '');
+                $conflictAction = (string) ($_POST['conflict_action'] ?? 'proceed');
+                if ($conflictAction === 'cancel') {
+                    $upload->cancelTemp($tempId, session_id());
+                    $messages[] = '更新を中止しました。サーバー上の原稿は変更していません。';
+                } else {
+                    $uploadResult = $upload->updateEditableFromTemp(
+                        $tempId,
+                        (string) ($_POST['editable_mode'] ?? ''),
+                        $conflictAction === 'overwrite',
+                        session_id()
+                    );
+                    if ($uploadResult->ok) {
+                        $messages[] = uploadSuccessMessage($uploadResult);
+                        $warnings = array_merge($warnings, $uploadResult->warnings);
+                        $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                    } else {
+                        $errors = array_merge($errors, $uploadResult->errors);
+                    }
+                }
+            } elseif ($action === 'create_editable_upload') {
+                $upload = new Tomos\PostUpload($config, $rootDir);
+                $uploadResult = $upload->createEditableFromTemp((string) ($_POST['temp_id'] ?? ''), session_id());
+                if ($uploadResult->ok) {
+                    $messages[] = uploadSuccessMessage($uploadResult);
+                    $warnings = array_merge($warnings, $uploadResult->warnings);
+                    $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                } else {
+                    $errors = array_merge($errors, $uploadResult->errors);
                 }
             } elseif ($action === 'update_upload') {
                 $upload = new Tomos\PostUpload($config, $rootDir);
@@ -459,6 +495,19 @@ function sendEditableMarkdownDownload(array $config, string $rootDir, string $co
 
 function uploadSuccessMessage(Tomos\PostUploadResult $result): string
 {
+    if ($result->operation === 'editable_draft') {
+        return '下書きを保存しました。';
+    }
+    if ($result->operation === 'editable_publish') {
+        return '記事を公開しました。';
+    }
+    if ($result->operation === 'editable_new') {
+        return '新しい記事として投稿しました。元の原稿は変更していません。';
+    }
+    if ($result->operation === 'editable_update') {
+        return '記事を更新しました。';
+    }
+
     $type = Tomos\PostBasicPage::typeFromFileName($result->savedFileName);
     if ($type === Tomos\PostBasicPage::HOME) {
         return 'トップページを更新しました。';
@@ -639,7 +688,9 @@ function renderUploadResult(array $errors, ?Tomos\PostUploadResult $result, stri
         echo '<p><strong>保存されたファイル名:</strong><br><code>' . e($result->savedFileName) . '</code></p>';
         echo '</div>';
     }
-    $basicType = Tomos\PostBasicPage::typeFromFileName($result->savedFileName);
+    $basicType = Tomos\PostBasicPage::isProtectedContentPath($result->contentPath)
+        ? Tomos\PostBasicPage::typeFromFileName($result->contentPath)
+        : '';
     if ($basicType === '') {
         echo '<p><strong>保存先:</strong><br><code>content/' . e($result->contentPath) . '</code></p>';
     }
@@ -658,6 +709,10 @@ function renderUploadResult(array $errors, ?Tomos\PostUploadResult $result, stri
 function renderUploadConflict(?Tomos\PostUploadResult $result, string $token, string $displayUrl): void
 {
     if (!($result instanceof Tomos\PostUploadResult) || !$result->conflict || $result->tempId === '') {
+        return;
+    }
+    if (strpos($result->operation, 'editable_') === 0) {
+        renderEditableUploadConfirmation($result, $token, $displayUrl);
         return;
     }
 
@@ -758,6 +813,91 @@ function renderUploadConflict(?Tomos\PostUploadResult $result, string $token, st
 HTML;
 }
 
+function renderEditableUploadConfirmation(Tomos\PostUploadResult $result, string $token, string $displayUrl): void
+{
+    $isFixedPage = Tomos\PostBasicPage::isProtectedContentPath($result->sourcePath);
+    echo '<div class="result meta" id="post-upload-conflict">';
+
+    if ($result->destinationChanged) {
+        echo '<h2>保存先が変更されています</h2>';
+        echo '<p>元の原稿は残したまま、新しい原稿として投稿します。</p>';
+        echo '<p><strong>元の保存先:</strong><br><code>content/' . e($result->sourcePath) . '</code></p>';
+        echo '<p><strong>新しい保存先:</strong><br><code>content/' . e($result->contentPath) . '</code></p>';
+        echo '<p><strong>新しい公開URL:</strong><br><a href="' . e($displayUrl) . '" target="_blank" rel="noopener noreferrer">' . e($displayUrl) . '</a></p>';
+        if ($result->hasRelativeImages) {
+            echo '<div class="notice"><p>保存先を変更すると、既存画像の相対パスが参照できなくなる場合があります。元の原稿と画像は変更されません。</p></div>';
+        }
+        echo '<form method="post" action="">';
+        echo '<input type="hidden" name="action" value="create_editable_upload">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="temp_id" value="' . e($result->tempId) . '">';
+        echo '<label for="editable_new_password">管理用合言葉</label>';
+        echo '<input id="editable_new_password" type="password" name="post_password" autocomplete="current-password">';
+        echo '<div class="actions"><button type="submit">新しい記事として投稿する</button></div>';
+        echo '</form>';
+        renderEditableCancelForm($result, $token);
+        echo '</div>';
+        return;
+    }
+
+    if ($result->sourceConflict) {
+        echo '<h2>サーバー上の原稿が変更されています</h2>';
+        echo '<div class="notice"><p>この原稿は、ダウンロード後にサーバー上で変更されています。</p>';
+        echo '<p>このまま更新すると、現在の内容を上書きします。記事管理から最新版をダウンロードし直すことをおすすめします。</p></div>';
+    } else {
+        echo '<h2>' . ($isFixedPage ? '固定ページを更新します' : '編集した原稿を更新します') . '</h2>';
+        echo '<p>ダウンロード後にサーバー上の原稿が変更されていないことを確認しました。</p>';
+    }
+
+    echo '<p><strong>保存先:</strong><br><code>content/' . e($result->contentPath) . '</code></p>';
+    echo '<p><strong>公開URL:</strong><br><a href="' . e($displayUrl) . '" target="_blank" rel="noopener noreferrer">' . e($displayUrl) . '</a></p>';
+    echo '<p><strong>一時保存の有効期限:</strong><br>' . e($result->expiresAt !== '' ? $result->expiresAt : '30分') . '</p>';
+
+    echo '<form method="post" action="">';
+    echo '<input type="hidden" name="action" value="resolve_editable_upload">';
+    echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+    echo '<input type="hidden" name="temp_id" value="' . e($result->tempId) . '">';
+    if ($result->sourceConflict) {
+        echo '<fieldset><legend>競合時の操作</legend>';
+        echo '<label><input type="radio" name="conflict_action" value="cancel" checked> 更新を中止する</label>';
+        echo '<label><input type="radio" name="conflict_action" value="overwrite"> 現在の内容で上書きする</label>';
+        echo '</fieldset>';
+    } else {
+        echo '<input type="hidden" name="conflict_action" value="proceed">';
+    }
+
+    if ($result->sourceStatus === 'draft') {
+        echo '<fieldset><legend>下書きの操作</legend>';
+        echo '<label><input type="radio" name="editable_mode" value="draft" checked> 下書きのまま保存</label>';
+        echo '<label><input type="radio" name="editable_mode" value="publish"> 公開する</label>';
+        echo '</fieldset>';
+    } else {
+        echo '<input type="hidden" name="editable_mode" value="published">';
+    }
+    echo '<label for="editable_update_password">管理用合言葉</label>';
+    echo '<input id="editable_update_password" type="password" name="post_password" autocomplete="current-password">';
+    $buttonLabel = $result->sourceConflict
+        ? '選択した操作を実行する'
+        : ($result->sourceStatus === 'draft'
+            ? '選択した方法で保存する'
+            : ($isFixedPage ? '固定ページを更新する' : '公開中の記事を更新する'));
+    echo '<div class="actions"><button type="submit">' . e($buttonLabel) . '</button></div>';
+    echo '</form>';
+    renderEditableCancelForm($result, $token);
+    echo '</div>';
+}
+
+function renderEditableCancelForm(Tomos\PostUploadResult $result, string $token): void
+{
+    echo '<form method="post" action="">';
+    echo '<input type="hidden" name="action" value="cancel_upload">';
+    echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+    echo '<input type="hidden" name="temp_id" value="' . e($result->tempId) . '">';
+    echo '<p class="hint">何も変更せず、投稿画面へ戻ります。</p>';
+    echo '<div class="actions"><button class="danger secondary" type="submit">投稿をやめる</button></div>';
+    echo '</form>';
+}
+
 function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, string $continueUrl): void
 {
     if ($errors !== [] || !($result instanceof Tomos\PostWithdrawResult) || !$result->ok) {
@@ -828,6 +968,8 @@ function renderUploadForm(string $token, array $config): void
   let unmatchedImageCount = 0;
   let oversizedImageCount = 0;
   let formatMismatchImageCount = 0;
+  let editableReupload = false;
+  let editableSourcePath = "";
   let imageSelectionTask = Promise.resolve();
   let submitting = false;
   let activeUploadSessionId = "";
@@ -863,8 +1005,8 @@ function renderUploadForm(string $token, array $config): void
   const selectedPageType = () => {
     const file = fileInput.files && fileInput.files[0];
     if (!file) return "";
-    if (file.name === "index.md") return "home";
-    if (file.name === "about.md") return "about";
+    if (file.name === "index.md" && (!editableReupload || editableSourcePath === "index.md")) return "home";
+    if (file.name === "about.md" && (!editableReupload || editableSourcePath === "about.md")) return "about";
     return "article";
   };
 
@@ -874,16 +1016,22 @@ function renderUploadForm(string $token, array $config): void
     const imageText = imageCount > 0 ? ` 画像${imageCount}点を同時にアップロードします。` : "";
     folderInput.disabled = type === "home" || type === "about";
     if (type === "home") {
-      pageTypeNotice.textContent = `トップページを更新します。現在のindex.mdは上書きされます。${imageText}`;
+      pageTypeNotice.textContent = editableReupload
+        ? `編集したトップページの更新内容を確認します。${imageText}`
+        : `トップページを更新します。現在のindex.mdは上書きされます。${imageText}`;
       setNotice("トップページはサイト直下へ保存されます。保存先フォルダの指定は不要です。");
-      submitButton.textContent = "トップページを更新する";
+      submitButton.textContent = editableReupload ? "更新内容を確認する" : "トップページを更新する";
     } else if (type === "about") {
-      pageTypeNotice.textContent = `Aboutページを更新します。現在のabout.mdは上書きされます。${imageText}`;
+      pageTypeNotice.textContent = editableReupload
+        ? `編集したAboutページの更新内容を確認します。${imageText}`
+        : `Aboutページを更新します。現在のabout.mdは上書きされます。${imageText}`;
       setNotice("Aboutページはサイト直下へ保存されます。保存先フォルダの指定は不要です。");
-      submitButton.textContent = "Aboutページを更新する";
+      submitButton.textContent = editableReupload ? "更新内容を確認する" : "Aboutページを更新する";
     } else if (type === "article") {
-      pageTypeNotice.textContent = `記事として投稿します。${imageText}`;
-      submitButton.textContent = "公開する";
+      pageTypeNotice.textContent = editableReupload
+        ? `編集済み原稿の保存先と競合状態を確認します。${imageText}`
+        : `記事として投稿します。${imageText}`;
+      submitButton.textContent = editableReupload ? "更新内容を確認する" : "公開する";
     } else {
       pageTypeNotice.textContent = "ファイルを選択すると投稿対象を表示します。";
       submitButton.textContent = "公開する";
@@ -929,6 +1077,33 @@ function renderUploadForm(string $token, array $config): void
     return null;
   };
 
+  const extractSourceMetadata = (markdown) => {
+    const keys = [
+      "tomos_asset_base_url",
+      "tomos_source_path",
+      "tomos_source_hash",
+      "tomos_source_status",
+    ];
+    const values = {};
+    const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+    if ((lines[0] || "").trim() !== "---") return { count: 0, complete: false, values };
+
+    for (let index = 1; index < lines.length; index += 1) {
+      const line = lines[index] || "";
+      if (line.trim() === "---") break;
+      const match = line.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
+      if (!match || !keys.includes(match[1])) continue;
+      values[match[1]] = unquoteScalar(match[2]);
+    }
+
+    const count = keys.filter((key) => Object.prototype.hasOwnProperty.call(values, key)).length;
+    return {
+      count,
+      complete: count === keys.length && keys.every((key) => String(values[key] || "").trim() !== ""),
+      values,
+    };
+  };
+
   const escapeHtml = (value) => value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -966,10 +1141,12 @@ function renderUploadForm(string $token, array $config): void
       const omitted = preservedOmissions.has(image.fileName);
       const status = selected
         ? '<span class="image-status-ok">選択済み</span>'
+        : editableReupload
+          ? '<span>既存画像は選択不要</span>'
         : omitted
           ? '<span>掲載しません</span>'
           : '<span class="image-status-missing">画像が必要です</span>';
-      const omission = selected ? "" : [
+      const omission = selected || editableReupload ? "" : [
         '<label class="image-omit-label">',
         `<input type="checkbox" name="omit_images[]" value="${escapeHtml(image.fileName)}"${omitted ? " checked" : ""}>`,
         '<span>この画像の掲載をやめる<br><small>投稿用のMarkdownだけから画像記述を外します。</small></span>',
@@ -1004,7 +1181,9 @@ function renderUploadForm(string $token, array $config): void
       oversized,
       formatMismatch,
       unmatched,
-      '<p class="hint">不足している画像を追加で選ぶか、掲載をやめる画像を指定してください。</p>',
+      editableReupload
+        ? '<p class="hint">既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。</p>'
+        : '<p class="hint">不足している画像を追加で選ぶか、掲載をやめる画像を指定してください。</p>',
     ].join("");
     imageMatchStatus.querySelectorAll('input[name="omit_images[]"]').forEach((input) => {
       input.addEventListener("change", () => renderImageMatches(omittedImageNames()));
@@ -1014,6 +1193,8 @@ function renderUploadForm(string $token, array $config): void
   fileInput.addEventListener("change", () => {
     setNotice("");
     folderInput.disabled = false;
+    editableReupload = false;
+    editableSourcePath = "";
     updatePageSelection();
     imageNotice.hidden = true;
     imageNotice.textContent = "";
@@ -1036,6 +1217,36 @@ function renderUploadForm(string $token, array $config): void
         imageNotice.hidden = false;
         imageNotice.textContent = `このMarkdownには画像が${images.length}点あります。Tomos Writeで使った元画像を選んでください。`;
         renderImageMatches(new Set());
+      }
+
+      const sourceMetadata = extractSourceMetadata(markdown);
+      if (sourceMetadata.count > 0) {
+        if (!sourceMetadata.complete) {
+          setNotice("編集元の情報が不足しています。Tomos Postから原稿をもう一度ダウンロードしてください。", true);
+          return;
+        }
+
+        editableReupload = true;
+        editableSourcePath = String(sourceMetadata.values.tomos_source_path || "").replace(/\\/g, "/");
+        if (images.length > 0) {
+          imageNotice.hidden = false;
+          imageNotice.textContent = `既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。`;
+          renderImageMatches(new Set());
+        }
+        updatePageSelection();
+
+        if (selectedPageType() !== "home" && selectedPageType() !== "about") {
+          const sourcePath = editableSourcePath;
+          const slash = sourcePath.lastIndexOf("/");
+          const sourceFolder = slash >= 0 ? sourcePath.slice(0, slash) : "";
+          if (isUnsafeFolder(sourceFolder)) {
+            setNotice("編集元の保存先情報を使用できません。記事管理から原稿をもう一度ダウンロードしてください。", true);
+            return;
+          }
+          folderInput.value = normalizeFolder(sourceFolder);
+          setNotice("編集元の保存先を反映しました。変更すると、元の原稿を残して新しい記事として投稿します。");
+        }
+        return;
       }
 
       if (selectedPageType() === "home" || selectedPageType() === "about") return;
@@ -1176,7 +1387,9 @@ function renderUploadForm(string $token, array $config): void
     await imageSelectionTask;
 
     const omitted = omittedImageNames();
-    const missing = requiredImages.filter((image) => !selectedImages.has(image.fileName) && !omitted.has(image.fileName));
+    const missing = editableReupload
+      ? []
+      : requiredImages.filter((image) => !selectedImages.has(image.fileName) && !omitted.has(image.fileName));
     if (missing.length > 0) {
       processingStatus.hidden = false;
       processingStatus.textContent = `画像が${missing.length}点不足しています。画像を追加で選ぶか、掲載をやめる画像を指定してください。`;
