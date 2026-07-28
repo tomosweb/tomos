@@ -697,8 +697,14 @@ function renderUploadResult(array $errors, ?Tomos\PostUploadResult $result, stri
     if ($result->imageCount > 0) {
         echo '<p><strong>画像:</strong><br>' . e((string) $result->imageCount) . '点を保存しました。</p>';
     }
-    echo '<p><strong>公開URL:</strong><br><a href="' . e($displayUrl) . '">' . e($displayUrl) . '</a></p>';
-    echo '<div class="actions"><a class="button" href="' . e($displayUrl) . '">公開ページを確認</a>';
+    $isDraftSave = $result->operation === 'editable_draft';
+    if (!$isDraftSave) {
+        echo '<p><strong>公開URL:</strong><br><a href="' . e($displayUrl) . '">' . e($displayUrl) . '</a></p>';
+    }
+    echo '<div class="actions">';
+    if (!$isDraftSave) {
+        echo '<a class="button" href="' . e($displayUrl) . '">公開ページを確認</a>';
+    }
     if ($basicType !== '') {
         renderBasicPageDownloadButton($token, $basicType, Tomos\PostBasicPage::canonicalContentPath($basicType) . 'の最新版をダウンロード', true);
     }
