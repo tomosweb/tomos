@@ -169,6 +169,207 @@ final class PostEditableMarkdown
         ];
     }
 
+    public function inspectReupload(string $markdown): array
+    {
+        $helpers = $this->extractHelpers($markdown);
+        if (empty($helpers['found'])) {
+            return [
+                'ok' => true,
+                'editable' => false,
+                'error' => '',
+                'markdown' => $markdown,
+            ];
+        }
+
+        if (
+            !empty($helpers['invalid'])
+            || count((array) ($helpers['values'] ?? [])) !== count(self::HELPER_KEYS)
+        ) {
+            return $this->reuploadError(
+                '編集元の情報が不足しているため、この原稿を更新できません。'
+                . "\n"
+                . 'Tomos Postから原稿をもう一度ダウンロードしてください。'
+            );
+        }
+
+        $values = (array) $helpers['values'];
+        $sourcePath = trim((string) ($values['tomos_source_path'] ?? ''));
+        $sourceHash = strtolower(trim((string) ($values['tomos_source_hash'] ?? '')));
+        $sourceStatus = strtolower(trim((string) ($values['tomos_source_status'] ?? '')));
+        if (
+            !$this->isSafeSourcePath($sourcePath)
+            || preg_match('/\A[a-f0-9]{64}\z/', $sourceHash) !== 1
+            || !in_array($sourceStatus, ['published', 'draft'], true)
+        ) {
+            return $this->reuploadError(
+                '編集元の情報を確認できません。'
+                . "\n"
+                . '記事管理から原稿をもう一度ダウンロードしてください。'
+            );
+        }
+
+        $cleaned = $this->removeHelpers($markdown);
+        if ($cleaned === null) {
+            return $this->reuploadError('Tomos連携用の情報を安全に取り除けませんでした。');
+        }
+
+        $source = $this->readSource($sourcePath);
+        if (empty($source['ok'])) {
+            return $this->reuploadError((string) ($source['error'] ?? '編集元の原稿を確認できませんでした。'));
+        }
+
+        return [
+            'ok' => true,
+            'editable' => true,
+            'error' => '',
+            'markdown' => $cleaned,
+            'source_path' => $sourcePath,
+            'source_hash' => $sourceHash,
+            'source_status' => $sourceStatus,
+            'source_exists' => !empty($source['exists']),
+            'source_file' => (string) ($source['file'] ?? ''),
+            'current_markdown' => (string) ($source['markdown'] ?? ''),
+            'current_hash' => (string) ($source['hash'] ?? ''),
+            'current_status' => (string) ($source['status'] ?? ''),
+        ];
+    }
+
+    public function readSource(string $sourcePath): array
+    {
+        if (!$this->isSafeSourcePath($sourcePath)) {
+            return [
+                'ok' => false,
+                'exists' => false,
+                'error' => '編集元の情報を確認できません。記事管理から原稿をもう一度ダウンロードしてください。',
+            ];
+        }
+
+        $candidate = $this->contentDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $sourcePath);
+        if ($this->hasSymlinkSegment($candidate)) {
+            return [
+                'ok' => false,
+                'exists' => false,
+                'error' => '編集元の原稿を安全に確認できませんでした。',
+            ];
+        }
+
+        $realPath = realpath($candidate);
+        if ($realPath === false) {
+            return [
+                'ok' => true,
+                'exists' => false,
+                'error' => '',
+                'file' => '',
+                'markdown' => '',
+                'hash' => '',
+                'status' => '',
+            ];
+        }
+        if (
+            !is_file($realPath)
+            || !Security::isPathInside($realPath, $this->contentDir)
+            || !is_readable($realPath)
+        ) {
+            return [
+                'ok' => false,
+                'exists' => false,
+                'error' => '編集元の原稿を読み込めませんでした。',
+            ];
+        }
+
+        $markdown = @file_get_contents($realPath);
+        if ($markdown === false) {
+            return [
+                'ok' => false,
+                'exists' => true,
+                'error' => '編集元の原稿を読み込めませんでした。',
+            ];
+        }
+
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = $this->frontMatterParser->buildPageMetadata($parsed['metadata'], $parsed['body'], $sourcePath);
+
+        return [
+            'ok' => true,
+            'exists' => true,
+            'error' => '',
+            'file' => $realPath,
+            'markdown' => $markdown,
+            'hash' => hash('sha256', $markdown),
+            'status' => !empty($metadata['draft']) ? 'draft' : 'published',
+        ];
+    }
+
+    public function applyDraftState(string $markdown, bool $draft): ?string
+    {
+        $lineEnding = $this->lineEnding($markdown);
+        if (preg_match('/\A---(\r\n|\n|\r)/', $markdown, $opening) !== 1) {
+            if (preg_match('/\A---(?:\r\n|\n|\r|\z)/', $markdown) === 1) {
+                return null;
+            }
+            if (!$draft) {
+                return $markdown;
+            }
+
+            return '---' . $lineEnding
+                . 'draft: true' . $lineEnding
+                . '---' . $lineEnding
+                . $markdown;
+        }
+
+        $frontStart = strlen($opening[0]);
+        if (
+            preg_match('/(\r\n|\n|\r)---[ \t]*(?=(?:\r\n|\n|\r)|\z)/', $markdown, $closing, PREG_OFFSET_CAPTURE, $frontStart) !== 1
+        ) {
+            return null;
+        }
+
+        $closingOffset = (int) $closing[0][1];
+        $frontMatter = substr($markdown, $frontStart, $closingOffset - $frontStart);
+        $parts = preg_split('/(\r\n|\n|\r)/', $frontMatter, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if (!is_array($parts)) {
+            return null;
+        }
+
+        $output = '';
+        $found = false;
+        $skipIndented = false;
+        $count = count($parts);
+        for ($index = 0; $index < $count; $index += 2) {
+            $line = (string) $parts[$index];
+            $ending = $index + 1 < $count ? (string) $parts[$index + 1] : '';
+
+            if ($skipIndented && preg_match('/^[ \t]+/', $line) === 1) {
+                continue;
+            }
+            $skipIndented = false;
+
+            if (preg_match('/^draft[ \t]*:/', $line) === 1) {
+                if ($draft && !$found) {
+                    $output .= 'draft: true' . $ending;
+                    $found = true;
+                }
+                $skipIndented = true;
+                continue;
+            }
+
+            $output .= $line . $ending;
+        }
+
+        if ($draft && !$found) {
+            if ($output !== '' && !$this->endsWithLineEnding($output)) {
+                $output .= $lineEnding;
+            }
+            $output .= 'draft: true';
+        }
+
+        if (!$draft && trim($output) === '') {
+            return $this->removeEmptyFrontMatter($markdown, $closing);
+        }
+
+        return substr($markdown, 0, $frontStart) . $output . substr($markdown, $closingOffset);
+    }
+
     private function searchResult(array $matches, string $query, int $page, int $total, int $perPage): array
     {
         $perPage = max(1, min(30, $perPage));
@@ -246,6 +447,158 @@ final class PostEditableMarkdown
         }
 
         return false;
+    }
+
+    private function isSafeSourcePath(string $sourcePath): bool
+    {
+        return $sourcePath !== ''
+            && preg_match('//u', $sourcePath) === 1
+            && Security::isSafeRelativePath($sourcePath)
+            && Security::hasAllowedExtension($sourcePath, ['md'])
+            && strpos($sourcePath, 'content/') !== 0;
+    }
+
+    private function extractHelpers(string $markdown): array
+    {
+        if (preg_match('/\A---(\r\n|\n|\r)/', $markdown, $opening) !== 1) {
+            return ['found' => false, 'invalid' => false, 'values' => []];
+        }
+
+        $frontStart = strlen($opening[0]);
+        if (
+            preg_match('/(\r\n|\n|\r)---[ \t]*(?=(?:\r\n|\n|\r)|\z)/', $markdown, $closing, PREG_OFFSET_CAPTURE, $frontStart) !== 1
+        ) {
+            return ['found' => false, 'invalid' => false, 'values' => []];
+        }
+
+        $closingOffset = (int) $closing[0][1];
+        $frontMatter = substr($markdown, $frontStart, $closingOffset - $frontStart);
+        $lines = preg_split('/\r\n|\n|\r/', $frontMatter);
+        if (!is_array($lines)) {
+            return ['found' => true, 'invalid' => true, 'values' => []];
+        }
+
+        $values = [];
+        $found = false;
+        $invalid = false;
+        foreach ($lines as $line) {
+            if (preg_match('/^([A-Za-z0-9_-]+)[ \t]*:[ \t]*(.*)$/', (string) $line, $match) !== 1) {
+                continue;
+            }
+            $key = (string) $match[1];
+            if (!in_array($key, self::HELPER_KEYS, true)) {
+                continue;
+            }
+
+            $found = true;
+            if (array_key_exists($key, $values)) {
+                $invalid = true;
+                continue;
+            }
+
+            $decoded = $this->decodeScalar((string) $match[2]);
+            if ($decoded === null || $decoded === '') {
+                $invalid = true;
+                continue;
+            }
+            $values[$key] = $decoded;
+        }
+
+        return ['found' => $found, 'invalid' => $invalid, 'values' => $values];
+    }
+
+    private function decodeScalar(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '' || in_array($value, ['|', '>'], true)) {
+            return null;
+        }
+        if ($value[0] === '"') {
+            $decoded = json_decode($value, true);
+            return is_string($decoded) ? $decoded : null;
+        }
+        if ($value[0] === "'") {
+            if (substr($value, -1) !== "'") {
+                return null;
+            }
+            return str_replace("''", "'", substr($value, 1, -1));
+        }
+
+        return $value;
+    }
+
+    private function removeHelpers(string $markdown): ?string
+    {
+        if (preg_match('/\A---(\r\n|\n|\r)/', $markdown, $opening) !== 1) {
+            return $markdown;
+        }
+
+        $frontStart = strlen($opening[0]);
+        if (
+            preg_match('/(\r\n|\n|\r)---[ \t]*(?=(?:\r\n|\n|\r)|\z)/', $markdown, $closing, PREG_OFFSET_CAPTURE, $frontStart) !== 1
+        ) {
+            return null;
+        }
+
+        $closingOffset = (int) $closing[0][1];
+        $frontMatter = substr($markdown, $frontStart, $closingOffset - $frontStart);
+        $parts = preg_split('/(\r\n|\n|\r)/', $frontMatter, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if (!is_array($parts)) {
+            return null;
+        }
+
+        $output = '';
+        $skipIndented = false;
+        $count = count($parts);
+        for ($index = 0; $index < $count; $index += 2) {
+            $line = (string) $parts[$index];
+            $ending = $index + 1 < $count ? (string) $parts[$index + 1] : '';
+
+            if ($skipIndented && preg_match('/^[ \t]+/', $line) === 1) {
+                continue;
+            }
+            $skipIndented = false;
+
+            if (
+                preg_match('/^([A-Za-z0-9_-]+)[ \t]*:/', $line, $match) === 1
+                && in_array((string) $match[1], self::HELPER_KEYS, true)
+            ) {
+                $skipIndented = true;
+                continue;
+            }
+
+            $output .= $line . $ending;
+        }
+
+        if (trim($output) === '') {
+            return $this->removeEmptyFrontMatter($markdown, $closing);
+        }
+
+        return substr($markdown, 0, $frontStart) . $output . substr($markdown, $closingOffset);
+    }
+
+    private function removeEmptyFrontMatter(string $markdown, array $closing): string
+    {
+        $after = (int) $closing[0][1] + strlen((string) $closing[0][0]);
+        $body = substr($markdown, $after);
+        if (strpos($body, "\r\n") === 0) {
+            return substr($body, 2);
+        }
+        if (strpos($body, "\n") === 0 || strpos($body, "\r") === 0) {
+            return substr($body, 1);
+        }
+
+        return $body;
+    }
+
+    private function reuploadError(string $message): array
+    {
+        return [
+            'ok' => false,
+            'editable' => true,
+            'error' => $message,
+            'markdown' => '',
+        ];
     }
 
     private function injectHelpers(string $markdown, array $helpers): ?string
