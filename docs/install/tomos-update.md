@@ -2,11 +2,11 @@
 
 Tomos Updateは、管理画面から署名済み更新ZIPを確認し、Tomos本体を更新する機能です。GitHub接続、自動取得、自動更新には対応しません。
 
-## v0.1.0-alpha.7への更新
+## v0.1.0-alpha.8への更新
 
 v0.1.0-alpha.5以前をご利用の場合は、最初にv0.1.0-alpha.6へ手動で更新してください。
 
-alpha.6への移行が完了すると、Tomos Postの「Tomos Update」からv0.1.0-alpha.7へ更新できます。
+alpha.6への移行後、先にv0.1.0-alpha.7へ更新してください。alpha.7からは、Tomos Postの「Tomos Update」でv0.1.0-alpha.8へ更新できます。
 
 更新順序:
 
@@ -16,15 +16,17 @@ v0.1.0-alpha.5以前
 v0.1.0-alpha.6へ手動更新
 ↓
 Tomos Updateからv0.1.0-alpha.7へ更新
+↓
+Tomos Updateからv0.1.0-alpha.8へ更新
 ```
 
-すでにv0.1.0-alpha.6をご利用の場合は、そのままTomos Updateからalpha.7へ更新できます。
+すでにv0.1.0-alpha.7をご利用の場合は、そのままTomos Updateからalpha.8へ更新できます。
 
 ## alpha.6の信頼点移行
 
 Tomos Updateを今後も安定して提供するため、`v0.1.0-alpha.6`で署名確認に使用する信頼点を更新します。既存環境からalpha.6への移行だけは、[既存環境の更新](update.md)に沿って`VERSION`と`update/public-key.pem`を手動で上書きしてください。alpha.6自体の署名済みUpdate ZIPは提供しません。
 
-alpha.6への移行後は、alpha.7以降の署名済みUpdate ZIPをこの画面で確認できます。alpha.7のUpdate ZIPは、現在のバージョンが`0.1.0-alpha.6`以上の場合に適用できます。
+alpha.6への移行後は、alpha.7以降の署名済みUpdate ZIPをこの画面で確認できます。alpha.8のUpdate ZIPは、現在のバージョンが`0.1.0-alpha.7`以上の場合に適用できます。
 
 新しい公開鍵のフィンガープリント:
 
