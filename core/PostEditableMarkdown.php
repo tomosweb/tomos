@@ -406,7 +406,9 @@ final class PostEditableMarkdown
     private function assetBaseUrl(string $sourcePath): string
     {
         $directory = str_replace('\\', '/', dirname($sourcePath));
-        $internalUrl = $directory === '.' ? '/' : '/' . trim($directory, '/') . '/';
+        $internalUrl = $directory === '.'
+            ? '/content/'
+            : '/content/' . trim($directory, '/') . '/';
 
         return $this->publicUrl($internalUrl);
     }
