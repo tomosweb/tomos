@@ -585,7 +585,7 @@ label{color:var(--tomos-text);display:block;font-weight:700;margin:1rem 0 0.35re
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,.nav a:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}button:disabled,.button[aria-disabled="true"]{background:var(--tomos-primary-disabled);border-color:var(--tomos-primary-disabled);color:#fff}button.danger{background:var(--tomos-danger);border-color:var(--tomos-danger)}button.danger:hover{background:var(--tomos-danger-hover);border-color:var(--tomos-danger-hover)}button.danger:active{background:var(--tomos-danger-active);border-color:var(--tomos-danger-active)}button.danger:focus-visible{outline:3px solid rgba(180,56,46,0.25);outline-offset:2px}button.secondary,.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}button.secondary:hover,.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}button.secondary:active,.button.secondary:active{background:var(--tomos-button-active)}button.danger.secondary{background:var(--tomos-input);color:var(--tomos-danger-text);border-color:var(--tomos-error-border)}button.danger.secondary:hover{background:var(--tomos-error-bg);border-color:var(--tomos-error-border)}
 code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}.result a{overflow-wrap:anywhere;word-break:break-word}.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}.grid>*{min-width:0}.nav{display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0}.nav a{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:999px;color:var(--tomos-text);padding:0.35rem 0.75rem;text-decoration:none}.nav a:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.meta p{margin:0.35rem 0;min-width:0}
 .image-status-list{list-style:none;margin:0.75rem 0;padding:0}.image-status-item{border-top:1px solid var(--tomos-border-soft);padding:0.75rem 0}.image-status-item:first-child{border-top:0}.image-status-line{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.image-status-ok{color:#2f6131;font-weight:700}.image-status-missing,.image-match-warning{color:var(--tomos-danger-text);font-weight:700}.image-omit-label{align-items:flex-start;display:flex;font-weight:400;gap:0.5rem;margin:0.5rem 0 0}.image-omit-label input{margin-top:0.35rem}
-.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}
+.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 </style></head><body><main class="wrap">';
 
@@ -705,10 +705,12 @@ function renderUploadResult(array $errors, ?Tomos\PostUploadResult $result, stri
     if (!$isDraftSave) {
         echo '<a class="button" href="' . e($displayUrl) . '">公開ページを確認</a>';
     }
-    if ($basicType !== '') {
-        renderBasicPageDownloadButton($token, $basicType, Tomos\PostBasicPage::canonicalContentPath($basicType) . 'の最新版をダウンロード', true);
-    }
     echo '<a class="button secondary" href="' . e($continueUrl) . '">続けて投稿する</a></div>';
+    if ($basicType !== '') {
+        echo '<div class="result-download">';
+        renderBasicPageDownloadButton($token, $basicType, Tomos\PostBasicPage::canonicalContentPath($basicType) . 'の最新版をダウンロード', true);
+        echo '</div>';
+    }
     echo '</div>';
 }
 
@@ -1537,7 +1539,11 @@ function renderBasicPageDownloadButton(string $token, string $type, string $labe
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="page" value="' . e($type) . '">';
     echo '<input type="password" name="post_password" autocomplete="current-password" aria-label="' . e($label) . '用の管理用合言葉" placeholder="管理用合言葉">';
-    echo '<div class="actions"><button' . ($compact ? ' class="secondary"' : '') . ' type="submit">' . e($label) . '</button></div>';
+    if ($compact) {
+        echo '<button class="secondary" type="submit">' . e($label) . '</button>';
+    } else {
+        echo '<div class="actions"><button type="submit">' . e($label) . '</button></div>';
+    }
     echo '</form>';
 }
 
