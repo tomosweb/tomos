@@ -154,9 +154,13 @@ final class TemplateRenderer
         $site['analytics_html'] = $canRenderAnalytics && (!array_key_exists('track_page', $page) || !empty($page['track_page']))
             ? Ga4::headHtml($this->config, $this->analyticsNonce)
             : '';
+        $ogpAsset = $this->themeAsset('ogp.png');
         $site['ogp_url'] = Security::absoluteUrl(
             (string) ($site['url'] ?? ''),
-            $this->absoluteInternalUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets/ogp.png', $publicBasePath)
+            $this->absoluteInternalUrl(
+                '/themes/' . rawurlencode($ogpAsset['theme']) . '/assets/' . rawurlencode($ogpAsset['file']),
+                $publicBasePath
+            )
         );
         $page['absolute_url'] = Security::absoluteUrl(
             (string) ($site['url'] ?? ''),
@@ -180,6 +184,8 @@ final class TemplateRenderer
             'pages' => $listPages,
             'latest_pages' => $page['list']['latest_pages'] ?? '',
         ];
+        $faviconAsset = $this->faviconAsset();
+        $appleTouchIconAsset = $this->themeAsset('apple-touch-icon.png');
 
         return [
             'site' => $site,
@@ -188,9 +194,15 @@ final class TemplateRenderer
             'list' => $list,
             'theme' => [
                 'asset_url' => Security::publicUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets', $publicBasePath),
-                'favicon_url' => Security::publicUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets/' . $this->faviconFileName(), $publicBasePath),
-                'favicon_type' => $this->faviconFileName() === 'favicon.svg' ? 'image/svg+xml' : 'image/png',
-                'apple_touch_icon_url' => Security::publicUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets/apple-touch-icon.png', $publicBasePath),
+                'favicon_url' => Security::publicUrl(
+                    '/themes/' . rawurlencode($faviconAsset['theme']) . '/assets/' . rawurlencode($faviconAsset['file']),
+                    $publicBasePath
+                ),
+                'favicon_type' => $faviconAsset['file'] === 'favicon.svg' ? 'image/svg+xml' : 'image/png',
+                'apple_touch_icon_url' => Security::publicUrl(
+                    '/themes/' . rawurlencode($appleTouchIconAsset['theme']) . '/assets/' . rawurlencode($appleTouchIconAsset['file']),
+                    $publicBasePath
+                ),
             ],
         ];
     }
@@ -210,13 +222,44 @@ final class TemplateRenderer
         return $themeName;
     }
 
-    private function faviconFileName(): string
+    private function faviconAsset(): array
     {
-        if (is_file($this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'favicon.svg')) {
-            return 'favicon.svg';
+        foreach (['favicon.svg', 'favicon.png'] as $file) {
+            if (is_file($this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file)) {
+                return ['theme' => $this->effectiveThemeName, 'file' => $file];
+            }
         }
 
-        return 'favicon.png';
+        $fallbackPath = $this->themeDirectory('tomos-minimal');
+        foreach (['favicon.svg', 'favicon.png'] as $file) {
+            if (is_file($fallbackPath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file)) {
+                return ['theme' => 'tomos-minimal', 'file' => $file];
+            }
+        }
+
+        return ['theme' => $this->effectiveThemeName, 'file' => 'favicon.png'];
+    }
+
+    private function themeAsset(string $file): array
+    {
+        if (is_file($this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file)) {
+            return ['theme' => $this->effectiveThemeName, 'file' => $file];
+        }
+
+        $fallbackPath = $this->themeDirectory('tomos-minimal')
+            . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file;
+        if (is_file($fallbackPath)) {
+            return ['theme' => 'tomos-minimal', 'file' => $file];
+        }
+
+        return ['theme' => $this->effectiveThemeName, 'file' => $file];
+    }
+
+    private function themeDirectory(string $themeName): string
+    {
+        return rtrim((string) ($this->config['paths']['theme_dir'] ?? ''), DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR
+            . $themeName;
     }
 
     private function publicBasePath(): string
