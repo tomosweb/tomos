@@ -1835,7 +1835,29 @@ function e(string $value): string
 
 function themeDisplayName(array $config, string $themeName): string
 {
-    return $themeName;
+    $themesDir = rtrim(
+        (string) ($config['paths']['theme_dir'] ?? dirname(__DIR__) . '/themes'),
+        DIRECTORY_SEPARATOR
+    );
+
+    $themeJsonPath = $themesDir
+        . DIRECTORY_SEPARATOR
+        . $themeName
+        . DIRECTORY_SEPARATOR
+        . 'theme.json';
+
+    if (!is_file($themeJsonPath)) {
+        return $themeName;
+    }
+
+    $decoded = json_decode((string) file_get_contents($themeJsonPath), true);
+    if (!is_array($decoded)) {
+        return $themeName;
+    }
+
+    $displayName = trim((string) ($decoded['display_name'] ?? ''));
+
+    return $displayName !== '' ? $displayName : $themeName;
 }
 
 function uploadConflictResultFromRecord(Tomos\PostUploadTempRecord $record): Tomos\PostUploadResult
