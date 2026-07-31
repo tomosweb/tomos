@@ -87,7 +87,12 @@ final class TemplateRenderer
             return [];
         }
 
-        return array_fill_keys(array_values(array_unique($matches[1])), true);
+        $required = array_fill_keys(array_values(array_unique($matches[1])), true);
+        if (($page['page_type'] ?? '') === 'virtual_folder_index' && isset($required['list.pages'])) {
+            $required['page.folder_pages_html'] = true;
+        }
+
+        return $required;
     }
 
     private function pageTemplateName(array $page): string
@@ -96,6 +101,10 @@ final class TemplateRenderer
 
         if ($internalUrl === '/' && $this->templateExists('home.html')) {
             return 'home.html';
+        }
+
+        if (($page['page_type'] ?? '') === 'virtual_folder_index' && $this->templateExists('list.html')) {
+            return 'list.html';
         }
 
         return 'page.html';
@@ -163,8 +172,12 @@ final class TemplateRenderer
             'primary_items' => is_array($page['nav']['primary_items'] ?? null) ? $page['nav']['primary_items'] : [],
             'breadcrumbs' => $page['nav']['breadcrumbs'] ?? '',
         ];
+        $listPages = (string) ($page['list']['pages'] ?? '');
+        if ($listPages === '' && ($page['page_type'] ?? '') === 'virtual_folder_index') {
+            $listPages = (string) ($page['folder_pages_html'] ?? '');
+        }
         $list = [
-            'pages' => $page['list']['pages'] ?? '',
+            'pages' => $listPages,
             'latest_pages' => $page['list']['latest_pages'] ?? '',
         ];
 
