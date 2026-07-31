@@ -89,12 +89,19 @@ label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{ac
         } else {
             echo '<strong>' . e($label) . '</strong> <span class="hint">（選択できません）</span>';
         }
-        echo '<p class="hint">version ' . e((string) ($theme['version'] ?? '')) . '</p>';
+        echo '<p class="hint">ディレクトリ: <code>' . e($id) . '</code> / version ' . e((string) ($theme['version'] ?? '')) . '</p>';
         if ((string) ($theme['description'] ?? '') !== '') {
             echo '<p>' . e((string) $theme['description']) . '</p>';
         }
         if ((string) ($theme['author'] ?? '') !== '') {
             echo '<p class="hint">作者: ' . e((string) $theme['author']) . '</p>';
+        }
+        if (!empty($theme['warnings'])) {
+            echo '<div class="notice"><strong>注意</strong><ul>';
+            foreach ($theme['warnings'] as $warning) {
+                echo '<li>' . e((string) $warning) . '</li>';
+            }
+            echo '</ul></div>';
         }
         if (!$valid && !empty($theme['errors'])) {
             echo '<ul>';
@@ -117,7 +124,9 @@ label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{ac
 
 function themeLabel(?array $theme, string $fallback): string
 {
-    return $fallback;
+    $displayName = trim((string) ($theme['display_name'] ?? ''));
+
+    return $displayName !== '' ? $displayName : $fallback;
 }
 
 function e(string $value): string

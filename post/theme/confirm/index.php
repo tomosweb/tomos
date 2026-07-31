@@ -104,7 +104,7 @@ function renderConfirmPage(array $config, array $themes, string $currentTheme, s
 html,body{width:100%;overflow-x:hidden}
 body{background:var(--tomos-bg);color:var(--tomos-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}
 .wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:760px;padding:28px}
-	h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}.hint{color:var(--tomos-muted);font-size:0.95rem}.theme-change-summary{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);display:grid;gap:0.85rem;padding:1rem}.theme-change-summary p{margin:0}.theme-change-summary strong{display:block;margin-bottom:0.2rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}
+h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}.hint{color:var(--tomos-muted);font-size:0.95rem}.theme-change-summary{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);display:grid;gap:0.85rem;padding:1rem}.theme-change-summary p{margin:0}.theme-change-summary strong{display:block;margin-bottom:0.2rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}
 button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-size:16px;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}.actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}
 </style></head><body><main class="wrap">';
 
@@ -153,7 +153,9 @@ button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-prim
 
 function themeLabel(?array $theme, string $fallback): string
 {
-    return $fallback;
+    $displayName = trim((string) ($theme['display_name'] ?? ''));
+
+    return $displayName !== '' ? $displayName : $fallback;
 }
 
 function themeChangeSummaryHtml(string $currentLabel, ?string $nextLabel): string
