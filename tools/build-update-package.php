@@ -52,8 +52,39 @@ foreach ($requiredFiles as $requiredFile) {
 }
 
 $manifestFiles = [];
+$packageFiles = [];
+$generatedFiles = [];
+$requestedFiles = [];
 foreach ($files as $relative) {
     $relative = (string) $relative;
+    if (isset($requestedFiles[$relative])) {
+        fwrite(STDERR, "Duplicate update path: {$relative}\n");
+        exit(1);
+    }
+    $requestedFiles[$relative] = true;
+    if ($relative === 'update/index.php') {
+        $source = $rootDir . DIRECTORY_SEPARATOR . 'update' . DIRECTORY_SEPARATOR . 'index.php';
+        if (!is_file($source) || is_link($source)) {
+            fwrite(STDERR, "Missing or unsafe source file: {$relative}\n");
+            exit(1);
+        }
+        $pendingPath = 'core/updater-pending/update-index.php';
+        $metadataPath = 'core/updater-pending/update-index.json';
+        $hash = (string) hash_file('sha256', $source);
+        $metadata = json_encode([
+            'target' => 'update/index.php',
+            'sha256' => $hash,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if (!is_string($metadata)) {
+            fwrite(STDERR, "Could not encode updater metadata.\n");
+            exit(1);
+        }
+        $manifestFiles[$pendingPath] = $hash;
+        $manifestFiles[$metadataPath] = hash('sha256', $metadata);
+        $packageFiles[$pendingPath] = $source;
+        $generatedFiles[$metadataPath] = $metadata;
+        continue;
+    }
     if (!isAllowedUpdatePath($relative)) {
         fwrite(STDERR, "Forbidden update path: {$relative}\n");
         exit(1);
@@ -64,6 +95,7 @@ foreach ($files as $relative) {
         exit(1);
     }
     $manifestFiles[$relative] = hash_file('sha256', $source);
+    $packageFiles[$relative] = $source;
 }
 if (!isset($manifestFiles['VERSION'])) {
     fwrite(STDERR, "VERSION must be included.\n");
@@ -96,14 +128,69 @@ if ($zip->open($outputPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true
     fwrite(STDERR, "Could not create ZIP.\n");
     exit(1);
 }
-$zip->addFromString('manifest.json', $manifest);
-$zip->addFromString('manifest.sig', $signature);
+if (!$zip->addFromString('manifest.json', $manifest)
+    || !$zip->addFromString('manifest.sig', $signature)
+) {
+    $zip->close();
+    fwrite(STDERR, "Could not add signed manifest to ZIP.\n");
+    exit(1);
+}
 foreach (array_keys($manifestFiles) as $relative) {
-    $zip->addFile($rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative), 'files/' . $relative);
+    $entry = 'files/' . $relative;
+    if (isset($generatedFiles[$relative])) {
+        if (!$zip->addFromString($entry, $generatedFiles[$relative])) {
+            $zip->close();
+            fwrite(STDERR, "Could not add generated package file: {$relative}\n");
+            exit(1);
+        }
+        continue;
+    }
+    if (!isset($packageFiles[$relative])) {
+        $zip->close();
+        fwrite(STDERR, "Missing package source: {$relative}\n");
+        exit(1);
+    }
+    if (!$zip->addFile($packageFiles[$relative], $entry)) {
+        $zip->close();
+        fwrite(STDERR, "Could not add package file: {$relative}\n");
+        exit(1);
+    }
 }
 if (!$zip->close()) {
     fwrite(STDERR, "Could not finalize ZIP.\n");
     exit(1);
+}
+
+$verifyZip = new ZipArchive();
+if ($verifyZip->open($outputPath) !== true) {
+    fwrite(STDERR, "Could not reopen ZIP for verification.\n");
+    exit(1);
+}
+try {
+    if ($verifyZip->numFiles !== count($manifestFiles) + 2
+        || $verifyZip->getFromName('manifest.json') !== $manifest
+        || $verifyZip->getFromName('manifest.sig') !== $signature
+    ) {
+        fwrite(STDERR, "Signed manifest verification failed.\n");
+        exit(1);
+    }
+    foreach ($manifestFiles as $relative => $expectedHash) {
+        $contents = $verifyZip->getFromName('files/' . $relative);
+        if (!is_string($contents)
+            || !hash_equals(strtolower((string) $expectedHash), hash('sha256', $contents))
+        ) {
+            fwrite(STDERR, "ZIP content hash verification failed: {$relative}\n");
+            exit(1);
+        }
+    }
+    if (isset($requestedFiles['update/index.php'])
+        && $verifyZip->locateName('files/update/index.php') !== false
+    ) {
+        fwrite(STDERR, "update/index.php must not be stored directly in the Update ZIP.\n");
+        exit(1);
+    }
+} finally {
+    $verifyZip->close();
 }
 echo $outputPath . PHP_EOL;
 

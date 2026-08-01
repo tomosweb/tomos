@@ -15,6 +15,7 @@ cache/logs/.gitkeep
 cache/security/post-rate-limit/.gitkeep
 cache/post-upload-sessions/.gitkeep
 post/index.php
+post/update-finalize/index.php
 update/index.php
 update/public-key.pem
 storage/.gitkeep
@@ -24,6 +25,7 @@ storage/update-tmp/.gitkeep
 core/UpdateLock.php
 core/UpdateService.php
 core/InstalledIntegrityVerifier.php
+core/UpdaterSelfUpdate.php
 core/required-installed-files.txt
 core/PostBasicPage.php
 core/SiteSettingsConfigWriter.php
