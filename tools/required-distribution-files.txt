@@ -23,6 +23,8 @@ storage/update-logs/.gitkeep
 storage/update-tmp/.gitkeep
 core/UpdateLock.php
 core/UpdateService.php
+core/InstalledIntegrityVerifier.php
+core/required-installed-files.txt
 core/PostBasicPage.php
 core/SiteSettingsConfigWriter.php
 post/settings/index.php

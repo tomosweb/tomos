@@ -1,13 +1,6 @@
 index.php
 .htaccess
 VERSION
-LICENSE
-NOTICE
-DISCLAIMER.md
-TRADEMARKS.md
-CHANGELOG.md
-SECURITY.md
-KNOWN_LIMITATIONS.md
 post/index.php
 update/index.php
 update/public-key.pem

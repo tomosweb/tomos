@@ -91,7 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors === []) {
             $_SESSION['tomos_update_token'] = bin2hex(random_bytes(32));
             session_write_close();
             try {
-                $result = $service->apply($id, session_id());
+                $result = (new Tomos\InstalledIntegrityVerifier($rootDir))->verifyAfterUpdate(
+                    $service->apply($id, session_id())
+                );
             } catch (Tomos\UpdateException $exception) {
                 error_log('Tomos Update apply [' . $exception->stage() . ']: ' . $exception->getMessage());
                 $errors[] = $exception->getMessage();
