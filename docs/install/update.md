@@ -2,11 +2,11 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
-## v0.1.0-alpha.8への更新
+## v0.1.0-alpha.10への更新
 
 v0.1.0-alpha.5以前をご利用の場合は、最初にv0.1.0-alpha.6へ手動で更新してください。
 
-alpha.6への移行後、先にv0.1.0-alpha.7へ更新してください。alpha.7からは、Tomos Postの「Tomos Update」でv0.1.0-alpha.8へ更新できます。
+alpha.6への移行後、署名済みUpdate ZIPを使い、v0.1.0-alpha.7、alpha.8、alpha.9の順に更新してください。alpha.9からは、Tomos Postの「Tomos Update」でv0.1.0-alpha.10へ更新できます。
 
 更新順序:
 
@@ -18,20 +18,29 @@ v0.1.0-alpha.6へ手動更新
 Tomos Updateからv0.1.0-alpha.7へ更新
 ↓
 Tomos Updateからv0.1.0-alpha.8へ更新
+↓
+Tomos Updateからv0.1.0-alpha.9へ更新
+↓
+Tomos Updateからv0.1.0-alpha.10へ更新
 ```
 
-すでにv0.1.0-alpha.7をご利用の場合は、そのままTomos Updateからalpha.8へ更新できます。
+すでにv0.1.0-alpha.9をご利用の場合は、そのままTomos Updateからalpha.10へ更新できます。
 
-## v0.1.0-alpha.7からv0.1.0-alpha.8への更新
+## v0.1.0-alpha.9からv0.1.0-alpha.10への更新
 
-alpha.7の環境では、署名済みの`tomos-update-0.1.0-alpha.8.zip`をTomos Updateから適用できます。
+alpha.9の環境では、署名済みの`tomos-update-0.1.0-alpha.10.zip`をTomos Updateから適用できます。
 
 1. Tomos Postへ認証し、Tomos Update画面（`/update/`）を開きます。
-2. `tomos-update-0.1.0-alpha.8.zip`を選び、「更新内容を確認」を押します。
-3. 現在のバージョンが`0.1.0-alpha.7`、更新後のバージョンが`0.1.0-alpha.8`と表示されていることを確認します。
+2. `tomos-update-0.1.0-alpha.10.zip`を選び、「更新内容を確認」を押します。
+3. 現在のバージョンが`0.1.0-alpha.9`、更新後のバージョンが`0.1.0-alpha.10`と表示されていることを確認します。
 4. 更新対象に`config.php`、`content/`、独自テーマが含まれていないことを確認します。
 5. 「更新する」を押します。
-6. 更新完了後、「現在のバージョン」が`0.1.0-alpha.8`と表示されていることを確認します。
+6. 更新完了後、「現在のバージョン」が`0.1.0-alpha.10`と表示されていることを確認します。
+7. Tomos PostのUpdater更新反映画面（`/post/update-finalize/`）を開き、反映待ち状態を確認します。
+8. 管理用合言葉を入力し、「Updater更新を反映する」を押します。
+9. 「Updater本体を更新しました。」と表示され、反映待ちの更新がなくなったことを確認します。
+
+通常Updateが完了した時点では、`update/index.php`はまだ旧版です。Updater更新反映画面から明示的に反映した場合だけ、新版へ置き換わります。置換前のファイルは`storage/update-backups/`へ保存され、結果は`storage/update-logs/`へ記録されます。
 
 更新前に`config.php`、`content/`、利用中テーマをバックアップしてください。Tomos Updateは更新対象ファイルだけをバックアップし、`config.php`、`content/`、独自テーマを更新しません。
 
