@@ -50,6 +50,11 @@ copy_item() {
       --exclude='post-upload-sessions/*-images' \
       --exclude='post-upload-sessions/*.lock' \
       --exclude='post-upload-sessions/*.tmp-*' \
+      --exclude='security/post-auth/*.json' \
+      --exclude='security/post-auth/*.tmp-*' \
+      --exclude='security/post-submissions/*.json' \
+      --exclude='security/post-submissions/*.lock' \
+      --exclude='security/post-submissions/*.tmp-*' \
       --include='update-backups/.gitkeep' \
       --include='update-logs/.gitkeep' \
       --include='update-tmp/.gitkeep' \
@@ -101,6 +106,8 @@ find "${BUILD_DIR}/cache/post-upload-sessions" -mindepth 1 ! -name '.htaccess' !
 find "${BUILD_DIR}/cache/html" -type f \( -name '*.html' -o -name '*.json' \) -delete 2>/dev/null || true
 find "${BUILD_DIR}/cache/logs" -type f \( -name '*.log' -o -name '*.tmp' \) -delete 2>/dev/null || true
 find "${BUILD_DIR}/cache/security/post-rate-limit" -type f \( -name '*.json' -o -name '*.tmp' -o -name '*.log' \) -delete 2>/dev/null || true
+find "${BUILD_DIR}/cache/security/post-auth" -type f \( -name '*.json' -o -name '*.tmp-*' -o -name '*.log' \) -delete 2>/dev/null || true
+find "${BUILD_DIR}/cache/security/post-submissions" -type f \( -name '*.json' -o -name '*.lock' -o -name '*.tmp-*' -o -name '*.log' \) -delete 2>/dev/null || true
 rm -rf "${BUILD_DIR}/trash/content"
 find "${BUILD_DIR}/trash" -type f \( -name '*.json' -o -name '*.tmp' -o -name '*.log' \) -delete 2>/dev/null || true
 rm -rf "${BUILD_DIR}/tests"
@@ -118,6 +125,8 @@ mkdir -p "${BUILD_DIR}/cache/html"
 mkdir -p "${BUILD_DIR}/cache/logs"
 mkdir -p "${BUILD_DIR}/cache/post-upload-sessions"
 mkdir -p "${BUILD_DIR}/cache/security/post-rate-limit"
+mkdir -p "${BUILD_DIR}/cache/security/post-auth"
+mkdir -p "${BUILD_DIR}/cache/security/post-submissions"
 mkdir -p "${BUILD_DIR}/storage/update-backups"
 mkdir -p "${BUILD_DIR}/storage/update-logs"
 mkdir -p "${BUILD_DIR}/storage/update-tmp"
@@ -128,6 +137,8 @@ touch "${BUILD_DIR}/cache/html/.gitkeep"
 touch "${BUILD_DIR}/cache/logs/.gitkeep"
 touch "${BUILD_DIR}/cache/post-upload-sessions/.gitkeep"
 touch "${BUILD_DIR}/cache/security/post-rate-limit/.gitkeep"
+touch "${BUILD_DIR}/cache/security/post-auth/.gitkeep"
+touch "${BUILD_DIR}/cache/security/post-submissions/.gitkeep"
 touch "${BUILD_DIR}/storage/.gitkeep"
 touch "${BUILD_DIR}/storage/update-backups/.gitkeep"
 touch "${BUILD_DIR}/storage/update-logs/.gitkeep"
@@ -191,6 +202,16 @@ fi
 
 if find "${BUILD_DIR}/cache/security/post-rate-limit" -type f \( -name '*.json' -o -name '*.tmp' -o -name '*.log' \) -print -quit | grep -q .; then
   echo "Error: generated rate limit files must not be included in distribution."
+  exit 1
+fi
+
+if find "${BUILD_DIR}/cache/security/post-auth" -type f \( -name '*.json' -o -name '*.tmp-*' -o -name '*.log' \) -print -quit | grep -q .; then
+  echo "Error: generated remembered authentication files must not be included in distribution."
+  exit 1
+fi
+
+if find "${BUILD_DIR}/cache/security/post-submissions" -type f \( -name '*.json' -o -name '*.lock' -o -name '*.tmp-*' -o -name '*.log' \) -print -quit | grep -q .; then
+  echo "Error: generated submission guard files must not be included in distribution."
   exit 1
 fi
 

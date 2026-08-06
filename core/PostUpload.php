@@ -148,7 +148,7 @@ final class PostUpload
         $this->editableMarkdown = new PostEditableMarkdown($config, $rootDir);
     }
 
-    public function handle(array $file, string $folderInput, string $fileNameInput, ?string $sessionId = null, array $imageFiles = [], array $omittedImages = [], bool $trustedStagedImages = false): PostUploadResult
+    public function handle(array $file, string $folderInput, string $fileNameInput, ?string $sessionId = null, array $imageFiles = [], array $omittedImages = [], bool $trustedStagedImages = false, string $submissionId = ''): PostUploadResult
     {
         $errors = [];
         $warnings = [];
@@ -280,7 +280,8 @@ final class PostUpload
                 $targetPath,
                 $imagePlan,
                 $warnings,
-                $sessionId
+                $sessionId,
+                $submissionId
             );
         }
 
@@ -294,6 +295,7 @@ final class PostUpload
             $absoluteUrl = $this->absolutePublicUrl($internalUrl);
             $tempRecord = $this->tempStore->create($content, [
                 'session_id' => $sessionId ?? '',
+                'submission_hash' => $this->submissionHash($submissionId),
                 'folder' => $folder,
                 'original_file_name' => $chosenName,
                 'planned_file_name' => $safeFileName,
@@ -350,11 +352,14 @@ final class PostUpload
         return new PostUploadResult(true, [], $warnings, $contentPath, $internalUrl, $absoluteUrl, $chosenName, $safeFileName, false, '', '', '', '', 'create', '', count($imagePlan));
     }
 
-    public function updateFromTemp(string $tempId, ?string $sessionId = null): PostUploadResult
+    public function updateFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
     {
         $record = $this->tempStore->load($tempId, $sessionId);
         if ($record === null) {
             return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        }
+        if (!$this->submissionMatches($record, $submissionId)) {
+            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
         }
 
         $target = $this->targetFromRecord($record);
@@ -424,11 +429,15 @@ final class PostUpload
         string $tempId,
         string $mode,
         bool $allowConflict,
-        ?string $sessionId = null
+        ?string $sessionId = null,
+        string $submissionId = ''
     ): PostUploadResult {
         $record = $this->tempStore->load($tempId, $sessionId);
         if ($record === null || (string) ($record->meta['upload_kind'] ?? '') !== 'editable_update') {
             return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        }
+        if (!$this->submissionMatches($record, $submissionId)) {
+            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
         }
 
         $sourceStatus = (string) ($record->meta['source_status'] ?? '');
@@ -517,11 +526,14 @@ final class PostUpload
         );
     }
 
-    public function createEditableFromTemp(string $tempId, ?string $sessionId = null): PostUploadResult
+    public function createEditableFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
     {
         $record = $this->tempStore->load($tempId, $sessionId);
         if ($record === null || (string) ($record->meta['upload_kind'] ?? '') !== 'editable_new') {
             return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        }
+        if (!$this->submissionMatches($record, $submissionId)) {
+            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
         }
 
         $target = $this->targetFromRecord($record);
@@ -574,11 +586,14 @@ final class PostUpload
         );
     }
 
-    public function createRenamedFromTemp(string $tempId, string $fileNameInput, ?string $sessionId = null): PostUploadResult
+    public function createRenamedFromTemp(string $tempId, string $fileNameInput, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
     {
         $record = $this->tempStore->load($tempId, $sessionId);
         if ($record === null) {
             return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        }
+        if (!$this->submissionMatches($record, $submissionId)) {
+            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
         }
 
         if (PostBasicPage::isProtectedContentPath((string) ($record->meta['content_path'] ?? ''))) {
@@ -680,7 +695,8 @@ final class PostUpload
         string $targetPath,
         array $imagePlan,
         array $warnings,
-        ?string $sessionId
+        ?string $sessionId,
+        string $submissionId
     ): PostUploadResult {
         $sourcePath = (string) ($editable['source_path'] ?? '');
         $sourceStatus = (string) ($editable['source_status'] ?? '');
@@ -720,6 +736,7 @@ final class PostUpload
 
         $tempRecord = $this->tempStore->create($markdown, [
             'session_id' => $sessionId ?? '',
+            'submission_hash' => $this->submissionHash($submissionId),
             'upload_kind' => $destinationChanged ? 'editable_new' : 'editable_update',
             'folder' => $folder,
             'original_file_name' => $chosenName,
@@ -1523,6 +1540,24 @@ final class PostUpload
         }
 
         return (string) ($this->site['base_path'] ?? '');
+    }
+
+    private function submissionHash(string $submissionId): string
+    {
+        return preg_match('/\A[a-f0-9]{64}\z/', $submissionId) === 1
+            ? hash('sha256', $submissionId)
+            : '';
+    }
+
+    private function submissionMatches(PostUploadTempRecord $record, string $submissionId): bool
+    {
+        $expected = (string) ($record->meta['submission_hash'] ?? '');
+        if ($expected === '') {
+            // Temporary records created immediately before this update remain usable.
+            return true;
+        }
+        $actual = $this->submissionHash($submissionId);
+        return $actual !== '' && hash_equals($expected, $actual);
     }
 
     private function uploadErrorMessage(int $error): string

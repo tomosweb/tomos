@@ -40,22 +40,28 @@ $editableSearchResult = null;
 $editableQuery = '';
 $editablePage = 1;
 $activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'));
+$submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? (string) ($_POST['submission_id'] ?? '')
+    : Tomos\PostSubmissionGuard::issueId();
 
 if ($config === []) {
-    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', true, $activeSection);
+    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', true, $activeSection, $submissionId);
     exit;
 }
 
 if (empty($config['features']['post'])) {
-    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', true, $activeSection);
+    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', true, $activeSection, $submissionId);
     exit;
 }
 
 $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
 if ($postPasswordHash === '') {
-    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', true, $activeSection);
+    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', true, $activeSection, $submissionId);
     exit;
 }
+
+$authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
+$authRemember->restoreSession();
 
 $postApi = (string) ($_GET['post_api'] ?? '');
 if ($postApi !== '' && !class_exists(Tomos\PostUploadCapabilities::class)) {
@@ -81,18 +87,11 @@ if ($postApi !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
     $sessionStore = new Tomos\PostImageUploadSessionStore($cacheDir);
     if ($postApi === 'start') {
-        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
-        $limit = $rateLimiter->checkPostAllowed();
-        if (!$limit->allowed) {
-            jsonResponse(['ok' => false, 'message' => $limit->message], 429);
+        $authWarnings = [];
+        $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $authWarnings);
+        if ($authError !== '') {
+            jsonResponse(['ok' => false, 'message' => $authError], strpos($authError, '15分間') !== false ? 429 : 403);
         }
-        if (!Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)) {
-            $rateLimiter->recordPostAttempt();
-            $rateLimiter->recordFailure();
-            jsonResponse(['ok' => false, 'message' => '管理用合言葉が正しくありません。'], 403);
-        }
-        $rateLimiter->clearFailures();
-        $_SESSION['tomos_post_authenticated'] = true;
         $expected = json_decode((string) ($_POST['expected_images'] ?? '[]'), true);
         if (!is_array($expected)) {
             jsonResponse(['ok' => false, 'message' => '投稿する画像を確認できませんでした。'], 400);
@@ -103,7 +102,7 @@ if ($postApi !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 'message' => '画像は最大' . Tomos\PostUploadCapabilities::MAX_IMAGES . '枚まで選択できます。',
             ], 400);
         }
-        $record = $sessionStore->create(session_id(), $expected);
+        $record = $sessionStore->create(session_id(), $expected, $submissionId);
         if ($record === null) {
             jsonResponse(['ok' => false, 'message' => '投稿の準備を開始できませんでした。'], 400);
         }
@@ -122,12 +121,13 @@ if ($postApi !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) $capabilities['effective_image_max_bytes'],
             (int) ($_POST['chunk_index'] ?? 0),
             (int) ($_POST['chunk_count'] ?? 1),
-            (int) ($_POST['total_size'] ?? 0)
+            (int) ($_POST['total_size'] ?? 0),
+            $submissionId
         );
         jsonResponse($result, !empty($result['ok']) ? 200 : 400);
     }
     if ($postApi === 'cancel') {
-        $deleted = $sessionStore->deleteOwned((string) ($_POST['upload_session_id'] ?? ''), session_id());
+        $deleted = $sessionStore->deleteOwned((string) ($_POST['upload_session_id'] ?? ''), session_id(), $submissionId);
         jsonResponse(['ok' => $deleted]);
     }
     jsonResponse(['ok' => false, 'message' => '投稿処理を確認できませんでした。'], 404);
@@ -146,54 +146,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'search_editable_markdown') {
         $editableQuery = trim((string) ($_POST['edit_query'] ?? ''));
         $editablePage = max(1, (int) ($_POST['edit_page'] ?? 1));
-        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
-        $limit = $rateLimiter->checkPostContinuationAllowed();
-        if (!$limit->allowed) {
-            $errors[] = $limit->message;
-        } elseif (
-            empty($_SESSION['tomos_post_authenticated'])
-            && !Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)
-        ) {
-            $rateLimiter->recordFailure();
-            $errors[] = '管理用合言葉が正しくありません。';
+        $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $warnings);
+        if ($authError !== '') {
+            $errors[] = $authError;
         } else {
-            $rateLimiter->clearFailures();
-            $_SESSION['tomos_post_authenticated'] = true;
             $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
             if (empty($editableSearchResult['ok'])) {
                 $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
             }
         }
     } elseif ($action === 'download_editable_markdown') {
-        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
-        $limit = $rateLimiter->checkPostContinuationAllowed();
-        if (!$limit->allowed) {
-            $errors[] = $limit->message;
-        } elseif (
-            empty($_SESSION['tomos_post_authenticated'])
-            && !Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)
-        ) {
-            $rateLimiter->recordFailure();
-            $errors[] = '管理用合言葉が正しくありません。';
+        $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $warnings);
+        if ($authError !== '') {
+            $errors[] = $authError;
         } else {
-            $rateLimiter->clearFailures();
-            $_SESSION['tomos_post_authenticated'] = true;
             $downloadError = sendEditableMarkdownDownload($config, $rootDir, (string) ($_POST['content_path'] ?? ''));
             if ($downloadError !== '') {
                 $errors[] = $downloadError;
             }
         }
     } elseif ($action === 'download_basic_page') {
-        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
-        $limit = $rateLimiter->checkPostContinuationAllowed();
-        if (!$limit->allowed) {
-            $errors[] = $limit->message;
-        } elseif (!Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)) {
-            $rateLimiter->recordFailure();
-            $errors[] = '管理用合言葉が正しくありません。';
+        $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $warnings);
+        if ($authError !== '') {
+            $errors[] = $authError;
         } else {
-            $rateLimiter->clearFailures();
-            $_SESSION['tomos_post_authenticated'] = true;
             $downloadError = sendBasicPageDownload($config, $rootDir, (string) ($_POST['page'] ?? ''));
             if ($downloadError !== '') {
                 $errors[] = $downloadError;
@@ -213,26 +189,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (RuntimeException $exception) {
             $errors[] = 'content/ フォルダを確認できませんでした。';
         }
+    } elseif ($action === 'logout') {
+        $authRemember->forgetCurrentBrowser();
+        $messages[] = 'このブラウザの認証を解除しました。';
     } else {
-        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
-        $isUploadContinuation = in_array(
-            $action,
-            ['update_upload', 'rename_upload', 'resolve_editable_upload', 'create_editable_upload'],
-            true
-        );
-        $limit = $isUploadContinuation
-            ? $rateLimiter->checkPostContinuationAllowed()
-            : $rateLimiter->checkPostAllowed();
-        if (!$limit->allowed) {
-            $errors[] = $limit->message;
-        } elseif (!Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)) {
-            $rateLimiter->recordPostAttempt();
-            $rateLimiter->recordFailure();
-            $errors[] = '管理用合言葉が正しくありません。';
+        $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $warnings);
+        if ($authError !== '') {
+            $errors[] = $authError;
         } else {
-            $rateLimiter->recordPostAttempt();
-            $rateLimiter->clearFailures();
-            $_SESSION['tomos_post_authenticated'] = true;
+            $submissionGuard = null;
+            $submissionActions = ['upload', 'finalize_staged_upload', 'update_upload', 'rename_upload', 'resolve_editable_upload', 'create_editable_upload'];
+            if (in_array($action, $submissionActions, true)) {
+                $submissionGuard = new Tomos\PostSubmissionGuard($config, $rootDir);
+                $guardResult = $submissionGuard->acquire($submissionId);
+                if (!$guardResult->allowed) {
+                    $errors[] = $guardResult->message;
+                    if ($guardResult->message === Tomos\PostSubmissionGuard::DUPLICATE_MESSAGE) {
+                        $submissionId = Tomos\PostSubmissionGuard::issueId();
+                    }
+                }
+            }
+            if ($errors === []) {
             if ($action === 'site_settings_auth') {
                 header('Location: ' . Tomos\Security::publicUrl('/post/settings/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
@@ -262,20 +239,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
                 $sessionStore = new Tomos\PostImageUploadSessionStore($cacheDir);
                 $uploadSessionId = (string) ($_POST['upload_session_id'] ?? '');
-                $stagedPaths = $sessionStore->readyImages($uploadSessionId, session_id());
+                $stagedPaths = $sessionStore->readyImages($uploadSessionId, session_id(), $submissionId);
                 if ($stagedPaths === null) {
                     $errors[] = '必要な画像の送信が完了していません。もう一度投稿してください。';
                 } else {
                     $stagedFiles = stagedImageFiles($stagedPaths);
                     $upload = new Tomos\PostUpload($config, $rootDir);
                     $omittedImages = is_array($_POST['omit_images'] ?? null) ? $_POST['omit_images'] : [];
-                    $uploadResult = $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true);
-                    $sessionStore->deleteOwned($uploadSessionId, session_id());
+                    $uploadResult = $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId);
                     if ($uploadResult->ok) {
+                        $sessionStore->deleteOwned($uploadSessionId, session_id(), $submissionId);
                         $messages[] = uploadSuccessMessage($uploadResult);
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                         $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
-                    } elseif (!$uploadResult->conflict) {
+                    } elseif ($uploadResult->conflict) {
+                        $sessionStore->deleteOwned($uploadSessionId, session_id(), $submissionId);
+                    } else {
                         $errors = array_merge($errors, $uploadResult->errors);
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                     }
@@ -292,7 +271,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $tempId,
                         (string) ($_POST['editable_mode'] ?? ''),
                         $conflictAction === 'overwrite',
-                        session_id()
+                        session_id(),
+                        $submissionId
                     );
                     if ($uploadResult->ok) {
                         $messages[] = uploadSuccessMessage($uploadResult);
@@ -304,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } elseif ($action === 'create_editable_upload') {
                 $upload = new Tomos\PostUpload($config, $rootDir);
-                $uploadResult = $upload->createEditableFromTemp((string) ($_POST['temp_id'] ?? ''), session_id());
+                $uploadResult = $upload->createEditableFromTemp((string) ($_POST['temp_id'] ?? ''), session_id(), $submissionId);
                 if ($uploadResult->ok) {
                     $messages[] = uploadSuccessMessage($uploadResult);
                     $warnings = array_merge($warnings, $uploadResult->warnings);
@@ -314,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } elseif ($action === 'update_upload') {
                 $upload = new Tomos\PostUpload($config, $rootDir);
-                $uploadResult = $upload->updateFromTemp((string) ($_POST['temp_id'] ?? ''), session_id());
+                $uploadResult = $upload->updateFromTemp((string) ($_POST['temp_id'] ?? ''), session_id(), $submissionId);
                     if ($uploadResult->ok) {
                         $messages[] = uploadSuccessMessage($uploadResult);
                     $warnings = array_merge($warnings, $uploadResult->warnings);
@@ -325,7 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($action === 'rename_upload') {
                 $upload = new Tomos\PostUpload($config, $rootDir);
                 $tempId = (string) ($_POST['temp_id'] ?? '');
-                $uploadResult = $upload->createRenamedFromTemp($tempId, (string) ($_POST['new_file_name'] ?? ''), session_id());
+                $uploadResult = $upload->createRenamedFromTemp($tempId, (string) ($_POST['new_file_name'] ?? ''), session_id(), $submissionId);
                 if ($uploadResult->ok) {
                     $messages[] = '新しいページとして投稿しました。';
                     $warnings = array_merge($warnings, $uploadResult->warnings);
@@ -377,7 +357,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $upload = new Tomos\PostUpload($config, $rootDir);
                     $omittedImages = is_array($_POST['omit_images'] ?? null) ? $_POST['omit_images'] : [];
-                    $uploadResult = $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), [], $omittedImages);
+                    $uploadResult = $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), [], $omittedImages, false, $submissionId);
                     if ($uploadResult->ok) {
                         $messages[] = uploadSuccessMessage($uploadResult);
                         $warnings = array_merge($warnings, $uploadResult->warnings);
@@ -387,6 +367,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                     }
                 }
+            }
+            if ($submissionGuard instanceof Tomos\PostSubmissionGuard) {
+                if ($uploadResult instanceof Tomos\PostUploadResult && $uploadResult->ok && !$submissionGuard->markCompleted()) {
+                    $warnings[] = '投稿は完了しましたが、二重送信防止の完了記録を保存できませんでした。';
+                }
+                $submissionGuard->release();
+                if ($uploadResult instanceof Tomos\PostUploadResult && $uploadResult->ok) {
+                    $submissionId = Tomos\PostSubmissionGuard::issueId();
+                }
+            }
             }
         }
     }
@@ -418,7 +408,7 @@ function isPostRequestTooLarge(): bool
     return $limit > 0 && $contentLength > $limit;
 }
 
-renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, false, $activeSection);
+renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, false, $activeSection, $submissionId);
 
 function jsonResponse(array $data, int $status = 200): void
 {
@@ -427,6 +417,50 @@ function jsonResponse(array $data, int $status = 200): void
     header('Cache-Control: no-store');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
+}
+
+function authenticatePostRequest(
+    Tomos\PostAuthRememberToken $rememberToken,
+    array $config,
+    string $rootDir,
+    string $postPasswordHash,
+    array &$warnings
+): string {
+    if ($rememberToken->restoreSession()) {
+        return '';
+    }
+
+    $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
+    $limit = $rateLimiter->checkAuthAllowed();
+    if (!$limit->allowed) {
+        return $limit->message;
+    }
+
+    if (!Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)) {
+        $rateLimiter->recordFailure();
+        return '管理用合言葉が正しくありません。';
+    }
+
+    $rateLimiter->clearFailures();
+    $_SESSION['tomos_post_authenticated'] = true;
+    if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$rememberToken->rememberCurrentBrowser()) {
+        $warnings[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
+    }
+    return '';
+}
+
+function renderAuthenticationFields(string $id, string $ariaLabel = ''): void
+{
+    if (!empty($_SESSION['tomos_post_authenticated'])) {
+        return;
+    }
+
+    if ($ariaLabel === '') {
+        echo '<label for="' . e($id) . '">管理用合言葉</label>';
+    }
+    $aria = $ariaLabel !== '' ? ' aria-label="' . e($ariaLabel) . '" placeholder="管理用合言葉"' : '';
+    echo '<input id="' . e($id) . '" type="password" name="post_password" autocomplete="current-password"' . $aria . '>';
+    echo '<label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>';
 }
 
 function sendBasicPageDownload(array $config, string $rootDir, string $page): string
@@ -558,7 +592,8 @@ function renderPage(
     ?array $editableSearchResult,
     string $editableQuery,
     bool $disabled,
-    string $activeSection
+    string $activeSection,
+    string $submissionId
 ): void {
     header('Content-Type: text/html; charset=utf-8');
     $token = (string) ($_SESSION['tomos_post_token'] ?? '');
@@ -584,7 +619,7 @@ label{color:var(--tomos-text);display:block;font-weight:700;margin:1rem 0 0.35re
 .hint{color:var(--tomos-muted);font-size:0.95rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,.nav a:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}button:disabled,.button[aria-disabled="true"]{background:var(--tomos-primary-disabled);border-color:var(--tomos-primary-disabled);color:#fff}button.danger{background:var(--tomos-danger);border-color:var(--tomos-danger)}button.danger:hover{background:var(--tomos-danger-hover);border-color:var(--tomos-danger-hover)}button.danger:active{background:var(--tomos-danger-active);border-color:var(--tomos-danger-active)}button.danger:focus-visible{outline:3px solid rgba(180,56,46,0.25);outline-offset:2px}button.secondary,.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}button.secondary:hover,.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}button.secondary:active,.button.secondary:active{background:var(--tomos-button-active)}button.danger.secondary{background:var(--tomos-input);color:var(--tomos-danger-text);border-color:var(--tomos-error-border)}button.danger.secondary:hover{background:var(--tomos-error-bg);border-color:var(--tomos-error-border)}
 code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}.result a{overflow-wrap:anywhere;word-break:break-word}.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}.grid>*{min-width:0}.nav{display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0}.nav a{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:999px;color:var(--tomos-text);padding:0.35rem 0.75rem;text-decoration:none}.nav a:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.meta p{margin:0.35rem 0;min-width:0}
-.image-status-list{list-style:none;margin:0.75rem 0;padding:0}.image-status-item{border-top:1px solid var(--tomos-border-soft);padding:0.75rem 0}.image-status-item:first-child{border-top:0}.image-status-line{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.image-status-ok{color:#2f6131;font-weight:700}.image-status-missing,.image-match-warning{color:var(--tomos-danger-text);font-weight:700}.image-omit-label{align-items:flex-start;display:flex;font-weight:400;gap:0.5rem;margin:0.5rem 0 0}.image-omit-label input{margin-top:0.35rem}
+.image-status-list{list-style:none;margin:0.75rem 0;padding:0}.image-status-item{border-top:1px solid var(--tomos-border-soft);padding:0.75rem 0}.image-status-item:first-child{border-top:0}.image-status-line{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.image-status-ok{color:#2f6131;font-weight:700}.image-status-missing,.image-match-warning{color:var(--tomos-danger-text);font-weight:700}.image-omit-label,.remember-auth{align-items:flex-start;display:flex;font-weight:400;gap:0.5rem;margin:0.65rem 0}.image-omit-label input,.remember-auth input{margin-top:0.35rem}.auth-actions{align-items:center;display:flex;justify-content:flex-end;margin:-0.25rem 0 1rem}.auth-actions form{margin:0}
 .nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 </style></head><body><main class="wrap">';
@@ -592,6 +627,13 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
     echo '<h1>' . e($title) . '</h1>';
     echo '<p class="hint">Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。</p>';
     renderSectionNav($activeSection, $publicBasePath);
+    if (!empty($_SESSION['tomos_post_authenticated'])) {
+        echo '<div class="auth-actions"><form method="post" action="">';
+        echo '<input type="hidden" name="action" value="logout">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<button class="secondary" type="submit">このブラウザの認証を解除</button>';
+        echo '</form></div>';
+    }
 
     if ($disabled) {
         renderMessages($errors, $messages, $warnings);
@@ -613,11 +655,23 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
         renderUpdateSettingsSection($config);
     } else {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
-        renderUploadConflict($uploadResult, $token, $displayUrl);
-        renderUploadForm($token, $config);
+        renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
+        renderUploadForm($token, $config, $submissionId);
     }
     echo '</div>';
 
+    echo <<<'HTML'
+<script>
+document.querySelectorAll("form[data-submission-form]").forEach((form) => {
+  form.addEventListener("submit", () => {
+    const button = form.querySelector('button[type="submit"]');
+    if (!button || button.disabled) return;
+    button.disabled = true;
+    button.textContent = "投稿中…";
+  });
+});
+</script>
+HTML;
     echo '</main></body></html>';
 }
 
@@ -714,13 +768,13 @@ function renderUploadResult(array $errors, ?Tomos\PostUploadResult $result, stri
     echo '</div>';
 }
 
-function renderUploadConflict(?Tomos\PostUploadResult $result, string $token, string $displayUrl): void
+function renderUploadConflict(?Tomos\PostUploadResult $result, string $token, string $displayUrl, string $submissionId): void
 {
     if (!($result instanceof Tomos\PostUploadResult) || !$result->conflict || $result->tempId === '') {
         return;
     }
     if (strpos($result->operation, 'editable_') === 0) {
-        renderEditableUploadConfirmation($result, $token, $displayUrl);
+        renderEditableUploadConfirmation($result, $token, $displayUrl, $submissionId);
         return;
     }
 
@@ -751,27 +805,27 @@ function renderUploadConflict(?Tomos\PostUploadResult $result, string $token, st
     echo '</div>';
     echo '</div>';
 
-    echo '<form method="post" action="">';
+    echo '<form method="post" action="" data-submission-form>';
     echo '<input type="hidden" name="action" value="update_upload">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="temp_id" value="' . e($result->tempId) . '">';
-    echo '<label for="update_password">管理用合言葉</label>';
-    echo '<input id="update_password" type="password" name="post_password" autocomplete="current-password">';
+    echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
+    renderAuthenticationFields('update_password');
     echo '<p class="hint">現在の公開ページを、同じURLのまま新しい内容に更新します。確認画面表示後に対象ファイルが変更されていた場合は中止します。</p>';
     echo '<div class="actions"><button type="submit">' . ($isBasicPage ? e(Tomos\PostBasicPage::label($basicType)) . 'を更新する' : 'このページを更新する') . '</button></div>';
     echo '</form>';
 
     if (!$isBasicPage) {
-        echo '<form method="post" action="">';
+        echo '<form method="post" action="" data-submission-form>';
     echo '<input type="hidden" name="action" value="rename_upload">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="temp_id" value="' . e($result->tempId) . '">';
+    echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
     echo '<label for="new_file_name">新しいファイル名</label>';
     echo '<input id="new_file_name" type="text" name="new_file_name" value="' . e($suggested) . '" data-current-url="' . e($displayUrl) . '">';
     echo '<p class="hint">現在のページを残し、別のURLで新しいページとして公開します。</p>';
     echo '<p><strong>新しい公開URL:</strong><br><a id="new-public-url" href="' . e($displayUrl) . '">' . e($displayUrl) . '</a></p>';
-    echo '<label for="rename_password">管理用合言葉</label>';
-    echo '<input id="rename_password" type="password" name="post_password" autocomplete="current-password">';
+    renderAuthenticationFields('rename_password');
     echo '<div class="actions"><button type="submit">ファイル名を変更して新しいページとして投稿する</button></div>';
         echo '</form>';
     }
@@ -821,7 +875,7 @@ function renderUploadConflict(?Tomos\PostUploadResult $result, string $token, st
 HTML;
 }
 
-function renderEditableUploadConfirmation(Tomos\PostUploadResult $result, string $token, string $displayUrl): void
+function renderEditableUploadConfirmation(Tomos\PostUploadResult $result, string $token, string $displayUrl, string $submissionId): void
 {
     $isFixedPage = Tomos\PostBasicPage::isProtectedContentPath($result->sourcePath);
     echo '<div class="result meta" id="post-upload-conflict">';
@@ -835,12 +889,12 @@ function renderEditableUploadConfirmation(Tomos\PostUploadResult $result, string
         if ($result->hasRelativeImages) {
             echo '<div class="notice"><p>保存先を変更すると、既存画像の相対パスが参照できなくなる場合があります。元の原稿と画像は変更されません。</p></div>';
         }
-        echo '<form method="post" action="">';
+        echo '<form method="post" action="" data-submission-form>';
         echo '<input type="hidden" name="action" value="create_editable_upload">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
         echo '<input type="hidden" name="temp_id" value="' . e($result->tempId) . '">';
-        echo '<label for="editable_new_password">管理用合言葉</label>';
-        echo '<input id="editable_new_password" type="password" name="post_password" autocomplete="current-password">';
+        echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
+        renderAuthenticationFields('editable_new_password');
         echo '<div class="actions"><button type="submit">新しい記事として投稿する</button></div>';
         echo '</form>';
         renderEditableCancelForm($result, $token);
@@ -861,10 +915,11 @@ function renderEditableUploadConfirmation(Tomos\PostUploadResult $result, string
     echo '<p><strong>公開URL:</strong><br><a href="' . e($displayUrl) . '" target="_blank" rel="noopener noreferrer">' . e($displayUrl) . '</a></p>';
     echo '<p><strong>一時保存の有効期限:</strong><br>' . e($result->expiresAt !== '' ? $result->expiresAt : '30分') . '</p>';
 
-    echo '<form method="post" action="">';
+    echo '<form method="post" action="" data-submission-form>';
     echo '<input type="hidden" name="action" value="resolve_editable_upload">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="temp_id" value="' . e($result->tempId) . '">';
+    echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
     if ($result->sourceConflict) {
         echo '<fieldset><legend>競合時の操作</legend>';
         echo '<label><input type="radio" name="conflict_action" value="cancel" checked> 更新を中止する</label>';
@@ -882,8 +937,7 @@ function renderEditableUploadConfirmation(Tomos\PostUploadResult $result, string
     } else {
         echo '<input type="hidden" name="editable_mode" value="published">';
     }
-    echo '<label for="editable_update_password">管理用合言葉</label>';
-    echo '<input id="editable_update_password" type="password" name="post_password" autocomplete="current-password">';
+    renderAuthenticationFields('editable_update_password');
     $buttonLabel = $result->sourceConflict
         ? '選択した操作を実行する'
         : ($result->sourceStatus === 'draft'
@@ -920,15 +974,15 @@ function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, 
     echo '</div>';
 }
 
-function renderUploadForm(string $token, array $config): void
+function renderUploadForm(string $token, array $config, string $submissionId): void
 {
     echo '<h2 id="post-upload">1. Markdownを投稿する</h2>';
     echo '<p class="hint">通常記事、index.md、about.mdを同じフォームから投稿できます。</p>';
     echo '<form id="post-upload-form" method="post" action="" enctype="multipart/form-data">';
     echo '<input type="hidden" name="action" value="upload">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
-    echo '<label for="post_password">管理用合言葉</label>';
-    echo '<input id="post_password" type="password" name="post_password" autocomplete="current-password">';
+    echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
+    renderAuthenticationFields('post_password');
     echo '<label for="markdown_file">投稿するファイル</label>';
     echo '<input id="markdown_file" type="file" name="markdown_file" accept=".md,.markdown,.txt,text/markdown,text/plain">';
     echo '<p id="page-type-notice" class="hint" role="status" aria-live="polite">ファイルを選択すると投稿対象を表示します。</p>';
@@ -1385,11 +1439,18 @@ function renderUploadForm(string $token, array $config): void
 
   const appendCommonApiFields = (data) => {
     const tokenInput = form.querySelector('input[name="_token"]');
+    const submissionInput = form.querySelector('input[name="submission_id"]');
     data.append("_token", tokenInput ? tokenInput.value : "");
+    data.append("submission_id", submissionInput ? submissionInput.value : "");
   };
 
   form.addEventListener("submit", async (event) => {
-    if (submitting) return;
+    if (submitting) {
+      event.preventDefault();
+      processingStatus.hidden = false;
+      processingStatus.textContent = "投稿処理中です。完了するまでそのままお待ちください。";
+      return;
+    }
 
     event.preventDefault();
     await imageSelectionTask;
@@ -1411,6 +1472,7 @@ function renderUploadForm(string $token, array $config): void
     if (files.length === 0) {
       submitting = true;
       submitButton.disabled = true;
+      submitButton.textContent = "投稿中…";
       form.submit();
       return;
     }
@@ -1423,6 +1485,7 @@ function renderUploadForm(string $token, array $config): void
 
     submitting = true;
     submitButton.disabled = true;
+    submitButton.textContent = "投稿中…";
     processingStatus.hidden = false;
     processingStatus.style.color = "";
     processingStatus.textContent = "投稿の準備中です。";
@@ -1432,7 +1495,9 @@ function renderUploadForm(string $token, array $config): void
       const startData = new FormData();
       appendCommonApiFields(startData);
       const passwordInput = form.querySelector('input[name="post_password"]');
+      const rememberInput = form.querySelector('input[name="remember_post_auth"]');
       startData.append("post_password", passwordInput ? passwordInput.value : "");
+      startData.append("remember_post_auth", rememberInput && rememberInput.checked ? "1" : "");
       startData.append("expected_images", JSON.stringify(files.map(([imageName]) => imageName)));
       const started = await apiRequest("start", startData);
       uploadSessionId = started.upload_session_id;
@@ -1495,6 +1560,7 @@ function renderUploadForm(string $token, array $config): void
       submitting = false;
       activeUploadSessionId = "";
       submitButton.disabled = false;
+      submitButton.textContent = "公開する";
       processingStatus.style.color = "var(--tomos-danger-text)";
       processingStatus.textContent = error && error.message
         ? error.message
@@ -1538,7 +1604,7 @@ function renderBasicPageDownloadButton(string $token, string $type, string $labe
     echo '<input type="hidden" name="action" value="download_basic_page">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="page" value="' . e($type) . '">';
-    echo '<input type="password" name="post_password" autocomplete="current-password" aria-label="' . e($label) . '用の管理用合言葉" placeholder="管理用合言葉">';
+    renderAuthenticationFields('basic_page_password_' . $type, $label . '用の管理用合言葉');
     if ($compact) {
         echo '<button class="secondary" type="submit">' . e($label) . '</button>';
     } else {
@@ -1549,7 +1615,6 @@ function renderBasicPageDownloadButton(string $token, string $type, string $labe
 
 function renderEditableMarkdownSection(string $token, array $config, string $query, ?array $result): void
 {
-    $authenticated = !empty($_SESSION['tomos_post_authenticated']);
     echo '<h2 id="editable-markdown">原稿を編集する</h2>';
     echo '<p class="hint">公開中の記事、下書き、固定ページを検索し、Tomos Writeで編集するためのMarkdownをダウンロードします。</p>';
     echo '<form method="post" action="">';
@@ -1558,10 +1623,7 @@ function renderEditableMarkdownSection(string $token, array $config, string $que
     echo '<label for="edit_query">タイトル・URL・保存先で検索</label>';
     echo '<input id="edit_query" type="text" name="edit_query" value="' . e($query) . '" maxlength="200" autocomplete="off">';
     echo '<p class="hint">検索語を入力した場合だけ、最大30件ずつ表示します。</p>';
-    if (!$authenticated) {
-        echo '<label for="editable_search_password">管理用合言葉</label>';
-        echo '<input id="editable_search_password" type="password" name="post_password" autocomplete="current-password">';
-    }
+    renderAuthenticationFields('editable_search_password');
     echo '<div class="actions"><button type="submit">原稿を検索する</button></div>';
     echo '</form>';
 
@@ -1686,8 +1748,7 @@ function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $t
     echo '<input type="hidden" name="action" value="withdraw">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="content_path" value="' . e($target->contentPath) . '">';
-    echo '<label for="withdraw_password">管理用合言葉</label>';
-    echo '<input id="withdraw_password" type="password" name="post_password" autocomplete="current-password">';
+    renderAuthenticationFields('withdraw_password');
     echo '<div class="actions"><button class="danger" type="submit">この投稿を取り下げる</button></div>';
     echo '</form>';
     echo '</div>';
@@ -1704,8 +1765,7 @@ function renderTrashSection(string $token, array $summary): void
     echo '<form method="post" action="">';
     echo '<input type="hidden" name="action" value="clear_trash">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
-    echo '<label for="trash_password">管理用合言葉</label>';
-    echo '<input id="trash_password" type="password" name="post_password" autocomplete="current-password">';
+    renderAuthenticationFields('trash_password');
     echo '<label for="confirm_clear">確認入力</label>';
     echo '<input id="confirm_clear" type="text" name="confirm_clear" placeholder="DELETE" autocapitalize="characters" spellcheck="false">';
     echo '<p class="hint">完全に削除する場合は、確認欄に「DELETE」と入力してください。</p>';
@@ -1730,8 +1790,7 @@ function renderThemeSettingsSection(string $token, array $config): void
         echo '<form method="post" action="">';
         echo '<input type="hidden" name="action" value="theme_auth">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
-        echo '<label for="theme_password">管理用合言葉</label>';
-        echo '<input id="theme_password" type="password" name="post_password" autocomplete="current-password">';
+        renderAuthenticationFields('theme_password');
         echo '<div class="actions"><button type="submit">テーマを切り替える</button></div>';
         echo '</form>';
     }
@@ -1754,8 +1813,7 @@ function renderSiteSettingsSection(string $token, array $config): void
         echo '<form method="post" action="">';
         echo '<input type="hidden" name="action" value="site_settings_auth">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
-        echo '<label for="site_settings_password">管理用合言葉</label>';
-        echo '<input id="site_settings_password" type="password" name="post_password" autocomplete="current-password">';
+        renderAuthenticationFields('site_settings_password');
         echo '<div class="actions"><button type="submit">サイト設定を開く</button></div>';
         echo '</form>';
     }
@@ -1775,8 +1833,7 @@ function renderAnalyticsSettingsSection(string $token, array $config): void
     echo '<label for="ga4_measurement_id">GA4測定ID（任意）</label>';
     echo '<input id="ga4_measurement_id" type="text" name="ga4_measurement_id" value="' . e($measurementId) . '" placeholder="G-XXXXXXXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">';
     echo '<p class="hint">空欄で保存すると、公開ページからGoogleタグを削除します。テーマを変更してもこの設定は維持されます。</p>';
-    echo '<label for="analytics_password">管理用合言葉</label>';
-    echo '<input id="analytics_password" type="password" name="post_password" autocomplete="current-password">';
+    renderAuthenticationFields('analytics_password');
     echo '<div class="actions"><button type="submit">設定を保存する</button></div>';
     echo '</form>';
 }

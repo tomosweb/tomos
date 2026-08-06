@@ -18,6 +18,11 @@ core/InstalledIntegrityVerifier.php
 core/UpdaterSelfUpdate.php
 core/required-installed-files.txt
 core/PostBasicPage.php
+core/PostAuthRememberToken.php
+core/PostSubmissionGuard.php
+core/PostRateLimiter.php
+core/PostUpload.php
+core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
 post/settings/index.php
 post/theme/index.php

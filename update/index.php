@@ -23,6 +23,8 @@ $config = is_array($config) ? $config : [];
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath);
 $updateUrl = Tomos\Security::publicUrl('/update/', $publicBasePath);
+$authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
+$authRemember->restoreSession();
 
 if (empty($_SESSION['tomos_update_token'])) {
     $_SESSION['tomos_update_token'] = bin2hex(random_bytes(32));
@@ -53,17 +55,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors === []) {
     } elseif ($action === 'inspect') {
         if (empty($_SESSION['tomos_post_authenticated'])) {
             $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
-            $limit = $rateLimiter->checkPostAllowed();
+            $limit = $rateLimiter->checkAuthAllowed();
             if (!$limit->allowed) {
                 $errors[] = $limit->message;
             } elseif (!Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), (string) $config['security']['post_password_hash'])) {
-                $rateLimiter->recordPostAttempt();
                 $rateLimiter->recordFailure();
                 $errors[] = '管理用合言葉が正しくありません。';
             } else {
-                $rateLimiter->recordPostAttempt();
                 $rateLimiter->clearFailures();
                 $_SESSION['tomos_post_authenticated'] = true;
+                if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$authRemember->rememberCurrentBrowser()) {
+                    $errors[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
+                }
             }
         }
         if ($errors === []) {
@@ -195,6 +198,7 @@ function renderUpdatePage(
         echo '<label for="update_zip">更新ZIPを選択</label><input id="update_zip" type="file" name="update_zip" accept=".zip,application/zip" required>';
         if (!$authenticated) {
             echo '<label for="post_password">管理用合言葉</label><input id="post_password" type="password" name="post_password" autocomplete="current-password" required>';
+            echo '<label><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>';
         }
         echo '<div class="actions"><button type="submit">更新内容を確認</button><a class="button secondary" href="' . e($postUrl) . '">Tomos Postへ戻る</a></div></form>';
     }

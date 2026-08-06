@@ -15,9 +15,9 @@ final class PostImageUploadSessionStore
     }
 
     /** @param string[] $expectedImages */
-    public function create(string $ownerSessionId, array $expectedImages): ?array
+    public function create(string $ownerSessionId, array $expectedImages, string $submissionId = ''): ?array
     {
-        if (!$this->ensureDir()) {
+        if (!$this->ensureDir() || !$this->validSubmissionId($submissionId)) {
             return null;
         }
         $this->cleanupExpired();
@@ -43,6 +43,7 @@ final class PostImageUploadSessionStore
         $record = [
             'id' => $id,
             'owner_hash' => hash('sha256', $ownerSessionId),
+            'submission_hash' => hash('sha256', $submissionId),
             'created_at' => $now,
             'expires_at' => $now + self::TTL_SECONDS,
             'state' => 'open',
@@ -56,7 +57,7 @@ final class PostImageUploadSessionStore
         return $record;
     }
 
-    public function receive(string $id, string $ownerSessionId, string $imageName, array $file, int $effectiveMax, int $chunkIndex = 0, int $chunkCount = 1, int $totalSize = 0): array
+    public function receive(string $id, string $ownerSessionId, string $imageName, array $file, int $effectiveMax, int $chunkIndex = 0, int $chunkCount = 1, int $totalSize = 0, string $submissionId = ''): array
     {
         if (!$this->validId($id) || !$this->ensureDir()) {
             return ['ok' => false, 'message' => '投稿の準備情報を確認できませんでした。'];
@@ -68,16 +69,16 @@ final class PostImageUploadSessionStore
         }
 
         try {
-            return $this->receiveLocked($id, $ownerSessionId, $imageName, $file, $effectiveMax, $chunkIndex, $chunkCount, $totalSize);
+            return $this->receiveLocked($id, $ownerSessionId, $imageName, $file, $effectiveMax, $chunkIndex, $chunkCount, $totalSize, $submissionId);
         } finally {
             @flock($lock, LOCK_UN);
             @fclose($lock);
         }
     }
 
-    private function receiveLocked(string $id, string $ownerSessionId, string $imageName, array $file, int $effectiveMax, int $chunkIndex, int $chunkCount, int $totalSize): array
+    private function receiveLocked(string $id, string $ownerSessionId, string $imageName, array $file, int $effectiveMax, int $chunkIndex, int $chunkCount, int $totalSize, string $submissionId): array
     {
-        $record = $this->loadOwned($id, $ownerSessionId);
+        $record = $this->loadOwned($id, $ownerSessionId, $submissionId);
         if ($record === null || ($record['state'] ?? '') !== 'open') {
             return ['ok' => false, 'message' => '投稿の準備情報が見つからないか、有効期限が切れました。'];
         }
@@ -165,9 +166,9 @@ final class PostImageUploadSessionStore
     }
 
     /** @return array<string,string>|null */
-    public function readyImages(string $id, string $ownerSessionId): ?array
+    public function readyImages(string $id, string $ownerSessionId, string $submissionId = ''): ?array
     {
-        $record = $this->loadOwned($id, $ownerSessionId);
+        $record = $this->loadOwned($id, $ownerSessionId, $submissionId);
         if ($record === null || ($record['state'] ?? '') !== 'open') {
             return null;
         }
@@ -185,9 +186,9 @@ final class PostImageUploadSessionStore
         return $paths;
     }
 
-    public function deleteOwned(string $id, string $ownerSessionId): bool
+    public function deleteOwned(string $id, string $ownerSessionId, string $submissionId = ''): bool
     {
-        if ($this->loadOwned($id, $ownerSessionId) === null) {
+        if ($this->loadOwned($id, $ownerSessionId, $submissionId) === null) {
             return false;
         }
         $this->delete($id);
@@ -205,9 +206,9 @@ final class PostImageUploadSessionStore
         }
     }
 
-    private function loadOwned(string $id, string $ownerSessionId): ?array
+    private function loadOwned(string $id, string $ownerSessionId, string $submissionId = ''): ?array
     {
-        if (!$this->validId($id)) return null;
+        if (!$this->validId($id) || !$this->validSubmissionId($submissionId)) return null;
         $raw = @file_get_contents($this->metaPath($id));
         $record = is_string($raw) ? json_decode($raw, true) : null;
         if (!is_array($record) || (int) ($record['expires_at'] ?? 0) < time()) {
@@ -215,7 +216,13 @@ final class PostImageUploadSessionStore
             return null;
         }
         $ownerHash = (string) ($record['owner_hash'] ?? '');
-        return $ownerHash !== '' && hash_equals($ownerHash, hash('sha256', $ownerSessionId)) ? $record : null;
+        $submissionHash = (string) ($record['submission_hash'] ?? '');
+        return $ownerHash !== ''
+            && $submissionHash !== ''
+            && hash_equals($ownerHash, hash('sha256', $ownerSessionId))
+            && hash_equals($submissionHash, hash('sha256', $submissionId))
+                ? $record
+                : null;
     }
 
     private function write(string $id, array $record): bool
@@ -252,6 +259,7 @@ final class PostImageUploadSessionStore
     }
 
     private function validId(string $id): bool { return preg_match('/\A[a-f0-9]{48}\z/', $id) === 1; }
+    private function validSubmissionId(string $id): bool { return preg_match('/\A[a-f0-9]{64}\z/', $id) === 1; }
     private function safeImageName(string $name): bool { return preg_match('/\Atms-[a-f0-9]{16}\.(jpg|jpeg|png|gif|webp)\z/i', $name) === 1; }
     private function metaPath(string $id): string { return $this->dir . DIRECTORY_SEPARATOR . $id . '.json'; }
     private function imageDir(string $id): string { return $this->dir . DIRECTORY_SEPARATOR . $id . '-images'; }

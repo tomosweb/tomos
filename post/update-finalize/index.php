@@ -32,20 +32,36 @@ if (empty($_SESSION['tomos_updater_finalize_token'])) {
 $selfUpdate = new Tomos\UpdaterSelfUpdate($rootDir);
 $pending = $selfUpdate->hasPendingUpdate();
 $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
+$authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
+$authRemember->restoreSession();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $token = (string) ($_POST['_token'] ?? '');
     if (!hash_equals((string) $_SESSION['tomos_updater_finalize_token'], $token)) {
         $errors[] = '画面の有効期限が切れました。再読み込みしてください。';
-    } elseif ($postPasswordHash === ''
-        || !Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)
-    ) {
-        $errors[] = '管理用合言葉が正しくありません。';
-    } elseif (class_exists(Tomos\UpdateLock::class) && Tomos\UpdateLock::isActive($rootDir)) {
+    } elseif ($postPasswordHash === '') {
+        $errors[] = '管理用合言葉が設定されていません。Tomos Postの設定を確認してください。';
+    } elseif (empty($_SESSION['tomos_post_authenticated'])) {
+        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
+        $limit = $rateLimiter->checkAuthAllowed();
+        if (!$limit->allowed) {
+            $errors[] = $limit->message;
+        } elseif (!Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)) {
+            $rateLimiter->recordFailure();
+            $errors[] = '管理用合言葉が正しくありません。';
+        } else {
+            $rateLimiter->clearFailures();
+            $_SESSION['tomos_post_authenticated'] = true;
+            if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$authRemember->rememberCurrentBrowser()) {
+                $warnings[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
+            }
+        }
+    }
+    if ($errors === [] && (class_exists(Tomos\UpdateLock::class) && Tomos\UpdateLock::isActive($rootDir))) {
         $errors[] = 'Tomosの更新中です。完了してからもう一度お試しください。';
-    } elseif (!$pending) {
+    } elseif ($errors === [] && !$pending) {
         $messages[] = '反映待ちのUpdater更新はありません。';
-    } else {
+    } elseif ($errors === []) {
         try {
             $result = $selfUpdate->apply();
             if (!empty($result['applied'])) {
@@ -116,11 +132,14 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <?php endforeach; ?>
 <?php if ($pending): ?>
 <p>署名済みUpdate ZIPで受け取ったUpdater本体の更新が、反映待ちです。</p>
-<p>管理用合言葉を入力して反映してください。現在のUpdaterは先にバックアップされ、置換に失敗した場合は自動復元されます。</p>
+<p>管理認証後に反映してください。現在のUpdaterは先にバックアップされ、置換に失敗した場合は自動復元されます。</p>
 <form method="post">
 <input type="hidden" name="_token" value="<?= h((string) $_SESSION['tomos_updater_finalize_token']) ?>">
+<?php if (empty($_SESSION['tomos_post_authenticated'])): ?>
 <label for="post_password">管理用合言葉</label>
 <input id="post_password" name="post_password" type="password" autocomplete="current-password" required>
+<label><input name="remember_post_auth" type="checkbox" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
+<?php endif; ?>
 <button type="submit">Updater更新を反映する</button>
 </form>
 <?php else: ?>
@@ -131,3 +150,9 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 </main>
 </body>
 </html>
+<?php
+function clientIp(): string
+{
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    return $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : 'unknown';
+}

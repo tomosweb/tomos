@@ -68,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (Tomos\ConfigWriter::write($configPath, $newConfig, $rootDir)) {
                 $config = $newConfig;
+                (new Tomos\PostAuthRememberToken($config, $rootDir))->invalidateAll();
                 $_SESSION['tomos_post_reset_token'] = bin2hex(random_bytes(32));
             } else {
                 $newPassword = '';

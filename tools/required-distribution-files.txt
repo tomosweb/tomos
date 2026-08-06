@@ -13,6 +13,8 @@ cache/index/.gitkeep
 cache/html/.gitkeep
 cache/logs/.gitkeep
 cache/security/post-rate-limit/.gitkeep
+cache/security/post-auth/.gitkeep
+cache/security/post-submissions/.gitkeep
 cache/post-upload-sessions/.gitkeep
 post/index.php
 post/update-finalize/index.php
@@ -28,6 +30,11 @@ core/InstalledIntegrityVerifier.php
 core/UpdaterSelfUpdate.php
 core/required-installed-files.txt
 core/PostBasicPage.php
+core/PostAuthRememberToken.php
+core/PostSubmissionGuard.php
+core/PostRateLimiter.php
+core/PostUpload.php
+core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
 post/settings/index.php
 post/theme/index.php

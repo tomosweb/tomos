@@ -91,6 +91,10 @@ Apache環境ではルート `.htaccess` で `config.php` と `config.sample.php`
 
 HTMLキャッシュのファイル名には元Markdownパスをそのまま使わず、ハッシュ化したキーを使います。draftページは公開可否判定後にのみキャッシュ経路へ進むため、過去のキャッシュが残っていてもdraftページは表示しません。
 
+管理用合言葉の記憶トークンは `cache/security/post-auth/`、投稿完了記録は `cache/security/post-submissions/` に保存します。どちらも生のトークンや投稿IDをファイル名に使わずSHA-256ハッシュを使用し、ディレクトリ内の `.htaccess` でも直接アクセスを拒否します。配布ZIPには生成済みJSON、ロック、一時ファイルを含めません。
+
+記憶CookieはHttpOnly、SameSite=Strict、Tomos Post配下のPath、30日のMax-Ageを使用します。HTTPS判定時はSecureを必須とし、HTTPのローカル開発環境だけSecureを外します。Cookieには管理用合言葉を保存しません。
+
 ## .htaccessの役割
 
 ルート `.htaccess` は以下を担当します。

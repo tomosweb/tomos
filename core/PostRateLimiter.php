@@ -21,20 +21,20 @@ final class PostRateLimiter
     private const FAILURE_WINDOW_SECONDS = 600;
     private const FAILURE_LIMIT = 5;
     private const BLOCK_SECONDS = 900;
-    private const POST_MIN_INTERVAL_SECONDS = 30;
     private const RESET_MIN_INTERVAL_SECONDS = 60;
     private const CLEANUP_MAX_AGE_SECONDS = 86400;
-    private const LIMIT_MESSAGE = '短時間に投稿試行が続いたため、一時的に投稿を停止しています。しばらく時間をおいてから再度お試しください。';
+    private const AUTH_LIMIT_MESSAGE = '管理用合言葉の入力に複数回失敗したため、15分間操作を停止しています。';
+    private const RESET_LIMIT_MESSAGE = '合言葉の再設定を続けて実行することはできません。しばらく時間をおいてから再度お試しください。';
 
     private string $dir;
     private string $path;
     private int $now;
 
-    public function __construct(array $config, string $rootDir, string $clientIp)
+    public function __construct(array $config, string $rootDir, string $clientIp, ?int $now = null)
     {
         $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
         $this->dir = rtrim($cacheDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'security' . DIRECTORY_SEPARATOR . 'post-rate-limit';
-        $this->now = time();
+        $this->now = $now ?? time();
 
         $security = is_array($config['security'] ?? null) ? $config['security'] : [];
         $site = is_array($config['site'] ?? null) ? $config['site'] : [];
@@ -54,36 +54,14 @@ final class PostRateLimiter
         return bin2hex(random_bytes(32));
     }
 
-    public function checkPostAllowed(): PostRateLimitResult
+    public function checkAuthAllowed(): PostRateLimitResult
     {
         $state = $this->load();
         if ($this->isBlocked($state)) {
-            return new PostRateLimitResult(false, self::LIMIT_MESSAGE);
-        }
-
-        $lastPostAt = (int) ($state['last_post_at'] ?? 0);
-        if ($lastPostAt > 0 && ($this->now - $lastPostAt) < self::POST_MIN_INTERVAL_SECONDS) {
-            return new PostRateLimitResult(false, self::LIMIT_MESSAGE);
+            return new PostRateLimitResult(false, self::AUTH_LIMIT_MESSAGE);
         }
 
         return new PostRateLimitResult(true);
-    }
-
-    public function checkPostContinuationAllowed(): PostRateLimitResult
-    {
-        $state = $this->load();
-        if ($this->isBlocked($state)) {
-            return new PostRateLimitResult(false, self::LIMIT_MESSAGE);
-        }
-
-        return new PostRateLimitResult(true);
-    }
-
-    public function recordPostAttempt(): void
-    {
-        $state = $this->load();
-        $state['last_post_at'] = $this->now;
-        $this->save($state);
     }
 
     public function recordFailure(): void
@@ -113,7 +91,7 @@ final class PostRateLimiter
         $state = $this->load();
         $lastResetAt = (int) ($state['last_reset_at'] ?? 0);
         if ($lastResetAt > 0 && ($this->now - $lastResetAt) < self::RESET_MIN_INTERVAL_SECONDS) {
-            return new PostRateLimitResult(false, self::LIMIT_MESSAGE);
+            return new PostRateLimitResult(false, self::RESET_LIMIT_MESSAGE);
         }
 
         return new PostRateLimitResult(true);
@@ -169,7 +147,6 @@ final class PostRateLimiter
 
         $state['failures'] = $this->recentFailures($state);
         $state['blocked_until'] = (int) ($state['blocked_until'] ?? 0);
-        $state['last_post_at'] = (int) ($state['last_post_at'] ?? 0);
         $state['last_reset_at'] = (int) ($state['last_reset_at'] ?? 0);
 
         return $state;
@@ -184,7 +161,6 @@ final class PostRateLimiter
         $json = json_encode([
             'failures' => array_values(is_array($state['failures'] ?? null) ? $state['failures'] : []),
             'blocked_until' => (int) ($state['blocked_until'] ?? 0),
-            'last_post_at' => (int) ($state['last_post_at'] ?? 0),
             'last_reset_at' => (int) ($state['last_reset_at'] ?? 0),
         ], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
@@ -200,7 +176,6 @@ final class PostRateLimiter
         return [
             'failures' => [],
             'blocked_until' => 0,
-            'last_post_at' => 0,
             'last_reset_at' => 0,
         ];
     }
