@@ -19,6 +19,7 @@ final class FakeRegistrationClient implements PasskeyWebAuthnClient
     /** @var array<int,string> */
     public array $excluded = [];
     public string $verifiedChallenge = '';
+    public string $verifiedOrigin = '';
 
     public function createRegistrationOptions(string $rpId, array $excludeCredentialIds): array
     {
@@ -29,9 +30,14 @@ final class FakeRegistrationClient implements PasskeyWebAuthnClient
         ];
     }
 
-    public function verifyRegistration(string $rpId, array $payload, string $challenge): array
-    {
+    public function verifyRegistration(
+        string $rpId,
+        string $expectedOrigin,
+        array $payload,
+        string $challenge
+    ): array {
         $this->verifiedChallenge = $challenge;
+        $this->verifiedOrigin = $expectedOrigin;
         return [
             'credential_id' => 'Y3JlZGVudGlhbC0x',
             'public_key' => base64_encode('public-key-1'),
@@ -47,6 +53,7 @@ final class FakeRegistrationClient implements PasskeyWebAuthnClient
 
     public function verifyAuthentication(
         string $rpId,
+        string $expectedOrigin,
         array $payload,
         string $challenge,
         string $publicKey,
@@ -83,6 +90,7 @@ try {
     assertSame('iPhone', $record['label'] ?? null, 'user label must be persisted');
     assertSame('example.com', $record['rp_id'] ?? null, 'credential must be bound to RP ID');
     assertSame('binary-challenge', $client->verifiedChallenge, 'verification must receive the issued challenge');
+    assertSame('https://example.com', $client->verifiedOrigin, 'verification must receive the exact configured origin');
     assertSame(1, count($credentialStore->all()), 'one registered credential must exist');
 
     assertThrows(function () use ($service, &$session): void {
