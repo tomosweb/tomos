@@ -103,11 +103,13 @@ $token = (string) $_SESSION['tomos_post_token'];
 $basePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $postUrl = '/' . trim($basePath, '/') . '/post/';
 $postUrl = preg_replace('#/+#', '/', $postUrl);
+$securityUrl = '/' . trim($basePath, '/') . '/post/security/';
+$securityUrl = preg_replace('#/+#', '/', $securityUrl);
 ?><!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>管理用合言葉を再設定 - Tomos Post</title>
+<title>パスキーで合言葉を再設定 - Tomos Post</title>
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=password]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem}button,.button{display:inline-block;padding:.7rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}
 </style>
@@ -115,7 +117,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </head>
 <body>
 <h1>Tomos Post</h1>
-<h2>管理用合言葉を再設定</h2>
+<h2>パスキーで合言葉を再設定</h2>
 <p>登録済みパスキーで本人確認した後、新しい管理用合言葉を設定します。再設定後は、記憶済みのブラウザ認証をすべて解除します。</p>
 
 <?php if (empty($status['available'])): ?>
@@ -134,7 +136,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 
 <p id="result" role="status" aria-live="polite"></p>
-<p><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
+<p><a class="button" href="<?= htmlspecialchars((string) $securityUrl, ENT_QUOTES, 'UTF-8') ?>">セキュリティへ戻る</a> <a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
 
 <script>
 (() => {
