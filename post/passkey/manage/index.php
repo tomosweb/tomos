@@ -125,7 +125,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php if (!$authenticated): ?>
 <div class="result ng">
 <p>パスキーを管理するにはTomos Postへの認証が必要です。</p>
-<p><a class="button" href="<?= e($publicPath('post/passkey/login/')) ?>">パスキーで認証</a> <a class="button" href="<?= e($publicPath('post/')) ?>">Tomos Postへ</a></p>
+<p><a class="button" href="<?= e($publicPath('post/passkey/login/')) ?>">パスキーで認証</a> <a class="button" href="<?= e($publicPath('post/')) ?>">管理用合言葉で認証</a></p>
 </div>
 <?php else: ?>
 <p><a class="button" href="<?= e($publicPath('post/passkey/register/')) ?>">パスキーを追加</a></p>
@@ -159,6 +159,6 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 <?php endif; ?>
 
-<p><a class="button" href="<?= e($publicPath('post/')) ?>">Tomos Postへ戻る</a></p>
+<p><a class="button" href="<?= e($publicPath('post/security/')) ?>">セキュリティへ戻る</a> <a class="button" href="<?= e($publicPath('post/')) ?>">Tomos Postへ戻る</a></p>
 </body>
 </html>
