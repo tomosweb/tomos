@@ -213,9 +213,11 @@ foreach ($store->all() as $record) {
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=text]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem}button,.button{display:inline-block;padding:.7rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}.steps{padding-left:1.4rem}.steps li{margin:.8rem 0}code{word-break:break-all}
 </style>
+<link rel="stylesheet" href="../../assets/tomos-post-security.css">
 </head>
 <body>
-<h1>Tomos Postを復旧</h1>
+<h1>Tomos Post</h1>
+<h2>Tomos Postを復旧</h2>
 <p>管理用合言葉を忘れ、登録済みパスキーもない場合に、サーバーへの書き込み権限を確認して最初のパスキーを登録します。</p>
 
 <?php if (empty($status['available'])): ?>
