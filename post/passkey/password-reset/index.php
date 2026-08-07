@@ -111,9 +111,11 @@ $postUrl = preg_replace('#/+#', '/', $postUrl);
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=password]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem}button,.button{display:inline-block;padding:.7rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}
 </style>
+<link rel="stylesheet" href="../../assets/tomos-post-security.css">
 </head>
 <body>
-<h1>管理用合言葉を再設定</h1>
+<h1>Tomos Post</h1>
+<h2>管理用合言葉を再設定</h2>
 <p>登録済みパスキーで本人確認した後、新しい管理用合言葉を設定します。再設定後は、記憶済みのブラウザ認証をすべて解除します。</p>
 
 <?php if (empty($status['available'])): ?>
