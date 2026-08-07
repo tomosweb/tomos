@@ -33,8 +33,12 @@ final class LbuchsPasskeyWebAuthnClient implements PasskeyWebAuthnClient
         ];
     }
 
-    public function verifyRegistration(string $rpId, array $payload, string $challenge): array
-    {
+    public function verifyRegistration(
+        string $rpId,
+        string $expectedOrigin,
+        array $payload,
+        string $challenge
+    ): array {
         if (!class_exists(WebAuthn::class)) {
             throw new RuntimeException('WebAuthn library is not available.');
         }
@@ -44,6 +48,7 @@ final class LbuchsPasskeyWebAuthnClient implements PasskeyWebAuthnClient
         if ($clientData === null || $attestation === null || $challenge === '') {
             throw new RuntimeException('Invalid registration payload.');
         }
+        $this->assertExactOrigin($clientData, $expectedOrigin);
 
         $webauthn = new WebAuthn('Tomos', $rpId, ['none'], true);
         $data = $webauthn->processCreate(
@@ -92,6 +97,7 @@ final class LbuchsPasskeyWebAuthnClient implements PasskeyWebAuthnClient
 
     public function verifyAuthentication(
         string $rpId,
+        string $expectedOrigin,
         array $payload,
         string $challenge,
         string $publicKey,
@@ -115,6 +121,7 @@ final class LbuchsPasskeyWebAuthnClient implements PasskeyWebAuthnClient
         ) {
             throw new RuntimeException('Invalid authentication payload.');
         }
+        $this->assertExactOrigin($clientData, $expectedOrigin);
 
         $webauthn = new WebAuthn('Tomos', $rpId, ['none'], true);
         $webauthn->processGet(
@@ -132,6 +139,15 @@ final class LbuchsPasskeyWebAuthnClient implements PasskeyWebAuthnClient
         return [
             'sign_count' => $counter === null ? $storedSignCount : max(0, (int) $counter),
         ];
+    }
+
+    private function assertExactOrigin(string $clientDataJson, string $expectedOrigin): void
+    {
+        $clientData = json_decode($clientDataJson, true);
+        $origin = is_array($clientData) ? (string) ($clientData['origin'] ?? '') : '';
+        if ($expectedOrigin === '' || $origin === '' || !hash_equals($expectedOrigin, $origin)) {
+            throw new RuntimeException('WebAuthn origin does not match this Tomos site.');
+        }
     }
 
     private function decodeBase64(string $value): ?string
