@@ -111,6 +111,10 @@ $postUrl = '/' . trim($basePath, '/') . '/post/';
 $postUrl = preg_replace('#/+#', '/', $postUrl);
 $registerUrl = '/' . trim($basePath, '/') . '/post/passkey/register/';
 $registerUrl = preg_replace('#/+#', '/', $registerUrl);
+$securityUrl = '/' . trim($basePath, '/') . '/post/security/';
+$securityUrl = preg_replace('#/+#', '/', $securityUrl);
+$forgotUrl = '/' . trim($basePath, '/') . ($credentials === [] ? '/post/passkey/recovery/' : '/post/passkey/password-reset/');
+$forgotUrl = preg_replace('#/+#', '/', $forgotUrl);
 ?><!doctype html>
 <html lang="ja">
 <head>
@@ -128,14 +132,15 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php if (empty($status['available'])): ?>
 <div class="result ng"><p>この環境ではパスキー認証を利用できません。</p></div>
 <?php elseif ($credentials === []): ?>
-<div class="result"><p>このTomos本実装に登録済みのパスキーがありません。</p><p><a class="button" href="<?= htmlspecialchars((string) $registerUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーを登録</a></p></div>
+<div class="result"><p>登録済みパスキーがありません。</p><p><a class="button" href="<?= htmlspecialchars((string) $registerUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉が分かる場合はパスキーを登録</a></p><p><a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉も忘れた場合はTomos Postを復旧</a></p></div>
 <?php else: ?>
 <p class="hint">登録済み: <?= count($credentials) ?> 件</p>
 <button id="login-button" type="button">パスキーで開く</button>
 <?php endif; ?>
 
 <p id="result" role="status" aria-live="polite"></p>
-<p><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a></p>
+<p><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a> <a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">合言葉を忘れた場合</a></p>
+<p><a class="button" href="<?= htmlspecialchars((string) $securityUrl, ENT_QUOTES, 'UTF-8') ?>">セキュリティへ戻る</a></p>
 
 <script>
 (() => {
