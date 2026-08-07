@@ -1,11 +1,6 @@
 name: Apply Tomos Post passkey integration
 
 on:
-  push:
-    branches:
-      - feature/passkey-auth
-    paths:
-      - .github/workflows/apply-post-passkey-integration.yml
   pull_request:
     branches:
       - main
@@ -17,7 +12,7 @@ permissions:
 
 jobs:
   apply:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'feature/passkey-auth'
+    if: github.event.pull_request.head.ref == 'feature/passkey-auth'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,21 +28,8 @@ jobs:
           path = Path('post/index.php')
           text = path.read_text(encoding='utf-8')
 
-          old_render = """    if ($disabled) {
-              renderMessages($errors, $messages, $warnings);
-              echo '</main></body></html>';
-              return;
-          }
-
-          echo '<div class=\"section\">';
-          """
-          new_render = """    if ($disabled) {
-              renderMessages($errors, $messages, $warnings);
-              echo '</main></body></html>';
-              return;
-          }
-
-          if (empty($_SESSION['tomos_post_authenticated'])) {
+          render_anchor = "    echo '<div class=\"section\">';\n    renderMessages($errors, $messages, $warnings);"
+          render_insert = """    if (empty($_SESSION['tomos_post_authenticated'])) {
               $securityUrl = Tomos\\Security::publicUrl('/post/security/', $publicBasePath);
               echo '<div class=\"actions\">';
               if (passkeyLoginAvailable($config, dirname(__DIR__))) {
@@ -58,25 +40,10 @@ jobs:
               echo '</div>';
           }
 
-          echo '<div class=\"section\">';
           """
 
-          old_nav = """    foreach ($items as $section => $label) {
-              $url = Tomos\\Security::publicUrl('/post/?section=' . $section, $publicBasePath);
-              $current = $section === $activeSection ? ' aria-current=\"page\"' : '';
-              echo '<a href=\"' . e($url) . '\"' . $current . '>' . e($label) . '</a>';
-          }
-          echo '</nav>';
-          }
-
-          function renderUpdateSettingsSection(array $config): void
-          """
-          new_nav = """    foreach ($items as $section => $label) {
-              $url = Tomos\\Security::publicUrl('/post/?section=' . $section, $publicBasePath);
-              $current = $section === $activeSection ? ' aria-current=\"page\"' : '';
-              echo '<a href=\"' . e($url) . '\"' . $current . '>' . e($label) . '</a>';
-          }
-          $securityUrl = Tomos\\Security::publicUrl('/post/security/', $publicBasePath);
+          nav_anchor = "    echo '</nav>';\n}\n\nfunction renderUpdateSettingsSection(array $config): void"
+          nav_insert = """    $securityUrl = Tomos\\Security::publicUrl('/post/security/', $publicBasePath);
           echo '<a href=\"' . e($securityUrl) . '\">セキュリティ</a>';
           echo '</nav>';
           }
@@ -121,16 +88,15 @@ jobs:
               return false;
           }
 
-          function renderUpdateSettingsSection(array $config): void
-          """
+          function renderUpdateSettingsSection(array $config): void"""
 
-          if text.count(old_render) != 1:
-              raise SystemExit('render insertion point did not match exactly once')
-          if text.count(old_nav) != 1:
-              raise SystemExit('navigation insertion point did not match exactly once')
+          if text.count(render_anchor) != 1:
+              raise SystemExit('render anchor did not match exactly once')
+          if text.count(nav_anchor) != 1:
+              raise SystemExit('navigation anchor did not match exactly once')
 
-          text = text.replace(old_render, new_render, 1)
-          text = text.replace(old_nav, new_nav, 1)
+          text = text.replace(render_anchor, render_insert + render_anchor, 1)
+          text = text.replace(nav_anchor, nav_insert, 1)
           path.write_text(text, encoding='utf-8')
           PY
 
