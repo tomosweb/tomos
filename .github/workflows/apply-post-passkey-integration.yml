@@ -1,0 +1,141 @@
+name: Apply Tomos Post passkey integration
+
+on:
+  push:
+    branches:
+      - feature/passkey-auth
+    paths:
+      - .github/workflows/apply-post-passkey-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/passkey-auth
+          fetch-depth: 0
+
+      - name: Apply narrow post/index.php integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('post/index.php')
+          text = path.read_text(encoding='utf-8')
+
+          old_render = """    if ($disabled) {
+              renderMessages($errors, $messages, $warnings);
+              echo '</main></body></html>';
+              return;
+          }
+
+          echo '<div class=\"section\">';
+          """
+          new_render = """    if ($disabled) {
+              renderMessages($errors, $messages, $warnings);
+              echo '</main></body></html>';
+              return;
+          }
+
+          if (empty($_SESSION['tomos_post_authenticated'])) {
+              $securityUrl = Tomos\\Security::publicUrl('/post/security/', $publicBasePath);
+              echo '<div class=\"actions\">';
+              if (passkeyLoginAvailable($config, dirname(__DIR__))) {
+                  $passkeyUrl = Tomos\\Security::publicUrl('/post/passkey/login/', $publicBasePath);
+                  echo '<a class=\"button\" href=\"' . e($passkeyUrl) . '\">パスキーで開く</a>';
+              }
+              echo '<a class=\"button secondary\" href=\"' . e($securityUrl) . '\">合言葉を忘れた場合</a>';
+              echo '</div>';
+          }
+
+          echo '<div class=\"section\">';
+          """
+
+          old_nav = """    foreach ($items as $section => $label) {
+              $url = Tomos\\Security::publicUrl('/post/?section=' . $section, $publicBasePath);
+              $current = $section === $activeSection ? ' aria-current=\"page\"' : '';
+              echo '<a href=\"' . e($url) . '\"' . $current . '>' . e($label) . '</a>';
+          }
+          echo '</nav>';
+          }
+
+          function renderUpdateSettingsSection(array $config): void
+          """
+          new_nav = """    foreach ($items as $section => $label) {
+              $url = Tomos\\Security::publicUrl('/post/?section=' . $section, $publicBasePath);
+              $current = $section === $activeSection ? ' aria-current=\"page\"' : '';
+              echo '<a href=\"' . e($url) . '\"' . $current . '>' . e($label) . '</a>';
+          }
+          $securityUrl = Tomos\\Security::publicUrl('/post/security/', $publicBasePath);
+          echo '<a href=\"' . e($securityUrl) . '\">セキュリティ</a>';
+          echo '</nav>';
+          }
+
+          function passkeyLoginAvailable(array $config, string $rootDir): bool
+          {
+              if (PHP_VERSION_ID < 80000 || $config === []) {
+                  return false;
+              }
+
+              $vendor = rtrim($rootDir, DIRECTORY_SEPARATOR)
+                  . DIRECTORY_SEPARATOR . 'core'
+                  . DIRECTORY_SEPARATOR . 'webauthn'
+                  . DIRECTORY_SEPARATOR . 'vendor'
+                  . DIRECTORY_SEPARATOR . 'autoload.php';
+              if (!is_file($vendor)) {
+                  return false;
+              }
+              require_once $vendor;
+
+              try {
+                  $environment = new Tomos\\PasskeyEnvironment($config);
+                  if (!$environment->isAvailable()) {
+                      return false;
+                  }
+
+                  $rpId = $environment->rpId();
+                  if ($rpId === '') {
+                      return false;
+                  }
+
+                  $store = new Tomos\\PasskeyCredentialStore($config, $rootDir);
+                  foreach ($store->all() as $record) {
+                      if ((string) ($record['rp_id'] ?? '') === $rpId) {
+                          return true;
+                      }
+                  }
+              } catch (Throwable $exception) {
+                  return false;
+              }
+
+              return false;
+          }
+
+          function renderUpdateSettingsSection(array $config): void
+          """
+
+          if text.count(old_render) != 1:
+              raise SystemExit('render insertion point did not match exactly once')
+          if text.count(old_nav) != 1:
+              raise SystemExit('navigation insertion point did not match exactly once')
+
+          text = text.replace(old_render, new_render, 1)
+          text = text.replace(old_nav, new_nav, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: PHP syntax check
+        run: php -l post/index.php
+
+      - name: Commit integration and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-post-passkey-integration.yml
+          git add post/index.php
+          git commit -m "Integrate passkey entry points into Tomos Post"
+          git push origin HEAD:feature/passkey-auth
