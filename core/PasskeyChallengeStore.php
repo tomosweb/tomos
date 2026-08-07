@@ -79,6 +79,6 @@ final class PasskeyChallengeStore
 
     private function validPurpose(string $purpose): bool
     {
-        return in_array($purpose, ['register', 'authenticate', 'password-reset'], true);
+        return in_array($purpose, ['register', 'authenticate', 'password-reset', 'server-recovery-register'], true);
     }
 }
