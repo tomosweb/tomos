@@ -72,6 +72,73 @@ $passwordResetUrl = preg_replace('#/+#', '/', $passwordResetUrl);
 $postUrl = '/' . trim($basePath, '/') . '/post/';
 $postUrl = preg_replace('#/+#', '/', $postUrl);
 
+$download = (string) ($_GET['download'] ?? '');
+if ($download !== '') {
+    try {
+        $data = $recovery->recoveryDownloadData($_SESSION);
+        $fileName = (string) $data['name'];
+        $contents = (string) $data['contents'];
+
+        if ($download === 'txt') {
+            header('Content-Type: text/plain; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="' . $fileName . '"');
+            header('Cache-Control: no-store');
+            echo $contents;
+            exit;
+        }
+
+        if ($download === 'zip') {
+            if (!class_exists('ZipArchive')) {
+                http_response_code(501);
+                header('Content-Type: text/plain; charset=UTF-8');
+                header('Cache-Control: no-store');
+                echo 'この環境ではZIPを作成できません。テキストファイルを直接ダウンロードしてください。';
+                exit;
+            }
+
+            $tmp = tempnam(sys_get_temp_dir(), 'tomos-recovery-');
+            if (!is_string($tmp) || $tmp === '') {
+                throw new RuntimeException('復旧ZIPを準備できませんでした。');
+            }
+            $zipPath = $tmp . '.zip';
+            @unlink($tmp);
+
+            $zip = new ZipArchive();
+            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                throw new RuntimeException('復旧ZIPを作成できませんでした。');
+            }
+            if (!$zip->addFromString($fileName, $contents)) {
+                $zip->close();
+                @unlink($zipPath);
+                throw new RuntimeException('復旧ファイルをZIPへ追加できませんでした。');
+            }
+            $zip->close();
+
+            $zipBytes = file_get_contents($zipPath);
+            @unlink($zipPath);
+            if (!is_string($zipBytes)) {
+                throw new RuntimeException('復旧ZIPを読み込めませんでした。');
+            }
+
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="tomos-recovery.zip"');
+            header('Content-Length: ' . strlen($zipBytes));
+            header('Cache-Control: no-store');
+            echo $zipBytes;
+            exit;
+        }
+
+        http_response_code(404);
+        exit;
+    } catch (Throwable $exception) {
+        http_response_code(400);
+        header('Content-Type: text/plain; charset=UTF-8');
+        header('Cache-Control: no-store');
+        echo $exception->getMessage();
+        exit;
+    }
+}
+
 $api = (string) ($_GET['api'] ?? '');
 if ($api !== '') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -83,11 +150,11 @@ if ($api !== '') {
 
     try {
         if ($api === 'issue') {
-            $challenge = $recovery->issueChallenge($_SESSION, 600);
+            $recovery->issueChallenge($_SESSION, 600);
             jsonResponse([
                 'ok' => true,
-                'challenge' => $challenge,
-                'path' => $recovery->recoveryFileRelativePath(),
+                'file_name' => $recovery->recoveryFileName($_SESSION),
+                'zip_available' => class_exists('ZipArchive'),
                 'expires_in' => 600,
             ]);
         }
@@ -144,7 +211,7 @@ foreach ($store->all() as $record) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tomos Postを復旧</title>
 <style>
-body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=text]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem}button,.button{display:inline-block;padding:.7rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}.recovery-code{padding:1rem;background:#f5f5f5;border:1px solid #ddd;word-break:break-all}code{word-break:break-all}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=text]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem}button,.button{display:inline-block;padding:.7rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}.steps{padding-left:1.4rem}.steps li{margin:.8rem 0}code{word-break:break-all}
 </style>
 </head>
 <body>
@@ -155,23 +222,27 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <div class="result ng">この環境ではパスキーを利用できません。</div>
 <?php elseif ($hasCredential): ?>
 <div class="result">
-<p>このTomosには登録済みパスキーがあります。サーバー所有確認による復旧は利用しません。</p>
+<p>このTomosには登録済みパスキーがあるため、サーバー所有確認による復旧は利用できません。</p>
 <p><a class="button" href="<?= htmlspecialchars((string) $passwordResetUrl, ENT_QUOTES, 'UTF-8') ?>">登録済みパスキーで合言葉を再設定</a></p>
 </div>
 <?php else: ?>
 <section id="issue-area">
-<h2>1. 復旧コードを発行</h2>
-<p>復旧コードは10分間有効です。</p>
-<button id="issue-button" type="button">復旧コードを発行</button>
+<h2>1. 復旧ファイルを準備</h2>
+<p>復旧ファイルは10分間有効です。</p>
+<button id="issue-button" type="button">復旧ファイルを準備</button>
 </section>
 
 <section id="server-area" hidden>
-<h2>2. サーバーへ確認ファイルを配置</h2>
-<p>SFTP/FTPでTomos設置先に次のファイルを作成してください。</p>
-<p><code id="recovery-path"></code></p>
-<p>ファイルの内容は次の復旧コード1行だけにしてください。</p>
-<div id="recovery-code" class="recovery-code"></div>
-<p class="hint">確認成功後、このファイルはTomosが自動削除します。削除できない場合は復旧を続行しません。</p>
+<h2>2. 復旧ファイルをアップロード</h2>
+<ol class="steps">
+<li><a id="zip-download" class="button" href="?download=zip">復旧ファイルをダウンロード（ZIP）</a><br><span id="zip-note" class="hint"></span></li>
+<li>ダウンロードしたZIPファイルを展開してください。</li>
+<li>展開すると <code id="recovery-file-name"></code> が入っています。</li>
+<li><strong>ZIPそのものではなく、展開した .txt ファイルだけ</strong>をSFTP/FTPでTomosの設置フォルダへアップロードしてください。<br><span class="hint">目印は <code>config.php</code> があるフォルダです。</span></li>
+<li>アップロードできたら、下の「サーバー所有を確認」を押してください。</li>
+</ol>
+<p class="hint">確認成功後、アップロードした復旧ファイルはTomosが自動削除します。削除できない場合は復旧を続行しません。</p>
+<p><a id="txt-download" href="?download=txt">ZIPを利用できない場合はテキストファイルを直接ダウンロード</a></p>
 <button id="verify-button" type="button">サーバー所有を確認</button>
 </section>
 
@@ -195,8 +266,9 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
   const registerButton = document.getElementById('register-button');
   const serverArea = document.getElementById('server-area');
   const registerArea = document.getElementById('register-area');
-  const recoveryPath = document.getElementById('recovery-path');
-  const recoveryCode = document.getElementById('recovery-code');
+  const fileName = document.getElementById('recovery-file-name');
+  const zipDownload = document.getElementById('zip-download');
+  const zipNote = document.getElementById('zip-note');
   const result = document.getElementById('result');
   if (!result) return;
 
@@ -238,16 +310,19 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
     try {
       issueButton.disabled = true;
       result.className = '';
-      result.textContent = '復旧コードを発行しています…';
+      result.textContent = '復旧ファイルを準備しています…';
       const issued = await api('issue');
-      if (recoveryPath) recoveryPath.textContent = issued.path;
-      if (recoveryCode) recoveryCode.textContent = issued.challenge;
+      if (fileName) fileName.textContent = issued.file_name;
+      if (zipDownload && !issued.zip_available) {
+        zipDownload.hidden = true;
+        if (zipNote) zipNote.textContent = 'この環境ではZIPを利用できません。下のテキストファイルを直接ダウンロードしてください。';
+      }
       if (serverArea) serverArea.hidden = false;
       result.className = 'ok';
-      result.textContent = '復旧コードを発行しました。10分以内に確認ファイルを配置してください。';
+      result.textContent = '復旧ファイルを準備しました。10分以内にダウンロードしてアップロードしてください。';
     } catch (error) {
       result.className = 'ng';
-      result.textContent = error && error.message ? error.message : '復旧コードを発行できませんでした。';
+      result.textContent = error && error.message ? error.message : '復旧ファイルを準備できませんでした。';
     } finally {
       issueButton.disabled = false;
     }
@@ -257,11 +332,11 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
     try {
       verifyButton.disabled = true;
       result.className = '';
-      result.textContent = 'サーバー上の確認ファイルを確認しています…';
+      result.textContent = 'サーバー上の復旧ファイルを確認しています…';
       await api('verify');
       if (registerArea) registerArea.hidden = false;
       result.className = 'ok';
-      result.textContent = 'サーバー所有を確認し、確認ファイルを削除しました。';
+      result.textContent = 'サーバー所有を確認し、復旧ファイルを削除しました。';
     } catch (error) {
       result.className = 'ng';
       result.textContent = error && error.message ? error.message : 'サーバー所有を確認できませんでした。';
