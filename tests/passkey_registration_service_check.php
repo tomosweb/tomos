@@ -39,6 +39,21 @@ final class FakeRegistrationClient implements PasskeyWebAuthnClient
             'transports' => ['internal'],
         ];
     }
+
+    public function createAuthenticationOptions(string $rpId, array $allowCredentialIds): array
+    {
+        throw new RuntimeException('not used');
+    }
+
+    public function verifyAuthentication(
+        string $rpId,
+        array $payload,
+        string $challenge,
+        string $publicKey,
+        int $storedSignCount
+    ): array {
+        throw new RuntimeException('not used');
+    }
 }
 
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-passkey-registration-' . bin2hex(random_bytes(6));
