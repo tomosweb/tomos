@@ -641,6 +641,17 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
         return;
     }
 
+    if (empty($_SESSION['tomos_post_authenticated'])) {
+    $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
+    echo '<div class="actions">';
+    if (passkeyLoginAvailable($config, dirname(__DIR__))) {
+        $passkeyUrl = Tomos\Security::publicUrl('/post/passkey/login/', $publicBasePath);
+        echo '<a class="button" href="' . e($passkeyUrl) . '">パスキーで開く</a>';
+    }
+    echo '<a class="button secondary" href="' . e($securityUrl) . '">合言葉を忘れた場合</a>';
+    echo '</div>';
+}
+
     echo '<div class="section">';
     renderMessages($errors, $messages, $warnings);
     if ($activeSection === 'manage') {
@@ -689,7 +700,49 @@ function renderSectionNav(string $activeSection, string $publicBasePath): void
         $current = $section === $activeSection ? ' aria-current="page"' : '';
         echo '<a href="' . e($url) . '"' . $current . '>' . e($label) . '</a>';
     }
-    echo '</nav>';
+    $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
+echo '<a href="' . e($securityUrl) . '">セキュリティ</a>';
+echo '</nav>';
+}
+
+function passkeyLoginAvailable(array $config, string $rootDir): bool
+{
+    if (PHP_VERSION_ID < 80000 || $config === []) {
+        return false;
+    }
+
+    $vendor = rtrim($rootDir, DIRECTORY_SEPARATOR)
+        . DIRECTORY_SEPARATOR . 'core'
+        . DIRECTORY_SEPARATOR . 'webauthn'
+        . DIRECTORY_SEPARATOR . 'vendor'
+        . DIRECTORY_SEPARATOR . 'autoload.php';
+    if (!is_file($vendor)) {
+        return false;
+    }
+    require_once $vendor;
+
+    try {
+        $environment = new Tomos\PasskeyEnvironment($config);
+        if (!$environment->isAvailable()) {
+            return false;
+        }
+
+        $rpId = $environment->rpId();
+        if ($rpId === '') {
+            return false;
+        }
+
+        $store = new Tomos\PasskeyCredentialStore($config, $rootDir);
+        foreach ($store->all() as $record) {
+            if ((string) ($record['rp_id'] ?? '') === $rpId) {
+                return true;
+            }
+        }
+    } catch (Throwable $exception) {
+        return false;
+    }
+
+    return false;
 }
 
 function renderUpdateSettingsSection(array $config): void
