@@ -18,6 +18,10 @@ assertSame(true, $store->remember($session, 'register', 'register-challenge', 30
 assertSame('register-challenge', $store->consume($session, 'register'), 'registration challenge must not consume authentication challenge');
 assertSame('login-challenge', $store->consume($session, 'authenticate'), 'authentication challenge must remain available');
 
+assertSame(true, $store->remember($session, 'server-recovery-register', 'recovery-register-challenge', 120), 'server recovery registration challenge must be stored independently');
+assertSame('recovery-register-challenge', $store->consume($session, 'server-recovery-register'), 'server recovery registration challenge must be returned once');
+assertSame(null, $store->consume($session, 'server-recovery-register'), 'server recovery registration challenge must be one-time use');
+
 $expiredSession = [];
 $writer = new PasskeyChallengeStore(1786000000);
 assertSame(true, $writer->remember($expiredSession, 'register', 'expired', 10), 'expiring challenge must be stored');
