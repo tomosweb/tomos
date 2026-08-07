@@ -76,9 +76,7 @@ final class UpdateService
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime = $finfo !== false ? finfo_file($finfo, $tmpName) : false;
             if ($finfo !== false) {
-                if (is_resource($finfo)) {
-                    finfo_close($finfo);
-                }
+                finfo_close($finfo);
             }
             if (is_string($mime) && !in_array($mime, ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'], true)) {
                 throw new UpdateException('選択されたファイルはZIP形式ではありません。', 'upload');
