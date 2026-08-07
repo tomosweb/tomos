@@ -85,7 +85,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </head>
 <body>
 <h1>セキュリティ</h1>
-<p>Tomos Postのログイン方法、パスキー、管理用合言葉の復旧を管理します。</p>
+<p>Tomos Postで使うパスキーの管理と、管理用合言葉を忘れた場合の復旧を行います。</p>
 
 <?php if (empty($status['available'])): ?>
 <div class="result"><p>この環境ではパスキー機能を利用できません。管理用合言葉によるTomos Post認証は引き続き利用できます。</p></div>
@@ -94,31 +94,20 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <p>登録済みパスキー: <?= count($credentials) ?> 件</p>
 <?php if ($currentRpId !== ''): ?><p class="hint">RP ID: <code><?= htmlspecialchars($currentRpId, ENT_QUOTES, 'UTF-8') ?></code></p><?php endif; ?>
 </div>
-<?php endif; ?>
 
 <section class="card">
-<h2>Tomos Postを開く</h2>
-<?php if ($authenticated): ?>
-<p>このブラウザは現在認証済みです。</p>
-<a class="button primary" href="<?= htmlspecialchars($publicPath('post/'), ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ</a>
-<?php else: ?>
-<?php if (!empty($status['available']) && $hasPasskey): ?>
-<a class="button primary" href="<?= htmlspecialchars($publicPath('post/passkey/login/'), ENT_QUOTES, 'UTF-8') ?>">パスキーで開く</a>
-<?php endif; ?>
-<a class="button" href="<?= htmlspecialchars($publicPath('post/'), ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a>
-<?php endif; ?>
-</section>
-
-<?php if (!empty($status['available'])): ?>
-<section class="card">
-<h2>パスキー</h2>
+<h2>パスキーを管理する</h2>
+<p>登録済みパスキーの確認、名称変更、削除、新しいパスキーの追加ができます。</p>
 <?php if ($authenticated): ?>
 <a class="button primary" href="<?= htmlspecialchars($publicPath('post/passkey/manage/'), ENT_QUOTES, 'UTF-8') ?>">登録済みパスキーを管理</a>
 <a class="button" href="<?= htmlspecialchars($publicPath('post/passkey/register/'), ENT_QUOTES, 'UTF-8') ?>">パスキーを追加</a>
 <?php elseif ($hasPasskey): ?>
-<p class="hint">パスキーの追加・削除にはTomos Postへの認証が必要です。</p>
+<p class="hint">パスキーを管理するには、先にTomos Postへ認証してください。</p>
+<a class="button primary" href="<?= htmlspecialchars($publicPath('post/passkey/login/'), ENT_QUOTES, 'UTF-8') ?>">パスキーで認証</a>
+<a class="button" href="<?= htmlspecialchars($publicPath('post/'), ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で認証</a>
 <?php else: ?>
 <p class="hint">まだパスキーは登録されていません。管理用合言葉でTomos Postへ認証した後に登録できます。</p>
+<a class="button" href="<?= htmlspecialchars($publicPath('post/'), ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で認証</a>
 <?php endif; ?>
 </section>
 
