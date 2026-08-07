@@ -110,9 +110,11 @@ function formatTimestamp(?int $timestamp, array $config): string
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:840px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=text]{box-sizing:border-box;width:100%;max-width:28rem;padding:.6rem;margin:.3rem 0 .7rem}button,.button{display:inline-block;padding:.65rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.danger{border-color:#b91c1c;color:#991b1b}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}.credential{border-top:1px solid #ddd;padding:1.25rem 0}.credential:first-of-type{border-top:0}.actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:end}.meta{font-size:.92rem;color:#555}code{word-break:break-all}
 </style>
+<link rel="stylesheet" href="../../assets/tomos-post-security.css">
 </head>
 <body>
-<h1>パスキー管理</h1>
+<h1>Tomos Post</h1>
+<h2>パスキー管理</h2>
 <p>Tomos Postで使用する登録済みパスキーの名称変更と削除を行います。管理用合言葉による認証は、パスキーをすべて削除しても引き続き利用できます。</p>
 
 <?php foreach ($messages as $message): ?>
