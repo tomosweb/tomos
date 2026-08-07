@@ -60,4 +60,21 @@ if (!empty($missingLibrary->diagnose()['available'])) {
     failCheck('Missing WebAuthn runtime must disable passkey authentication.');
 }
 
+$postIndex = file_get_contents(dirname(__DIR__) . '/post/index.php');
+if (!is_string($postIndex)) {
+    failCheck('Tomos Post source must be readable.');
+}
+foreach ([
+    "function passkeyLoginAvailable(array \$config, string \$rootDir): bool",
+    'PHP_VERSION_ID < 80000',
+    "'/post/security/'",
+    "'/post/passkey/login/'",
+    'パスキーで開く',
+    '合言葉を忘れた場合',
+] as $requiredSource) {
+    if (strpos($postIndex, $requiredSource) === false) {
+        failCheck('Tomos Post passkey entry integration is missing: ' . $requiredSource);
+    }
+}
+
 echo 'passkey_php_compatibility_check: OK' . PHP_EOL;
