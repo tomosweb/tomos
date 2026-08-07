@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   apply:
+    # one-shot cleanup for PR #27
     if: github.event.pull_request.head.ref == 'feature/passkey-auth'
     runs-on: ubuntu-latest
     steps:
