@@ -102,9 +102,17 @@ if ($api !== '') {
 }
 
 $status = $environment->diagnose();
-$credentials = array_values(array_filter($store->all(), static function (array $record) use ($environment): bool {
-    return (string) ($record['rp_id'] ?? '') === $environment->rpId();
-}));
+$credentials = [];
+if (!empty($status['available'])) {
+    try {
+        $rpId = $environment->rpId();
+        $credentials = array_values(array_filter($store->all(), static function (array $record) use ($rpId): bool {
+            return (string) ($record['rp_id'] ?? '') === $rpId;
+        }));
+    } catch (Throwable $exception) {
+        $credentials = [];
+    }
+}
 $token = (string) $_SESSION['tomos_post_token'];
 $basePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $postUrl = '/' . trim($basePath, '/') . '/post/';
