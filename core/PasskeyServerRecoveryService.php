@@ -10,6 +10,7 @@ final class PasskeyServerRecoveryService
 {
     public const CHALLENGE_KEY = 'tomos_passkey_server_recovery_challenge';
     public const CHALLENGE_EXPIRES_AT_KEY = 'tomos_passkey_server_recovery_expires_at';
+    public const FILE_NAME_KEY = 'tomos_passkey_server_recovery_file_name';
     public const REGISTRATION_AUTHORIZED_UNTIL_KEY = 'tomos_passkey_server_recovery_registration_authorized_until';
 
     private PasskeyEnvironment $environment;
@@ -41,15 +42,42 @@ final class PasskeyServerRecoveryService
         $this->assertRecoveryEligible();
         $ttlSeconds = max(60, min(1800, $ttlSeconds));
         $challenge = bin2hex(random_bytes(32));
+        $fileName = 'tomos-recovery-' . bin2hex(random_bytes(8)) . '.txt';
         $session[self::CHALLENGE_KEY] = $challenge;
         $session[self::CHALLENGE_EXPIRES_AT_KEY] = $this->now + $ttlSeconds;
+        $session[self::FILE_NAME_KEY] = $fileName;
         unset($session[self::REGISTRATION_AUTHORIZED_UNTIL_KEY]);
         return $challenge;
     }
 
-    public function recoveryFileRelativePath(): string
+    /** @param array<string,mixed> $session */
+    public function recoveryFileName(array $session): string
     {
-        return 'storage/security/recovery-request.txt';
+        $fileName = (string) ($session[self::FILE_NAME_KEY] ?? '');
+        if (preg_match('/\Atomos-recovery-[a-f0-9]{16}\.txt\z/', $fileName) !== 1) {
+            throw new RuntimeException('復旧ファイル情報を確認できません。もう一度発行してください。');
+        }
+        return $fileName;
+    }
+
+    /**
+     * @param array<string,mixed> $session
+     * @return array{name:string,contents:string,expires_at:int}
+     */
+    public function recoveryDownloadData(array $session): array
+    {
+        $this->assertRecoveryEligible();
+        $challenge = (string) ($session[self::CHALLENGE_KEY] ?? '');
+        $expiresAt = (int) ($session[self::CHALLENGE_EXPIRES_AT_KEY] ?? 0);
+        if ($challenge === '' || $expiresAt < $this->now) {
+            throw new RuntimeException('復旧コードの有効期限が切れています。もう一度発行してください。');
+        }
+
+        return [
+            'name' => $this->recoveryFileName($session),
+            'contents' => $challenge . "\n",
+            'expires_at' => $expiresAt,
+        ];
     }
 
     /** @param array<string,mixed> $session */
@@ -64,28 +92,29 @@ final class PasskeyServerRecoveryService
             throw new RuntimeException('復旧コードの有効期限が切れています。もう一度発行してください。');
         }
 
-        $path = $this->recoveryFilePath();
+        $fileName = $this->recoveryFileName($session);
+        $path = $this->rootDir . DIRECTORY_SEPARATOR . $fileName;
         if (!is_file($path) || is_link($path)) {
-            throw new RuntimeException('recovery-request.txt を確認できません。指定場所へ配置してください。');
+            throw new RuntimeException($fileName . ' を確認できません。config.php と同じフォルダへ配置してください。');
         }
 
         $size = filesize($path);
         if (!is_int($size) || $size < 1 || $size > 512) {
-            throw new RuntimeException('recovery-request.txt の内容を確認できません。');
+            throw new RuntimeException($fileName . ' の内容を確認できません。');
         }
 
         $contents = file_get_contents($path);
         if (!is_string($contents)) {
-            throw new RuntimeException('recovery-request.txt を読み込めませんでした。');
+            throw new RuntimeException($fileName . ' を読み込めませんでした。');
         }
 
         $actual = trim($contents);
         if ($actual === '' || !hash_equals($challenge, $actual)) {
-            throw new RuntimeException('recovery-request.txt の復旧コードが一致しません。');
+            throw new RuntimeException($fileName . ' の復旧コードが一致しません。');
         }
 
         if (!@unlink($path)) {
-            throw new RuntimeException('recovery-request.txt を削除できないため、復旧を続行できません。');
+            throw new RuntimeException($fileName . ' を削除できないため、復旧を続行できません。');
         }
 
         $this->clearChallenge($session);
@@ -185,14 +214,13 @@ final class PasskeyServerRecoveryService
         }
     }
 
-    private function recoveryFilePath(): string
-    {
-        return $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $this->recoveryFileRelativePath());
-    }
-
     /** @param array<string,mixed> $session */
     private function clearChallenge(array &$session): void
     {
-        unset($session[self::CHALLENGE_KEY], $session[self::CHALLENGE_EXPIRES_AT_KEY]);
+        unset(
+            $session[self::CHALLENGE_KEY],
+            $session[self::CHALLENGE_EXPIRES_AT_KEY],
+            $session[self::FILE_NAME_KEY]
+        );
     }
 }
