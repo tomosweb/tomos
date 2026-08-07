@@ -25,6 +25,13 @@ if (is_file($configPath)) {
     $config = is_array($loadedConfig) ? $loadedConfig : [];
 }
 
+if (PHP_VERSION_ID >= 80000) {
+    $vendor = $rootDir . '/core/webauthn/vendor/autoload.php';
+    if (is_file($vendor)) {
+        require_once $vendor;
+    }
+}
+
 $basePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $publicPath = static function (string $path) use ($basePath): string {
     $prefix = '/' . trim($basePath, '/');
