@@ -66,6 +66,74 @@ final class LbuchsPasskeyWebAuthnClient implements PasskeyWebAuthnClient
         ];
     }
 
+    public function createAuthenticationOptions(string $rpId, array $allowCredentialIds): array
+    {
+        if (!class_exists(WebAuthn::class)) {
+            throw new RuntimeException('WebAuthn library is not available.');
+        }
+
+        $webauthn = new WebAuthn('Tomos', $rpId, ['none'], true);
+        $args = $webauthn->getGetArgs(
+            $allowCredentialIds,
+            60,
+            false,
+            false,
+            false,
+            true,
+            true,
+            'required'
+        );
+
+        return [
+            'public_key' => $args->publicKey,
+            'challenge' => $webauthn->getChallenge()->getBinaryString(),
+        ];
+    }
+
+    public function verifyAuthentication(
+        string $rpId,
+        array $payload,
+        string $challenge,
+        string $publicKey,
+        int $storedSignCount
+    ): array {
+        if (!class_exists(WebAuthn::class)) {
+            throw new RuntimeException('WebAuthn library is not available.');
+        }
+
+        $clientData = $this->decodeBase64((string) ($payload['clientDataJSON'] ?? ''));
+        $authenticatorData = $this->decodeBase64((string) ($payload['authenticatorData'] ?? ''));
+        $signature = $this->decodeBase64((string) ($payload['signature'] ?? ''));
+        $decodedPublicKey = base64_decode($publicKey, true);
+        if ($clientData === null
+            || $authenticatorData === null
+            || $signature === null
+            || !is_string($decodedPublicKey)
+            || $decodedPublicKey === ''
+            || $challenge === ''
+            || $storedSignCount < 0
+        ) {
+            throw new RuntimeException('Invalid authentication payload.');
+        }
+
+        $webauthn = new WebAuthn('Tomos', $rpId, ['none'], true);
+        $webauthn->processGet(
+            $clientData,
+            $authenticatorData,
+            $signature,
+            $decodedPublicKey,
+            $challenge,
+            $storedSignCount,
+            true,
+            true
+        );
+
+        $counter = $webauthn->getSignatureCounter();
+        return [
+            'sign_count' => $counter === null ? $storedSignCount : max(0, (int) $counter),
+        ];
+    }
+
     private function decodeBase64(string $value): ?string
     {
         if ($value === '') {
