@@ -1,6 +1,11 @@
 name: Clean public passkey documentation
 
 on:
+  push:
+    branches:
+      - feature/passkey-auth
+    paths:
+      - .github/workflows/apply-passkey-doc-cleanup.yml
   pull_request:
     branches:
       - main
@@ -12,8 +17,7 @@ permissions:
 
 jobs:
   apply:
-    # one-shot cleanup for PR #27
-    if: github.event.pull_request.head.ref == 'feature/passkey-auth'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'feature/passkey-auth'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
