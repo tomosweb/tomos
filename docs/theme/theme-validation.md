@@ -31,6 +31,8 @@ assets/style.css
 - `author`
 - `supports`: 任意。指定する場合はオブジェクト
 
+外部テーマZIPでは、`theme.json.version` を `1.0.0` のような3要素形式で確認します。この形式検査は `ThemePackagePolicy` が担当し、通常の `ThemeValidator` には追加しません。
+
 ## PHPファイル禁止
 
 テーマ内に以下の拡張子のファイルを置いてはいけません。
@@ -81,7 +83,7 @@ assets/style.css
 ]
 ```
 
-`errors` があるテーマは利用不可です。`warnings` は将来のテーマチェック画面やsetupで注意表示できます。
+`errors` があるテーマは利用不可です。`warnings` はsetupやテーマZIPの確認画面で注意として表示できます。
 
 ## setup画面との関係
 
@@ -152,3 +154,41 @@ assets/ogp.png
 ```
 
 SVGファイルがある場合、`<script>` や外部参照が検出されるとエラーになります。
+
+## 外部テーマZIPの追加検査
+
+Tomos Postから追加するテーマZIPは、通常の `ThemeValidator` に加えて `ThemePackagePolicy` と `ThemePackageInstaller` で検査します。
+
+テーマとして動作するために必須なのは、通常の `ThemeValidator` と同じ5ファイルです。
+
+```text
+theme.json
+templates/layout.html
+templates/page.html
+templates/list.html
+assets/style.css
+```
+
+次の3件は配布時の推奨ファイルです。個人制作テーマへのアップロード必須条件にはしません。
+
+```text
+preview.png
+README.md
+LICENSE
+```
+
+不足時はエラーではなくwarningを返し、確認画面に表示したうえで追加を許可します。`preview.png` が存在する場合は、PNG画像として読み取れることを確認します。
+
+Finder等で作成したZIPに含まれる次のmacOSメタデータは、ZIPの安全性検査後に無視し、展開・テーマID判定・ファイル数・展開後容量の対象にしません。
+
+```text
+__MACOSX/
+.DS_Store
+._*
+```
+
+無視対象はこの3種類に限定します。`../`、絶対パス、バックスラッシュ、NUL・制御文字、不正UTF-8、PHP、JavaScript、symlink、特殊ファイル、実行可能ファイル、許可外拡張子、VCSメタデータ等は拒否します。
+
+処理は `/post/theme/add/` でのアップロード・検査と、`/post/theme/add/confirm/` での確定追加に分かれます。ZIPは `storage/theme-upload-tmp/` で検査され、確定時は `themes/` 内のdot始まりのstagingで再検証してから、新しいテーマIDへrenameされます。既存テーマの上書きや自動的な有効化は行いません。
+
+ファイル許可リスト、ZIP上限、パス検査、一時データとlockの詳細は[外部配布テーマ仕様](external-theme-distribution-spec.md)を参照してください。

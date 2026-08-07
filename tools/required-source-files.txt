@@ -24,7 +24,12 @@ core/PostRateLimiter.php
 core/PostUpload.php
 core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
+core/ThemePackageException.php
+core/ThemePackageInstaller.php
+core/ThemePackagePolicy.php
 post/settings/index.php
 post/theme/index.php
 post/theme/confirm/index.php
+post/theme/add/index.php
+post/theme/add/confirm/index.php
 post/reset/index.php

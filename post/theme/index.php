@@ -37,6 +37,8 @@ if (empty($_SESSION['tomos_post_theme_token'])) {
 }
 
 $themesDir = (string) (($config['paths']['theme_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'themes'));
+$themePackageInstaller = new Tomos\ThemePackageInstaller($rootDir, $themesDir);
+$themePackageInstaller->cleanupStaleTemporaryFiles();
 $repository = new Tomos\ThemeRepository($themesDir);
 $themes = $repository->all();
 $currentTheme = (string) ($config['theme']['name'] ?? 'tomos-minimal');
@@ -49,6 +51,7 @@ function renderThemePage(array $config, array $themes, string $currentTheme, str
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
     $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath);
     $confirmUrl = Tomos\Security::publicUrl('/post/theme/confirm/', $publicBasePath);
+    $addUrl = Tomos\Security::publicUrl('/post/theme/add/', $publicBasePath);
 
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
@@ -68,8 +71,9 @@ label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{ac
 </style></head><body><main class="wrap">';
 
     echo '<h1>テーマを切り替える</h1>';
-    echo '<p class="hint">登録済みのテーマから、サイトの見た目を選びます。テーマの追加や編集はこの画面ではできません。</p>';
+    echo '<p class="hint">登録済みのテーマから、サイトの見た目を選びます。</p>';
     echo '<div class="result"><strong>現在のテーマ:</strong><br><code>' . e($currentLabel) . '</code></div>';
+    echo '<div class="actions"><a class="button secondary" href="' . e($addUrl) . '">テーマZIPを追加</a></div>';
 
     echo '<h2>利用できるテーマ</h2>';
     echo '<form method="post" action="' . e($confirmUrl) . '">';
