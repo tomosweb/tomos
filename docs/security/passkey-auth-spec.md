@@ -11,22 +11,11 @@ Tomos Postの現行管理用合言葉認証を維持したまま、WebAuthnパ�
 
 パスキーは管理用合言葉を廃止・置換しない。
 
-## 2. PoCで確認済みの前提
+## 2. 設計上の前提
 
-PR #25のPoCを `https://tomoswords.org/dev/` へ適用し、以下を確認済みとする。
+パスキーはWebAuthnの標準的な登録・認証フローを用い、既存のTomos Post認証済みセッションへ接続する。
 
-- PHP 8.2.32
-- OpenSSL有効
-- mbstring有効
-- HTTPS
-- RP ID `tomoswords.org`
-- `/dev/` サブディレクトリ設置
-- Mac Chromeでパスキー登録成功
-- iPhone Safariでパスキー登録成功
-- iPhone Safariでパスキー認証成功
-- WebAuthn認証成功後、既存の `$_SESSION['tomos_post_authenticated'] = true` へ接続し、管理用合言葉を再入力せずTomos Postを利用できた
-
-本実装ではPoCの単一credential保存や独立画面をそのまま製品化しない。
+本実装では単一credentialを前提とせず、複数パスキー、永続credential保存、管理用合言葉へのフォールバック、合言葉再設定、サーバー所有確認による初回復旧を製品仕様として扱う。
 
 ## 3. 基本方針
 
@@ -62,7 +51,6 @@ PHP 7.4環境でもTomos Postの既存機能は従来どおり動作すること
 
 採用理由:
 
-- PoCで実開発環境、Mac Chrome、Mac Safari、iPhone Safariの登録・認証に成功した
 - PHP 8.0以上で利用できる
 - 外部依存が比較的小さい
 - Composer利用を開発・ビルド工程に限定できる
@@ -90,7 +78,7 @@ Composerは開発・配布生成時だけ使用し、`core/webauthn/composer.loc
 
 ## 7. RP IDとOrigin
 
-RP IDは現在アクセス中のTomosサイトのホスト名から安全に決定する。
+RP IDはTomosのサイトURL設定を基準として安全に決定する。
 
 サブディレクトリはRP IDへ含めない。
 
@@ -140,7 +128,7 @@ Tomos Update、キャッシュ削除、HTML再生成で消えない永続領域 
 
 challengeは一度使用したら破棄する。
 
-登録challenge、認証challenge、サーバー復旧用登録challengeを混用しない。
+登録challenge、認証challenge、合言葉再設定challenge、サーバー復旧用登録challengeを混用しない。
 
 期限切れ、セッション不一致、challenge不一致は認証失敗とする。
 
@@ -331,13 +319,13 @@ Updateでライブラリ・PHP実装を更新しても、`storage/security/passk
 
 通常配布ZIPとUpdate ZIPには `core/webauthn/vendor/` を含める。`core/required-installed-files.txt` では、パスキー実装とWebAuthn runtimeの代表必須ファイルを検査する。
 
-Update前後で以下を回帰確認する。
+Updateで保持する不変条件:
 
-- 登録済みパスキー数が変わらない
-- 既存credentialで認証できる
-- 管理用合言葉で認証できる
-- 記憶認証が仕様どおり維持される
-- WebAuthn runtime欠落時は更新成功扱いにしない
+- `storage/security/passkeys/` を更新対象にしない
+- 既存credentialの保存形式を破壊しない
+- 管理用合言葉認証を維持する
+- WebAuthn runtimeを欠落させない
+- `core/required-installed-files.txt` によるインストール整合性検査を通過する
 
 ## 24. バックアップ
 
@@ -375,50 +363,23 @@ credential IDそのもの、challenge、公開鍵全文、clientDataJSON、署�
 
 `post/index.php` にWebAuthn処理を集中させない。
 
-## 27. 初回実装の受入条件
+## 27. 実装受入条件
 
-- 現行の管理用合言葉認証が変更なく利用できる
-- PHP 7.4実環境で全PHPファイルが構文エラーなく読み込め、パスキー機能が無効でもTomos Postが正常動作する
-- PHP 8.0および8.2、HTTPS、必要拡張ありの環境でWebAuthn runtimeを読み込める
+- 現行の管理用合言葉認証を維持する
+- PHP 7.4ではパスキー機能を無効化し、Tomos Postの既存機能を維持する
+- PHP 8.0および8.2でWebAuthn runtimeを読み込める
 - 管理用合言葉で再認証後、パスキーを追加できる
 - 複数パスキーを登録できる
-- Mac Chromeで登録・認証できる
-- Mac Safariで登録・認証できる
-- iPhone Safariで登録・認証できる
 - パスキー認証後、既存Tomos Postへ認証済み状態で入れる
-- パスキー一覧、名称、登録日時、最終利用日時を確認できる
+- パスキー一覧、名称、登録日時、最終利用日時を扱える
 - 個別パスキーを削除できる
 - パスキー認証後、管理用合言葉を再設定できる
 - 再設定後、旧合言葉では認証できない
 - 合言葉再設定時に既存の記憶認証トークンがすべて失効する
-- パスキー未登録かつ合言葉忘れ時に、復旧ZIP取得→TXTアップロード→サーバー所有確認→最初のパスキー登録→パスキー再認証→合言葉再設定まで完了できる
-- 復旧成功後にアップロードしたTXTが削除される
-- サブディレクトリ設置で動作する
-- 通常配布ZIPとUpdate ZIPの双方に `core/webauthn/vendor/autoload.php` と `lbuchs/WebAuthn` 本体が含まれる
-- Tomos Update後も登録済みパスキーが維持される
+- パスキー未登録かつ合言葉忘れ時に、サーバー所有確認から最初のパスキー登録、再認証、合言葉再設定まで継続できる
+- 復旧成功後にアップロードしたTXTを削除し、削除できない場合は復旧を継続しない
+- サブディレクトリ設置でもRP IDはホスト名を基準に扱う
+- 通常配布ZIPとUpdate ZIPの双方に `core/webauthn/vendor/` を含める
+- Tomos Updateで `storage/security/passkeys/` を更新対象にしない
 - パスキー機能の障害時も管理用合言葉認証を利用できる
-
-自動受入確認の手順は `docs/security/passkey-release-acceptance.md` に定める。
-
-## 28. 本実装対象外
-
-初回リリースでは次を対象外とする。
-
-- 管理用合言葉の廃止
-- 初期setupそのものをパスキーだけで完了する方式
-- パスキーのみでの完全passwordless運用の強制
-- クラウド上のTomosアカウント
-- Tomos公式サイトを介した中央認証
-- credential同期機能のTomos独自実装
-- Authenticator attestationによる端末機種判定
-
-## 29. リリース前最終工程
-
-1. PHP 7.4 / 8.0 / 8.2互換CIを通す
-2. WebAuthn runtimeをComposer lockから生成する
-3. 配布必須ファイル検査を通す
-4. 通常配布ZIPへruntimeを含める
-5. Update ZIPへruntimeを含める
-6. dev環境でMac Chrome / Mac Safari / iPhone Safari実機回帰を行う
-7. Update前後でcredential維持を確認する
-8. PR #27の最終レビュー後にDraftを解除する
+- PHP 7.4 / 8.0 / 8.2互換CIとパスキー関連自動テストが成功する
