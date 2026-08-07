@@ -84,7 +84,8 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <link rel="stylesheet" href="../assets/tomos-post-security.css">
 </head>
 <body>
-<h1>セキュリティ</h1>
+<h1>Tomos Post</h1>
+<h2>セキュリティ</h2>
 <p>Tomos Postで使うパスキーの管理と、管理用合言葉を忘れた場合の復旧を行います。</p>
 
 <?php if (empty($status['available'])): ?>
