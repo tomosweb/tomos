@@ -17,4 +17,22 @@ interface PasskeyWebAuthnClient
      * @return array{credential_id:string,public_key:string,sign_count:int,transports:array<int,string>}
      */
     public function verifyRegistration(string $rpId, array $payload, string $challenge): array;
+
+    /**
+     * @param array<int,string> $allowCredentialIds Binary credential IDs.
+     * @return array{public_key:mixed,challenge:string}
+     */
+    public function createAuthenticationOptions(string $rpId, array $allowCredentialIds): array;
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return array{sign_count:int}
+     */
+    public function verifyAuthentication(
+        string $rpId,
+        array $payload,
+        string $challenge,
+        string $publicKey,
+        int $storedSignCount
+    ): array;
 }
