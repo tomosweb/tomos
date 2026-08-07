@@ -124,9 +124,11 @@ $forgotUrl = preg_replace('#/+#', '/', $forgotUrl);
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}button,.button{display:inline-block;padding:.75rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}
 </style>
+<link rel="stylesheet" href="../../assets/tomos-post-security.css">
 </head>
 <body>
-<h1>パスキーでTomos Postを開く</h1>
+<h1>Tomos Post</h1>
+<h2>パスキーで開く</h2>
 <p>登録済みパスキーで認証します。管理用合言葉認証は従来どおり利用できます。</p>
 
 <?php if (empty($status['available'])): ?>
