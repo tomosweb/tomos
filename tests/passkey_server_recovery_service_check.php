@@ -58,13 +58,23 @@ $service = new PasskeyServerRecoveryService($environment, $store, $challenges, $
 $session = [];
 
 try {
+    if (!is_dir($tmp) && !mkdir($tmp, 0700, true) && !is_dir($tmp)) {
+        throw new RuntimeException('could not create temporary Tomos root');
+    }
+
     $issued = $service->issueChallenge($session, 600);
     assertTrue((bool) preg_match('/\A[a-f0-9]{64}\z/', $issued), 'recovery challenge must be 64 hex characters');
 
-    $recoveryPath = $tmp . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'security' . DIRECTORY_SEPARATOR . 'recovery-request.txt';
-    if (!is_dir(dirname($recoveryPath)) && !mkdir(dirname($recoveryPath), 0700, true) && !is_dir(dirname($recoveryPath))) {
-        throw new RuntimeException('could not create recovery directory');
-    }
+    $fileName = $service->recoveryFileName($session);
+    assertTrue((bool) preg_match('/\Atomos-recovery-[a-f0-9]{16}\.txt\z/', $fileName), 'recovery file name must be randomized');
+
+    $download = $service->recoveryDownloadData($session);
+    assertSame($fileName, $download['name'] ?? null, 'download file name must match session recovery file');
+    assertSame($issued . "\n", $download['contents'] ?? null, 'download contents must contain challenge and newline');
+    assertSame(1786000600, $download['expires_at'] ?? null, 'download expiry must match issued challenge');
+
+    $recoveryPath = $tmp . DIRECTORY_SEPARATOR . $fileName;
+    assertSame($recoveryPath, $tmp . DIRECTORY_SEPARATOR . $service->recoveryFileName($session), 'recovery file must be placed directly in Tomos root');
 
     file_put_contents($recoveryPath, "wrong-code\n");
     assertThrows(function () use ($service, &$session): void {
@@ -76,6 +86,9 @@ try {
     $service->verifyServerAccess($session, 300);
     assertTrue(!is_file($recoveryPath), 'verified recovery file must be deleted');
     assertTrue($service->isRegistrationAuthorized($session), 'registration must be temporarily authorized');
+    assertThrows(function () use ($service, $session): void {
+        $service->recoveryFileName($session);
+    }, 'recovery file name must be cleared after successful verification');
 
     $options = $service->beginRegistration($session);
     assertTrue(isset($options['public_key']), 'registration options must be returned');
