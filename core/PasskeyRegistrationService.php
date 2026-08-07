@@ -80,7 +80,8 @@ final class PasskeyRegistrationService
         }
 
         $rpId = $this->environment->rpId();
-        $verified = $this->client->verifyRegistration($rpId, $payload, $challenge);
+        $origin = $this->environment->origin();
+        $verified = $this->client->verifyRegistration($rpId, $origin, $payload, $challenge);
         $credentialId = (string) ($verified['credential_id'] ?? '');
         if ($credentialId === '') {
             throw new RuntimeException('Credential ID is missing.');
