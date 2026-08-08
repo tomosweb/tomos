@@ -10,9 +10,9 @@ if (!is_string($source)) {
 }
 
 $required = [
-    "PHP_VERSION_ID >= 80000",
+    'PHP_VERSION_ID >= 80000',
     "__DIR__ . '/webauthn/vendor/autoload.php'",
-    "require_once $vendor",
+    'require_once $vendor',
     "class_exists('lbuchs\\\\WebAuthn\\\\WebAuthn')",
 ];
 
