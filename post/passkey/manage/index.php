@@ -40,18 +40,49 @@ $publicPath = static function (string $path) use ($basePath): string {
 
 $messages = [];
 $errors = [];
-$authenticated = false;
+$authenticated = !empty($_SESSION['tomos_post_authenticated']);
+$remember = null;
 
 if ($config !== []) {
     $remember = new Tomos\PostAuthRememberToken($config, $rootDir);
-    $authenticated = $remember->restoreSession();
+    if (!$authenticated) {
+        $remember->restoreSession();
+        $authenticated = !empty($_SESSION['tomos_post_authenticated']);
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'passphrase_auth') {
+    $token = (string) ($_POST['_token'] ?? '');
+    if ($token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
+        $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
+    } else {
+        $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
+        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        $limit = $rateLimiter->checkAuthAllowed();
+        if (!$limit->allowed) {
+            $errors[] = $limit->message;
+        } elseif (!Tomos\PostPassword::verify((string) ($_POST['post_password'] ?? ''), $postPasswordHash)) {
+            $rateLimiter->recordFailure();
+            $errors[] = '管理用合言葉が正しくありません。';
+        } else {
+            $rateLimiter->clearFailures();
+            $_SESSION['tomos_post_authenticated'] = true;
+            $authenticated = true;
+            if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && $remember instanceof Tomos\PostAuthRememberToken && !$remember->rememberCurrentBrowser()) {
+                $messages[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
+            }
+            $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+            header('Location: ' . $publicPath('post/passkey/manage/'));
+            exit;
+        }
+    }
 }
 
 $environment = new Tomos\PasskeyEnvironment($config);
 $store = new Tomos\PasskeyCredentialStore($config, $rootDir);
 $management = new Tomos\PasskeyManagementService($environment, $store);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') !== 'passphrase_auth') {
     if (!$authenticated) {
         $errors[] = 'パスキーを管理するにはTomos Postへ認証してください。';
     } else {
@@ -108,7 +139,7 @@ function formatTimestamp(?int $timestamp, array $config): string
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>パスキー管理 - Tomos Post</title>
 <style>
-body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:840px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=text]{box-sizing:border-box;width:100%;max-width:28rem;padding:.6rem;margin:.3rem 0 .7rem}button,.button{display:inline-block;padding:.65rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.danger{border-color:#b91c1c;color:#991b1b}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}.credential{border-top:1px solid #ddd;padding:1.25rem 0}.credential:first-of-type{border-top:0}.actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:end}.meta{font-size:.92rem;color:#555}code{word-break:break-all}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:840px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=text],input[type=password]{box-sizing:border-box;width:100%;max-width:28rem;padding:.6rem;margin:.3rem 0 .7rem}button,.button{display:inline-block;padding:.65rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.danger{border-color:#b91c1c;color:#991b1b}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}.credential{border-top:1px solid #ddd;padding:1.25rem 0}.credential:first-of-type{border-top:0}.actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:end}.meta{font-size:.92rem;color:#555}.remember-auth{display:flex;gap:.5rem;align-items:flex-start;margin:.6rem 0 1rem}.remember-auth input{margin-top:.35rem}
 </style>
 <link rel="stylesheet" href="../../assets/tomos-post-security.css">
 </head>
@@ -125,9 +156,19 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endforeach; ?>
 
 <?php if (!$authenticated): ?>
-<div class="result ng">
+<div class="result">
 <p>パスキーを管理するにはTomos Postへの認証が必要です。</p>
-<p><a class="button" href="<?= e($publicPath('post/passkey/login/')) ?>">パスキーで認証</a> <a class="button" href="<?= e($publicPath('post/')) ?>">管理用合言葉で認証</a></p>
+<form method="post" action="">
+<input type="hidden" name="action" value="passphrase_auth">
+<input type="hidden" name="_token" value="<?= e($token) ?>">
+<label for="post_password">管理用合言葉</label>
+<input id="post_password" type="password" name="post_password" autocomplete="current-password" required>
+<label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
+<button type="submit">管理用合言葉で認証</button>
+</form>
+<?php if ($store->all() !== []): ?>
+<p><a class="button" href="<?= e($publicPath('post/passkey/login/')) ?>">パスキーで認証</a></p>
+<?php endif; ?>
 </div>
 <?php else: ?>
 <p><a class="button" href="<?= e($publicPath('post/passkey/register/')) ?>">パスキーを追加</a></p>
@@ -138,7 +179,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php foreach ($credentials as $credential): ?>
 <section class="credential">
 <h2><?= e((string) (($credential['label'] ?? '') ?: '名称なし')) ?></h2>
-<p class="meta">登録: <?= e(formatTimestamp((int) ($credential['created_at'] ?? 0), $config)) ?><br>最終利用: <?= e(formatTimestamp(isset($credential['last_used_at']) ? (int) $credential['last_used_at'] : null, $config)) ?><br>RP ID: <code><?= e((string) ($credential['rp_id'] ?? '')) ?></code></p>
+<p class="meta">登録: <?= e(formatTimestamp((int) ($credential['created_at'] ?? 0), $config)) ?><br>最終利用: <?= e(formatTimestamp(isset($credential['last_used_at']) ? (int) $credential['last_used_at'] : null, $config)) ?></p>
 
 <form method="post" action="">
 <input type="hidden" name="action" value="rename">
