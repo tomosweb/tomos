@@ -31,6 +31,14 @@ final class PasskeyEnvironment
     ) {
         $this->config = $config;
         $this->server = $server ?? $_SERVER;
+
+        if ($libraryAvailable === null && PHP_VERSION_ID >= 80000 && !class_exists('lbuchs\\WebAuthn\\WebAuthn')) {
+            $vendor = __DIR__ . '/webauthn/vendor/autoload.php';
+            if (is_file($vendor)) {
+                require_once $vendor;
+            }
+        }
+
         $this->libraryAvailable = $libraryAvailable ?? class_exists('lbuchs\\WebAuthn\\WebAuthn');
         $this->phpVersion = $phpVersion ?? PHP_VERSION;
         $this->opensslAvailable = $opensslAvailable ?? extension_loaded('openssl');
