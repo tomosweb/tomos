@@ -2,6 +2,32 @@
 
 Tomos Updateは、管理画面から署名済み更新ZIPを確認し、Tomos本体を更新する機能です。GitHub接続、自動取得、自動更新には対応しません。
 
+## v0.1.0-alpha.13への更新
+
+すでにv0.1.0-alpha.12をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.zip` を適用できます。
+
+alpha.13のUpdate ZIPのminimum versionは `0.1.0-alpha.12` です。
+
+### v0.1.0-alpha.12からv0.1.0-alpha.13への更新
+
+1. 既存サイトの `config.php`、`content/`、`themes/` をバックアップします。`storage/security/passkeys/` が存在する場合は、このディレクトリもバックアップします。
+2. Tomos Postの「Tomos Update」を開きます。
+3. `tomos-update-0.1.0-alpha.13.zip` を選び、「更新内容を確認」を押します。
+4. 現在のバージョンが `0.1.0-alpha.12`、更新後のバージョンが `0.1.0-alpha.13` と表示されていることを確認します。
+5. 更新対象を確認し、更新を実行します。
+6. 更新完了後、「現在のバージョン」が `0.1.0-alpha.13` と表示されていることを確認します。
+7. Tomos Postに「セキュリティ」への導線が追加されていることを確認します。
+
+alpha.13では、Tomos PostにWebAuthnパスキー認証、複数パスキー管理、パスキーによる管理用合言葉再設定、パスキー未登録時の復旧、セキュリティ画面を追加します。
+
+Tomos本体はPHP 7.4以上で利用できます。パスキー機能を利用する場合は、PHP 8.0以上、OpenSSL、mbstring、HTTPS、WebAuthn対応ブラウザが必要です。条件を満たさない場合も、従来の管理用合言葉認証は利用できます。
+
+WebAuthn runtimeはUpdate ZIPへ同梱されています。利用者がComposerをインストールしたり、サーバー上でComposerを実行したりする必要はありません。
+
+`storage/security/passkeys/` はTomos Updateの更新対象ではありません。登録済みパスキーのcredentialはUpdateによって上書きまたは削除されません。
+
+このUpdateでは、`config.php`、`content/`、利用者が追加したテーマも上書きまたは削除しません。
+
 ## v0.1.0-alpha.12への更新
 
 すでにv0.1.0-alpha.11をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.12.zip` を適用できます。
@@ -48,7 +74,7 @@ Tomos Updateからv0.1.0-alpha.11へ更新
 
 Tomos Updateを今後も安定して提供するため、`v0.1.0-alpha.6`で署名確認に使用する信頼点を更新します。既存環境からalpha.6への移行だけは、[既存環境の更新](update.md)に沿って`VERSION`と`update/public-key.pem`を手動で上書きしてください。alpha.6自体の署名済みUpdate ZIPは提供しません。
 
-alpha.6への移行後は、alpha.7以降の署名済みUpdate ZIPをこの画面で確認できます。alpha.11のUpdate ZIPは、現在のバージョンが`0.1.0-alpha.10`以上の場合に適用できます。
+alpha.6への移行後は、alpha.7以降の署名済みUpdate ZIPをこの画面で確認できます。alpha.13のUpdate ZIPは、現在のバージョンが`0.1.0-alpha.12`の場合に適用できます。
 
 新しい公開鍵のフィンガープリント:
 
@@ -85,11 +111,14 @@ alpha.10以降では、通常Update完了後にUpdater本体の明示反映が�
 
 ZipArchiveまたはOpenSSLが利用できない場合はTomos Updateを使用できません。FTPまたはサーバーのファイル管理機能で更新してください。
 
+パスキー機能を利用する場合は、Tomos Update自体の必要環境に加えて、PHP 8.0以上、mbstring、HTTPS、WebAuthn対応ブラウザが必要です。
+
 ## 保存データ
 
 - `storage/update-backups/`: 更新対象ファイルと `update-meta.json`
 - `storage/update-logs/`: 月単位のJSON Lines結果ログ
 - `storage/update-tmp/`: 確認中のZIPと展開ファイル（24時間後に削除）
 - `storage/update.lock`: 更新中だけ存在する排他ロック
+- `storage/security/passkeys/`: 登録済みパスキーのcredential。Tomos Updateの更新対象外です。
 
 `storage/.htaccess` は保存データへのWebアクセスを拒否します。Apache以外では、Webサーバー側でも `storage/` へのアクセスを禁止してください。
