@@ -137,6 +137,6 @@ final class PasskeyEnvironment
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
             return true;
         }
-        return preg_match('/\\A(?=.{1,253}\\z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\z/i', $host) === 1;
+        return preg_match('/\A(?=.{1,253}\z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/i', $host) === 1;
     }
 }
