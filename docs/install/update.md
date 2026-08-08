@@ -2,6 +2,36 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
+## v0.1.0-alpha.13への更新
+
+すでにv0.1.0-alpha.12をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.zip` を適用できます。
+
+### v0.1.0-alpha.12からv0.1.0-alpha.13への更新
+
+1. 既存サイトの `config.php`、`content/`、`themes/` をバックアップします。`storage/security/passkeys/` が存在する場合は、登録済みパスキーのcredentialを保持するため、このディレクトリもバックアップします。
+2. Tomos Postの「Tomos Update」を開きます。
+3. `tomos-update-0.1.0-alpha.13.zip` を選び、「更新内容を確認」を押します。
+4. 現在のバージョンが `0.1.0-alpha.12`、更新後のバージョンが `0.1.0-alpha.13` と表示されていることを確認します。
+5. 更新対象を確認し、更新を実行します。
+6. 更新完了後、「現在のバージョン」が `0.1.0-alpha.13` と表示されていることを確認します。
+7. Tomos Postに「セキュリティ」への導線が追加されていることを確認します。
+
+alpha.13では、Tomos Postに次の機能を追加します。
+
+- WebAuthnパスキー認証
+- 複数パスキーの管理
+- パスキーによる管理用合言葉の再設定
+- パスキー未登録時のサーバー所有確認による復旧
+- Tomos Postのセキュリティ画面
+
+Tomos本体はPHP 7.4以上で利用できます。パスキー機能を利用する場合は、PHP 8.0以上、OpenSSL、mbstring、HTTPS、WebAuthn対応ブラウザが必要です。条件を満たさない場合も、従来の管理用合言葉認証は利用できます。
+
+WebAuthn runtimeはUpdate ZIPに同梱されています。利用者がComposerをインストールしたり、サーバー上でComposerを実行したりする必要はありません。
+
+`storage/security/passkeys/` はTomos Updateの更新対象ではありません。登録済みパスキーのcredentialはUpdateによって上書きまたは削除されません。
+
+このUpdateでは、`config.php`、`content/`、利用者が追加したテーマも上書きまたは削除しません。
+
 ## v0.1.0-alpha.12への更新
 
 すでにv0.1.0-alpha.11をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.12.zip` を適用できます。
