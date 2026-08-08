@@ -2,6 +2,23 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
+## v0.1.0-alpha.13.1への更新
+
+v0.1.0-alpha.13.1は、v0.1.0-alpha.13の修正版です。
+
+v0.1.0-alpha.12またはv0.1.0-alpha.13をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.1.zip` を適用できます。
+
+1. 既存サイトの `config.php`、`content/`、`themes/` をバックアップします。`storage/security/passkeys/` が存在する場合は、このディレクトリもバックアップします。
+2. Tomos Postの「Tomos Update」を開きます。
+3. `tomos-update-0.1.0-alpha.13.1.zip` を選び、「更新内容を確認」を押します。
+4. 現在のバージョンが `0.1.0-alpha.12` または `0.1.0-alpha.13`、更新後のバージョンが `0.1.0-alpha.13.1` と表示されていることを確認します。
+5. 更新対象を確認し、更新を実行します。
+6. 更新完了後、「現在のバージョン」が `0.1.0-alpha.13.1` と表示されていることを確認します。
+
+この修正版では、セキュリティ画面とパスキー管理画面での管理用合言葉認証の導線を改善し、認証後も同じ画面からパスキーの追加・管理へ進めるようにしました。また、通常UIからRP ID表示を削除し、WebAuthn runtimeの読み込みを安定化しました。
+
+`storage/security/passkeys/` はTomos Updateの更新対象ではありません。登録済みパスキーのcredentialはUpdateによって上書きまたは削除されません。
+
 ## v0.1.0-alpha.13への更新
 
 すでにv0.1.0-alpha.12をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.zip` を適用できます。
