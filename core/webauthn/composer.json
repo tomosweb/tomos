@@ -1,0 +1,14 @@
+{
+  "name": "tomos/passkey-runtime",
+  "description": "Pinned WebAuthn runtime dependency for Tomos Passkey authentication",
+  "type": "project",
+  "require": {
+    "php": ">=8.0",
+    "ext-openssl": "*",
+    "ext-mbstring": "*",
+    "lbuchs/webauthn": "2.2.0"
+  },
+  "config": {
+    "sort-packages": true
+  }
+}
