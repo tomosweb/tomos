@@ -82,7 +82,7 @@ final class ImageProcessor
             );
         }
 
-        if (!$this->hasEnoughMemoryForGd($info)) {
+        if (!$this->hasEnoughMemoryForGd($info, $extension, $sourcePath)) {
             return $this->copyOriginalWithWarnings(
                 $sourcePath,
                 $tempPath,
@@ -351,7 +351,7 @@ final class ImageProcessor
      *
      * @param array<int|string,mixed> $info
      */
-    private function hasEnoughMemoryForGd(array $info): bool
+    private function hasEnoughMemoryForGd(array $info, string $extension, string $sourcePath): bool
     {
         $width = (int) ($info[0] ?? 0);
         $height = (int) ($info[1] ?? 0);
@@ -362,7 +362,16 @@ final class ImageProcessor
         [$targetWidth, $targetHeight] = $this->targetSize($width, $height);
         $sourceBytes = $width * $height * 4;
         $targetBytes = $targetWidth * $targetHeight * 4;
-        $estimatedBytes = (int) ceil(($sourceBytes + $targetBytes) * 1.8);
+        $peakBytes = $sourceBytes + $targetBytes;
+
+        if ($extension === 'jpg' && $this->jpegNeedsOrientationTransform($sourcePath)) {
+            // transformOrientation() can temporarily keep the original, working copy,
+            // and rotated image alive at the same time. Account for that peak before
+            // entering GD so low-memory environments fall back instead of fatally exiting.
+            $peakBytes = max($peakBytes, $sourceBytes * 3);
+        }
+
+        $estimatedBytes = (int) ceil($peakBytes * 1.8);
 
         $memoryLimit = $this->memoryLimitBytes((string) ini_get('memory_limit'));
         if ($memoryLimit <= 0) {
@@ -371,6 +380,21 @@ final class ImageProcessor
 
         $reserveBytes = 16 * 1024 * 1024;
         return memory_get_usage(true) + $estimatedBytes + $reserveBytes < $memoryLimit;
+    }
+
+    private function jpegNeedsOrientationTransform(string $sourcePath): bool
+    {
+        if (!$this->canReadExif()) {
+            return false;
+        }
+
+        $exif = @exif_read_data($sourcePath);
+        if (!is_array($exif)) {
+            return false;
+        }
+
+        $orientation = $this->orientationFromExif($exif);
+        return $orientation !== null && $orientation >= 2 && $orientation <= 8;
     }
 
     private function memoryLimitBytes(string $value): int
