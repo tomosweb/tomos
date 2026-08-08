@@ -52,6 +52,29 @@ jobs:
         if: matrix.php-version != '7.4'
         run: php tests/passkey_distribution_check.php
 
+      - name: Build distribution ZIP with WebAuthn runtime
+        if: matrix.php-version == '8.2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/build-distribution.sh
+          version="$(tr -d '[:space:]' < VERSION)"
+          zip_path="build/tomos-${version}.zip"
+          test -f "$zip_path"
+          test -f build/tomos/core/webauthn/vendor/autoload.php
+          test -f build/tomos/core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php
+          unzip -Z1 "$zip_path" | grep -Fx 'core/webauthn/vendor/autoload.php'
+          unzip -Z1 "$zip_path" | grep -Fx 'core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php'
+          php -r '
+            $zip = new ZipArchive();
+            $path = "build/tomos-" . trim(file_get_contents("VERSION")) . ".zip";
+            if ($zip->open($path) !== true) { exit(1); }
+            $autoload = $zip->getFromName("core/webauthn/vendor/autoload.php");
+            $runtime = $zip->getFromName("core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php");
+            $zip->close();
+            if (!is_string($autoload) || $autoload === "" || !is_string($runtime) || $runtime === "") { exit(1); }
+          '
+
       - name: Run passkey checks
         if: matrix.php-version != '7.4'
         shell: bash
