@@ -10,11 +10,11 @@ final class PageSorter
         $dateCompare = strcmp(self::date($b), self::date($a));
         if ($dateCompare !== 0) return $dateCompare;
 
-        $publishedA = trim((string) ($a['published'] ?? ''));
-        $publishedB = trim((string) ($b['published'] ?? ''));
+        $publishedA = PublishedMetadata::normalize($a['published'] ?? null);
+        $publishedB = PublishedMetadata::normalize($b['published'] ?? null);
         if ($publishedA !== $publishedB) {
-            if ($publishedA === '') return 1;
-            if ($publishedB === '') return -1;
+            if ($publishedA === null) return 1;
+            if ($publishedB === null) return -1;
             return strcmp($publishedB, $publishedA);
         }
 
