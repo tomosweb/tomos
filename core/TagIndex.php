@@ -154,13 +154,7 @@ final class TagIndex
 
     private function comparePages(array $a, array $b): int
     {
-        $dateA = $this->pageSortDate($a);
-        $dateB = $this->pageSortDate($b);
-        if ($dateA !== $dateB) {
-            return strcmp($dateB, $dateA);
-        }
-
-        return strcmp($this->pageTitle($a), $this->pageTitle($b));
+        return PageSorter::compare($a, $b);
     }
 
     private function pageSortDate(array $page): string

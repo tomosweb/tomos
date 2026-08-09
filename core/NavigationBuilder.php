@@ -635,22 +635,7 @@ final class NavigationBuilder
             return $indexA ? -1 : 1;
         }
 
-        $dateA = $this->pageDate($a);
-        $dateB = $this->pageDate($b);
-        if ($dateA !== null && $dateB !== null && $dateA !== $dateB) {
-            return strcmp($dateB, $dateA);
-        }
-
-        if (($dateA !== null) !== ($dateB !== null)) {
-            return $dateA !== null ? -1 : 1;
-        }
-
-        $titleCompare = strcmp($this->pageTitle($a), $this->pageTitle($b));
-        if ($titleCompare !== 0) {
-            return $titleCompare;
-        }
-
-        return strcmp($pathA, $pathB);
+        return PageSorter::compare($a, $b);
     }
 
     private function isIndexPath(string $path): bool

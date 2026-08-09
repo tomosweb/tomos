@@ -106,7 +106,7 @@ final class FeedGenerator
 
     private function comparePages(array $a, array $b): int
     {
-        return strcmp($this->sortDate($b), $this->sortDate($a));
+        return PageSorter::compare($a, $b);
     }
 
     private function rssDate(array $page): ?string

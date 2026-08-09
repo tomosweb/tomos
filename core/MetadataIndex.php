@@ -53,11 +53,7 @@ final class MetadataIndex
             $pages[] = $page;
         }
 
-        usort($pages, function (array $a, array $b): int {
-            return strcmp($a['path'], $b['path']);
-        });
-
-        return $pages;
+        return PageSorter::sort($pages);
     }
 
     public function save(array $pages): void
@@ -352,6 +348,7 @@ final class MetadataIndex
             'description' => $metadata['description'],
             'description_explicit' => $metadata['description_explicit'] ?? false,
             'date' => $metadata['date'],
+            'published' => $metadata['published'],
             'updated' => $metadata['updated'],
             'tags' => $metadata['tags'],
             'excerpt' => $this->frontMatterParser->excerptFromMarkdown($parsed['body']),

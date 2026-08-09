@@ -338,6 +338,7 @@ final class PostUpload
         }
         $warnings = array_merge($warnings, $imageSave['warnings']);
 
+        $content = $this->withInitialPublishedMetadata($content);
         $saveError = $this->writeNewFile($targetPath, $content);
         if ($saveError !== '') {
             $this->removeSavedImages($imageSave['created']);
@@ -487,6 +488,9 @@ final class PostUpload
         if ($markdown === null) {
             return new PostUploadResult(false, ['Front Matterの公開状態を安全に更新できませんでした。']);
         }
+        if (!$draft && $sourceStatus === 'draft') {
+            $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
+        }
 
         $imageSave = $this->saveImages($record->imagePaths, (string) ($record->meta['folder'] ?? ''));
         if ($imageSave['error'] !== '') {
@@ -549,6 +553,7 @@ final class PostUpload
         if ($markdown === null) {
             return new PostUploadResult(false, ['Front Matterの公開状態を安全に更新できませんでした。']);
         }
+        $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
 
         $folder = (string) ($record->meta['folder'] ?? '');
         $imageSave = $this->saveImages($record->imagePaths, $folder);
@@ -622,7 +627,8 @@ final class PostUpload
             return new PostUploadResult(false, [$imageSave['error']]);
         }
 
-        $saveError = $this->writeNewFile($target['path'], $record->markdown);
+        $markdown = $this->withInitialPublishedMetadata($record->markdown);
+        $saveError = $this->writeNewFile($target['path'], $markdown);
         if ($saveError !== '') {
             $this->removeSavedImages($imageSave['created']);
             return new PostUploadResult(false, [$saveError]);
@@ -1182,6 +1188,29 @@ final class PostUpload
         }
 
         return '';
+    }
+
+    private function withInitialPublishedMetadata(string $markdown): string
+    {
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = $this->frontMatterParser->buildPageMetadata($parsed['metadata'], $parsed['body'], 'post.md');
+        if (!empty($metadata['draft'])) {
+            return $markdown;
+        }
+
+        return PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
+    }
+
+    private function publishedNow(): string
+    {
+        $timezoneName = (string) ($this->site['timezone'] ?? 'Asia/Tokyo');
+        try {
+            $timezone = new \DateTimeZone($timezoneName);
+        } catch (\Throwable $exception) {
+            $timezone = new \DateTimeZone('Asia/Tokyo');
+        }
+
+        return (new \DateTimeImmutable('now', $timezone))->format('Y-m-d\\TH:i:sP');
     }
 
     private function replaceFileSafely(string $targetPath, string $content): string
