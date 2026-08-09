@@ -138,6 +138,7 @@ final class FrontMatterParser
         return [
             'title' => $this->cleanScalar($metadata['title'] ?? ''),
             'date' => $this->cleanNullableScalar($metadata['date'] ?? null),
+            'published' => PublishedMetadata::normalize($metadata['published'] ?? null),
             'updated' => $this->cleanNullableScalar($metadata['updated'] ?? null),
             'tags' => $this->normalizeTags($metadata['tags'] ?? []),
             'description' => $this->cleanScalar($metadata['description'] ?? ''),
