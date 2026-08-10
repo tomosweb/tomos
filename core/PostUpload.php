@@ -18,6 +18,7 @@ foreach ([
     'PostUploadTempStore' => 'PostUploadTempStore.php',
     'PostBasicPage' => 'PostBasicPage.php',
     'PostEditableMarkdown' => 'PostEditableMarkdown.php',
+    'PostUploadInput' => 'PostUploadInput.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -93,7 +94,6 @@ final class PostUploadResult
 
 final class PostUpload
 {
-    private const MAX_BYTES = 1048576;
     private const MAX_IMAGE_BYTES = 10485760;
     private const MAX_IMAGE_COUNT = 5;
     /** @var string[] */
@@ -150,27 +150,14 @@ final class PostUpload
 
     public function handle(array $file, string $folderInput, string $fileNameInput, ?string $sessionId = null, array $imageFiles = [], array $omittedImages = [], bool $trustedStagedImages = false, string $submissionId = ''): PostUploadResult
     {
-        $errors = [];
+        $input = PostUploadInput::read($file);
+        if (!$input->canContinue) {
+            return new PostUploadResult(false, $input->errors);
+        }
+
+        $errors = $input->errors;
         $warnings = [];
-
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            return new PostUploadResult(false, [$this->uploadErrorMessage((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE))]);
-        }
-
-        $tmpPath = (string) ($file['tmp_name'] ?? '');
-        if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
-            return new PostUploadResult(false, ['アップロードされたファイルを確認できませんでした。']);
-        }
-
-        $size = (int) ($file['size'] ?? 0);
-        if ($size <= 0) {
-            $errors[] = '空のファイルは投稿できません。';
-        }
-        if ($size > self::MAX_BYTES) {
-            $errors[] = 'ファイルサイズが大きすぎます。初期版では1MBまでです。';
-        }
-
-        $originalName = (string) ($file['name'] ?? '');
+        $originalName = $input->originalFileName;
         $chosenName = trim($fileNameInput) !== '' ? trim($fileNameInput) : $originalName;
         $basicPageType = PostBasicPage::typeFromFileName($chosenName);
         $safeFileName = $this->normalizeFileName($chosenName, $errors);
@@ -179,16 +166,12 @@ final class PostUpload
         if ($basicPageType === '' && PostBasicPage::isProtectedContentPath($safeFileName)) {
             $errors[] = 'トップページは index.md、Aboutページは about.md の正式なファイル名で投稿してください。';
         }
-        $content = @file_get_contents($tmpPath);
-        if ($content === false) {
-            $errors[] = 'アップロードされたファイルを読み込めませんでした。';
-        } else {
-            if ($this->looksBinary($content)) {
-                $errors[] = 'テキストファイルとして読み込めない内容が含まれています。';
-            }
-            if (function_exists('mb_check_encoding') && !mb_check_encoding($content, 'UTF-8')) {
-                $errors[] = '文字コードはUTF-8のファイルを投稿してください。';
-            }
+        $content = $input->content;
+        if ($input->contentRead && $this->looksBinary($content)) {
+            $errors[] = 'テキストファイルとして読み込めない内容が含まれています。';
+        }
+        if ($input->contentRead && function_exists('mb_check_encoding') && !mb_check_encoding($content, 'UTF-8')) {
+            $errors[] = '文字コードはUTF-8のファイルを投稿してください。';
         }
 
         if ($errors !== []) {
@@ -826,7 +809,7 @@ final class PostUpload
                 continue;
             }
             if ($error !== UPLOAD_ERR_OK) {
-                $errors[] = $this->uploadErrorMessage($error);
+                $errors[] = PostUploadInput::uploadErrorMessage($error);
                 continue;
             }
 
@@ -1589,16 +1572,4 @@ final class PostUpload
         return $actual !== '' && hash_equals($expected, $actual);
     }
 
-    private function uploadErrorMessage(int $error): string
-    {
-        switch ($error) {
-            case UPLOAD_ERR_INI_SIZE:
-            case UPLOAD_ERR_FORM_SIZE:
-                return 'ファイルサイズが大きすぎます。';
-            case UPLOAD_ERR_NO_FILE:
-                return '投稿するファイルを選択してください。';
-            default:
-                return 'ファイルをアップロードできませんでした。';
-        }
-    }
 }
