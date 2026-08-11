@@ -16,6 +16,7 @@ core/PostSubmissionGuard.php
 core/PostRateLimiter.php
 core/PostUpload.php
 core/PostUploadInput.php
+core/PostSubmissionPreparer.php
 core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
 core/ThemePackageException.php
