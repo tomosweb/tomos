@@ -20,6 +20,7 @@ foreach ([
     'PostEditableMarkdown' => 'PostEditableMarkdown.php',
     'PostUploadInput' => 'PostUploadInput.php',
     'PostSubmissionPreparer' => 'PostSubmissionPreparer.php',
+    'PostPublisher' => 'PostPublisher.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -116,7 +117,7 @@ final class PostUpload
     private PostUploadTempStore $tempStore;
     private PostEditableMarkdown $editableMarkdown;
     private PostSubmissionPreparer $submissionPreparer;
-    private ?array $freshImageReferenceIndex = null;
+    private PostPublisher $publisher;
 
     public function __construct(array $config, string $rootDir)
     {
@@ -129,6 +130,14 @@ final class PostUpload
         $this->tempStore = new PostUploadTempStore($this->cacheDir);
         $this->editableMarkdown = new PostEditableMarkdown($config, $rootDir);
         $this->submissionPreparer = new PostSubmissionPreparer($this->editableMarkdown);
+        $this->publisher = new PostPublisher(
+            $this->contentDir,
+            $this->cacheDir,
+            $this->frontMatterParser,
+            $this->htmlCacheEnabled,
+            $this->includeDrafts,
+            $this->site
+        );
     }
 
     public function handle(array $file, string $folderInput, string $fileNameInput, ?string $sessionId = null, array $imageFiles = [], array $omittedImages = [], bool $trustedStagedImages = false, string $submissionId = ''): PostUploadResult
@@ -272,23 +281,16 @@ final class PostUpload
             );
         }
 
-        $imageSave = $this->saveImages($imagePlan, $folder);
-        if ($imageSave['error'] !== '') {
-            return new PostUploadResult(false, [$imageSave['error']]);
+        $publish = $this->publisher->publishNew($targetPath, $content, $imagePlan, $folder);
+        if (!$publish->ok) {
+            return new PostUploadResult(false, $publish->errors);
         }
-        $warnings = array_merge($warnings, $imageSave['warnings']);
-
-        $content = $this->withInitialPublishedMetadata($content);
-        $saveError = $this->writeNewFile($targetPath, $content);
-        if ($saveError !== '') {
-            $this->removeSavedImages($imageSave['created']);
-            return new PostUploadResult(false, [$saveError]);
-        }
+        $warnings = array_merge($warnings, $publish->warnings);
 
         $internalUrl = $this->urlFromContentPath($contentPath);
         $absoluteUrl = $this->absolutePublicUrl($internalUrl);
 
-        $warnings = array_merge($warnings, $this->rebuildIndexes($contentPath));
+        $warnings = array_merge($warnings, $this->publisher->rebuildIndexes($contentPath));
 
         return new PostUploadResult(true, [], $warnings, $contentPath, $internalUrl, $absoluteUrl, $chosenName, $safeFileName, false, '', '', '', '', 'create', '', count($imagePlan));
     }
@@ -329,23 +331,26 @@ final class PostUpload
         $oldImageRefs = $this->managedImageReferences($current, $contentPath);
         $newImageRefs = $this->managedImageReferences($record->markdown, $contentPath);
 
-        $imageSave = $this->saveImages($record->imagePaths, (string) ($record->meta['folder'] ?? ''));
-        if ($imageSave['error'] !== '') {
-            return new PostUploadResult(false, [$imageSave['error']]);
-        }
-
-        $replaceError = $this->replaceFileSafely($targetPath, $record->markdown);
-        if ($replaceError !== '') {
-            $this->removeSavedImages($imageSave['created']);
-            return new PostUploadResult(false, [$replaceError]);
+        $publish = $this->publisher->updateExisting(
+            $targetPath,
+            $record->markdown,
+            $record->imagePaths,
+            (string) ($record->meta['folder'] ?? '')
+        );
+        if (!$publish->ok) {
+            return new PostUploadResult(false, $publish->errors);
         }
 
         $this->tempStore->delete($tempId);
 
-        $warnings = array_merge($imageSave['warnings'], $this->rebuildIndexes($contentPath));
-        if (!$this->hasImageReferenceWarning($warnings)) {
-            $warnings = array_merge($warnings, $this->deleteUnreferencedImages(array_values(array_diff($oldImageRefs, $newImageRefs))));
-        }
+        $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
+        $warnings = array_merge(
+            $warnings,
+            $this->publisher->deleteUnreferencedImagesIfSafe(
+                array_values(array_diff($oldImageRefs, $newImageRefs)),
+                $warnings
+            )
+        );
         return new PostUploadResult(
             true,
             [],
@@ -432,20 +437,19 @@ final class PostUpload
             $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
         }
 
-        $imageSave = $this->saveImages($record->imagePaths, (string) ($record->meta['folder'] ?? ''));
-        if ($imageSave['error'] !== '') {
-            return new PostUploadResult(false, [$imageSave['error']]);
-        }
-
-        $replaceError = $this->replaceFileSafely($target['path'], $markdown);
-        if ($replaceError !== '') {
-            $this->removeSavedImages($imageSave['created']);
-            return new PostUploadResult(false, [$replaceError]);
+        $publish = $this->publisher->updateExisting(
+            $target['path'],
+            $markdown,
+            $record->imagePaths,
+            (string) ($record->meta['folder'] ?? '')
+        );
+        if (!$publish->ok) {
+            return new PostUploadResult(false, $publish->errors);
         }
 
         $this->tempStore->delete($tempId);
         $contentPath = (string) ($record->meta['content_path'] ?? '');
-        $warnings = array_merge($imageSave['warnings'], $this->rebuildIndexes($contentPath));
+        $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
         $operation = $mode === 'draft'
             ? 'editable_draft'
             : ($sourceStatus === 'draft' ? 'editable_publish' : 'editable_update');
@@ -496,20 +500,14 @@ final class PostUpload
         $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
 
         $folder = (string) ($record->meta['folder'] ?? '');
-        $imageSave = $this->saveImages($record->imagePaths, $folder);
-        if ($imageSave['error'] !== '') {
-            return new PostUploadResult(false, [$imageSave['error']]);
-        }
-
-        $saveError = $this->writeNewFile($target['path'], $markdown);
-        if ($saveError !== '') {
-            $this->removeSavedImages($imageSave['created']);
-            return new PostUploadResult(false, [$saveError]);
+        $publish = $this->publisher->publishNew($target['path'], $markdown, $record->imagePaths, $folder, false);
+        if (!$publish->ok) {
+            return new PostUploadResult(false, $publish->errors);
         }
 
         $this->tempStore->delete($tempId);
         $contentPath = (string) ($record->meta['content_path'] ?? '');
-        $warnings = array_merge($imageSave['warnings'], $this->rebuildIndexes($contentPath));
+        $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
 
         return new PostUploadResult(
             true,
@@ -562,23 +560,16 @@ final class PostUpload
             return new PostUploadResult(false, ['このファイル名もすでに使われています。別のファイル名を指定してください。']);
         }
 
-        $imageSave = $this->saveImages($record->imagePaths, $folder);
-        if ($imageSave['error'] !== '') {
-            return new PostUploadResult(false, [$imageSave['error']]);
-        }
-
-        $markdown = $this->withInitialPublishedMetadata($record->markdown);
-        $saveError = $this->writeNewFile($target['path'], $markdown);
-        if ($saveError !== '') {
-            $this->removeSavedImages($imageSave['created']);
-            return new PostUploadResult(false, [$saveError]);
+        $publish = $this->publisher->publishNew($target['path'], $record->markdown, $record->imagePaths, $folder);
+        if (!$publish->ok) {
+            return new PostUploadResult(false, $publish->errors);
         }
 
         $this->tempStore->delete($tempId);
 
         $internalUrl = $this->urlFromContentPath($contentPath);
         $absoluteUrl = $this->absolutePublicUrl($internalUrl);
-        $warnings = array_merge($imageSave['warnings'], $this->rebuildIndexes($contentPath));
+        $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
 
         return new PostUploadResult(
             true,
@@ -1005,140 +996,9 @@ final class PostUpload
         return '';
     }
 
-    /**
-     * @param array<string,string> $images
-     * @return array{error:string,created:string[],warnings:string[]}
-     */
-    private function saveImages(array $images, string $folder): array
-    {
-        if ($images === []) {
-            return ['error' => '', 'created' => [], 'warnings' => []];
-        }
-
-        $contentBase = realpath($this->contentDir);
-        if ($contentBase === false || !is_dir($contentBase)) {
-            return ['error' => 'content/ フォルダが見つかりません。', 'created' => [], 'warnings' => []];
-        }
-
-        $imageDir = $contentBase;
-        if ($folder !== '') {
-            $imageDir .= DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $folder);
-        }
-        $imageDir .= DIRECTORY_SEPARATOR . 'images';
-        if (!is_dir($imageDir) && !@mkdir($imageDir, 0775, true) && !is_dir($imageDir)) {
-            return ['error' => '画像保存先フォルダを作成できませんでした。', 'created' => [], 'warnings' => []];
-        }
-
-        $imageDirReal = realpath($imageDir);
-        if ($imageDirReal === false || !Security::isPathInside($imageDirReal, $contentBase)) {
-            return ['error' => '画像保存先を確認できませんでした。', 'created' => [], 'warnings' => []];
-        }
-
-        $created = [];
-        $warnings = [];
-        $processor = new ImageProcessor();
-        foreach ($images as $fileName => $sourcePath) {
-            $fileName = strtolower((string) $fileName);
-            if (preg_match('/\Atms-[a-f0-9]{16}\.(jpg|jpeg|png|gif|webp)\z/', $fileName) !== 1 || !is_file($sourcePath)) {
-                $this->removeSavedImages($created);
-                return ['error' => '選択された画像を確認できませんでした。', 'created' => [], 'warnings' => $warnings];
-            }
-
-            $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $processed = $processor->process($sourcePath, $extension, $imageDirReal);
-            if (!$processed->ok) {
-                $this->removeSavedImages($created);
-                return ['error' => $processed->error, 'created' => [], 'warnings' => $warnings];
-            }
-            $warnings = array_merge($warnings, $processed->warnings);
-
-            $targetPath = $imageDirReal . DIRECTORY_SEPARATOR . $fileName;
-            if (is_file($targetPath)) {
-                $targetHash = hash_file('sha256', $targetPath);
-                $sourceHash = hash_file('sha256', $sourcePath);
-                $processedHash = hash_file('sha256', $processed->path);
-                if ($targetHash !== $sourceHash && $targetHash !== $processedHash) {
-                    // A managed image may change when image-processing behavior is corrected.
-                    if (is_string($sourceHash) && is_string($processedHash)
-                        && $this->replaceExistingImage($processed->path, $targetPath)) {
-                        continue;
-                    }
-                    @unlink($processed->path);
-                    $this->removeSavedImages($created);
-                    return ['error' => '同じ名前の画像がすでにあります。別の画像を選び直してください。', 'created' => [], 'warnings' => $warnings];
-                }
-                @unlink($processed->path);
-                continue;
-            }
-
-            if (!@rename($processed->path, $targetPath) && !@copy($processed->path, $targetPath)) {
-                @unlink($processed->path);
-                $this->removeSavedImages($created);
-                return ['error' => '画像を保存できませんでした。', 'created' => [], 'warnings' => $warnings];
-            }
-            @unlink($processed->path);
-            $created[] = $targetPath;
-        }
-
-        return ['error' => '', 'created' => $created, 'warnings' => array_values(array_unique($warnings))];
-    }
-
-    private function replaceExistingImage(string $sourcePath, string $targetPath): bool
-    {
-        try {
-            $backupPath = $targetPath . '.tomos-backup-' . bin2hex(random_bytes(8));
-        } catch (\Throwable $exception) {
-            return false;
-        }
-
-        if (!@rename($targetPath, $backupPath)) {
-            return false;
-        }
-        if (@rename($sourcePath, $targetPath)) {
-            @unlink($backupPath);
-            return true;
-        }
-
-        @rename($backupPath, $targetPath);
-        return false;
-    }
-
-    /**
-     * @param string[] $paths
-     */
-    private function removeSavedImages(array $paths): void
-    {
-        foreach ($paths as $path) {
-            is_file($path) && @unlink($path);
-        }
-    }
-
-    private function writeNewFile(string $targetPath, string $content): string
-    {
-        $handle = @fopen($targetPath, 'xb');
-        if ($handle === false) {
-            return 'ファイルを保存できませんでした。保存先の権限を確認してください。';
-        }
-
-        $written = @fwrite($handle, $content);
-        @fclose($handle);
-        if ($written === false || $written < strlen($content)) {
-            @unlink($targetPath);
-            return 'ファイルを書き込めませんでした。';
-        }
-
-        return '';
-    }
-
     private function withInitialPublishedMetadata(string $markdown): string
     {
-        $parsed = $this->frontMatterParser->parse($markdown);
-        $metadata = $this->frontMatterParser->buildPageMetadata($parsed['metadata'], $parsed['body'], 'post.md');
-        if (!empty($metadata['draft'])) {
-            return $markdown;
-        }
-
-        return PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
+        return $this->publisher->withInitialPublishedMetadata($markdown);
     }
 
     private function publishedNow(): string
@@ -1151,22 +1011,6 @@ final class PostUpload
         }
 
         return (new \DateTimeImmutable('now', $timezone))->format('Y-m-d\\TH:i:sP');
-    }
-
-    private function replaceFileSafely(string $targetPath, string $content): string
-    {
-        $targetDir = dirname($targetPath);
-        $tmpPath = $targetDir . DIRECTORY_SEPARATOR . '.tomos-update-' . bin2hex(random_bytes(12)) . '.tmp';
-        if (@file_put_contents($tmpPath, $content, LOCK_EX) === false) {
-            return '更新用の一時ファイルを書き込めませんでした。既存ページは変更していません。';
-        }
-
-        if (!@rename($tmpPath, $targetPath)) {
-            @unlink($tmpPath);
-            return 'ページを更新できませんでした。既存ページは変更していません。';
-        }
-
-        return '';
     }
 
     /**
@@ -1214,61 +1058,6 @@ final class PostUpload
     /**
      * @return string[]
      */
-    private function rebuildIndexes(string $contentPath): array
-    {
-        return array_merge(
-            $this->rebuildMetadata($contentPath),
-            $this->rebuildImageReferences()
-        );
-    }
-
-    /**
-     * @return string[]
-     */
-    private function rebuildMetadata(string $contentPath): array
-    {
-        try {
-            $index = new MetadataIndex(
-                $this->contentDir,
-                $this->cacheDir,
-                $this->frontMatterParser,
-                $this->includeDrafts
-            );
-            $index->rebuild();
-            return [];
-        } catch (\Throwable $exception) {
-            $warnings = ['Markdownは保存しましたが、一覧・検索・タグ・RSS・sitemap用の情報を更新できませんでした。'];
-            $htmlCache = new HtmlCache($this->cacheDir, $this->htmlCacheEnabled);
-            if ($contentPath !== '' && !$htmlCache->delete($contentPath)) {
-                $warnings[] = '対象ページのHTMLキャッシュを削除できませんでした。表示が古い場合は cache/html/ を確認してください。';
-            }
-
-            return $warnings;
-        }
-    }
-
-    /**
-     * @return string[]
-     */
-    private function rebuildImageReferences(): array
-    {
-        try {
-            $index = new ImageReferenceIndex(
-                $this->contentDir,
-                $this->cacheDir,
-                $this->frontMatterParser,
-                $this->includeDrafts
-            );
-            $this->freshImageReferenceIndex = $index->rebuild();
-            return (new ImageDeletionRetryQueue($this->cacheDir, $index))->attempt([], $this->freshImageReferenceIndex);
-        } catch (\Throwable $exception) {
-            return ['Markdownは保存しましたが、画像参照情報を更新できませんでした。画像削除判定を行う前に cache/index/image-references.json を再生成してください。'];
-        }
-    }
-
-    /**
-     * @return string[]
-     */
     private function managedImageReferences(string $markdown, string $contentPath): array
     {
         try {
@@ -1276,20 +1065,6 @@ final class PostUpload
         } catch (\Throwable $exception) {
             return [];
         }
-    }
-
-    /**
-     * @param string[] $imagePaths
-     * @return string[]
-     */
-    private function deleteUnreferencedImages(array $imagePaths): array
-    {
-        $index = $this->imageReferenceIndex();
-        return (new ImageDeletionRetryQueue($this->cacheDir, $index))->attempt(
-            $imagePaths,
-            $this->freshImageReferenceIndex,
-            false
-        );
     }
 
     private function imageReferenceIndex(): ImageReferenceIndex
@@ -1300,20 +1075,6 @@ final class PostUpload
             $this->frontMatterParser,
             $this->includeDrafts
         );
-    }
-
-    /**
-     * @param string[] $warnings
-     */
-    private function hasImageReferenceWarning(array $warnings): bool
-    {
-        foreach ($warnings as $warning) {
-            if (strpos((string) $warning, '画像参照情報') !== false) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function titleFromMarkdown(string $markdown, string $contentPath): string
