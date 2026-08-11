@@ -18,6 +18,7 @@ core/PostUpload.php
 core/PostUploadInput.php
 core/PostSubmissionPreparer.php
 core/PostConflictManager.php
+core/PostInbox.php
 core/PostPublisher.php
 core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php

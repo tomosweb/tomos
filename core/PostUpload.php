@@ -156,13 +156,62 @@ final class PostUpload
             return new PostUploadResult(false, $input->errors);
         }
 
-        $prepared = $this->submissionPreparer->prepare(
+        return $this->handlePreparedContent(
             $input->content,
             $input->originalFileName,
             $folderInput,
+            $fileNameInput,
+            $sessionId,
+            $imageFiles,
+            $omittedImages,
+            $trustedStagedImages,
+            $submissionId
+        );
+    }
+
+    public function handleContent(
+        string $content,
+        string $originalFileName,
+        string $folderInput = '',
+        string $fileNameInput = '',
+        ?string $sessionId = null,
+        array $imageFiles = [],
+        array $omittedImages = [],
+        bool $trustedStagedImages = false,
+        string $submissionId = ''
+    ): PostUploadResult {
+        return $this->handlePreparedContent(
+            $content,
+            $originalFileName,
+            $folderInput,
+            $fileNameInput,
+            $sessionId,
+            $imageFiles,
+            $omittedImages,
+            $trustedStagedImages,
+            $submissionId
+        );
+    }
+
+    private function handlePreparedContent(
+        string $content,
+        string $originalFileName,
+        string $folderInput,
+        string $fileNameInput,
+        ?string $sessionId,
+        array $imageFiles,
+        array $omittedImages,
+        bool $trustedStagedImages,
+        string $submissionId
+    ): PostUploadResult {
+
+        $prepared = $this->submissionPreparer->prepare(
+            $content,
+            $originalFileName,
+            $folderInput,
             $fileNameInput
         );
-        $errors = array_merge($input->errors, $prepared->errors);
+        $errors = $prepared->errors;
         $warnings = [];
 
         if ($errors !== []) {
