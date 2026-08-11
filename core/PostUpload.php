@@ -21,6 +21,7 @@ foreach ([
     'PostUploadInput' => 'PostUploadInput.php',
     'PostSubmissionPreparer' => 'PostSubmissionPreparer.php',
     'PostPublisher' => 'PostPublisher.php',
+    'PostConflictManager' => 'PostConflictManager.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -114,10 +115,10 @@ final class PostUpload
     private bool $htmlCacheEnabled;
     private bool $includeDrafts;
     private FrontMatterParser $frontMatterParser;
-    private PostUploadTempStore $tempStore;
     private PostEditableMarkdown $editableMarkdown;
     private PostSubmissionPreparer $submissionPreparer;
     private PostPublisher $publisher;
+    private PostConflictManager $conflictManager;
 
     public function __construct(array $config, string $rootDir)
     {
@@ -127,9 +128,17 @@ final class PostUpload
         $this->htmlCacheEnabled = (bool) ($config['features']['html_cache'] ?? false);
         $this->includeDrafts = (bool) ($config['metadata']['include_drafts'] ?? false);
         $this->frontMatterParser = new FrontMatterParser();
-        $this->tempStore = new PostUploadTempStore($this->cacheDir);
+        $tempStore = new PostUploadTempStore($this->cacheDir);
         $this->editableMarkdown = new PostEditableMarkdown($config, $rootDir);
         $this->submissionPreparer = new PostSubmissionPreparer($this->editableMarkdown);
+        $this->conflictManager = new PostConflictManager(
+            $this->contentDir,
+            $this->site,
+            $this->frontMatterParser,
+            $tempStore,
+            $this->editableMarkdown,
+            $this->submissionPreparer
+        );
         $this->publisher = new PostPublisher(
             $this->contentDir,
             $this->cacheDir,
@@ -210,7 +219,7 @@ final class PostUpload
         }
 
         if (!file_exists($targetPath)) {
-            $equivalentFileName = $this->findEquivalentExistingFileName($targetDirReal, $safeFileName);
+            $equivalentFileName = $this->conflictManager->equivalentExistingFileName($targetDirReal, $safeFileName);
             if ($equivalentFileName !== '') {
                 $safeFileName = $equivalentFileName;
                 $targetPath = $targetDirReal . DIRECTORY_SEPARATOR . $safeFileName;
@@ -219,7 +228,7 @@ final class PostUpload
 
         $contentPath = ($folder === '' ? '' : $folder . '/') . $safeFileName;
         if ($isEditable) {
-            return $this->prepareEditableConfirmation(
+            return $this->resultFromConflictDecision($this->conflictManager->prepareEditableConfirmation(
                 $editable,
                 $content,
                 $contentPath,
@@ -231,54 +240,23 @@ final class PostUpload
                 $warnings,
                 $sessionId,
                 $submissionId
-            );
+            ));
         }
 
-        if (file_exists($targetPath)) {
-            $existingMarkdown = @file_get_contents($targetPath);
-            if ($existingMarkdown === false) {
-                return new PostUploadResult(false, ['同じ保存先にページがありますが、現在の内容を確認できませんでした。']);
-            }
-
-            $internalUrl = $this->urlFromContentPath($contentPath);
-            $absoluteUrl = $this->absolutePublicUrl($internalUrl);
-            $tempRecord = $this->tempStore->create($content, [
-                'session_id' => $sessionId ?? '',
-                'submission_hash' => $this->submissionHash($submissionId),
-                'folder' => $folder,
-                'original_file_name' => $chosenName,
-                'planned_file_name' => $safeFileName,
-                'saved_file_name' => $safeFileName,
-                'content_path' => $contentPath,
-                'internal_url' => $internalUrl,
-                'absolute_url' => $absoluteUrl,
-                'existing_title' => $this->titleFromMarkdown($existingMarkdown, $contentPath),
-                'new_title' => $this->titleFromMarkdown($content, $contentPath),
-                'existing_hash' => hash('sha256', $existingMarkdown),
-                'image_count' => count($imagePlan),
-            ], $imagePlan);
-            if ($tempRecord === null) {
-                return new PostUploadResult(false, ['確認用の一時ファイルを保存できませんでした。時間をおいて再度投稿してください。']);
-            }
-
-            return new PostUploadResult(
-                false,
-                [],
-                $warnings,
-                $contentPath,
-                $internalUrl,
-                $absoluteUrl,
-                $chosenName,
-                $safeFileName,
-                true,
-                $tempRecord->id,
-                (string) ($tempRecord->meta['existing_title'] ?? ''),
-                (string) ($tempRecord->meta['new_title'] ?? ''),
-                date('Y-m-d H:i', (int) ($tempRecord->meta['expires_at'] ?? 0)),
-                'conflict',
-                $this->suggestedRenamedFileName($tempRecord),
-                count($imagePlan)
-            );
+        $conflict = $this->conflictManager->inspectNew(
+            $targetPath,
+            $contentPath,
+            $content,
+            $folder,
+            $chosenName,
+            $safeFileName,
+            $imagePlan,
+            $warnings,
+            $sessionId,
+            $submissionId
+        );
+        if ($conflict->requiresConfirmation || !$conflict->ok) {
+            return $this->resultFromConflictDecision($conflict, count($imagePlan));
         }
 
         $publish = $this->publisher->publishNew($targetPath, $content, $imagePlan, $folder);
@@ -297,35 +275,17 @@ final class PostUpload
 
     public function updateFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
     {
-        $record = $this->tempStore->load($tempId, $sessionId);
-        if ($record === null) {
-            return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        $loaded = $this->conflictManager->loadForAction($tempId, $sessionId, $submissionId);
+        if (!$loaded->ok || $loaded->record === null) {
+            return new PostUploadResult(false, $loaded->errors);
         }
-        if (!$this->submissionMatches($record, $submissionId)) {
-            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
+        $record = $loaded->record;
+        $validated = $this->conflictManager->validateExistingUpdate($record);
+        if (!$validated->ok || $validated->targetPath === null) {
+            return new PostUploadResult(false, $validated->errors);
         }
-
-        $target = $this->targetFromRecord($record);
-        if ($target['error'] !== '') {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, [$target['error']]);
-        }
-
-        $targetPath = $target['path'];
-        if (!is_file($targetPath)) {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, ['更新対象のファイルが見つかりません。投稿画面からやり直してください。']);
-        }
-
-        $current = @file_get_contents($targetPath);
-        if ($current === false) {
-            return new PostUploadResult(false, ['更新対象の現在の内容を確認できませんでした。']);
-        }
-
-        if (!hash_equals((string) ($record->meta['existing_hash'] ?? ''), hash('sha256', $current))) {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, ['確認後に更新対象の内容が変わりました。もう一度投稿内容を確認してください。']);
-        }
+        $targetPath = $validated->targetPath;
+        $current = $validated->currentMarkdown;
 
         $contentPath = (string) ($record->meta['content_path'] ?? '');
         $oldImageRefs = $this->managedImageReferences($current, $contentPath);
@@ -341,7 +301,7 @@ final class PostUpload
             return new PostUploadResult(false, $publish->errors);
         }
 
-        $this->tempStore->delete($tempId);
+        $this->conflictManager->delete($tempId);
 
         $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
         $warnings = array_merge(
@@ -378,55 +338,18 @@ final class PostUpload
         ?string $sessionId = null,
         string $submissionId = ''
     ): PostUploadResult {
-        $record = $this->tempStore->load($tempId, $sessionId);
-        if ($record === null || (string) ($record->meta['upload_kind'] ?? '') !== 'editable_update') {
-            return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        $loaded = $this->conflictManager->loadForAction($tempId, $sessionId, $submissionId, 'editable_update');
+        if (!$loaded->ok || $loaded->record === null) {
+            return new PostUploadResult(false, $loaded->errors);
         }
-        if (!$this->submissionMatches($record, $submissionId)) {
-            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
+        $record = $loaded->record;
+        $validated = $this->conflictManager->validateEditableUpdate($record, $mode, $allowConflict);
+        if (!$validated->ok || $validated->targetPath === null) {
+            return new PostUploadResult(false, $validated->errors);
         }
-
-        $sourceStatus = (string) ($record->meta['source_status'] ?? '');
-        $allowedModes = $sourceStatus === 'draft' ? ['draft', 'publish'] : ['published'];
-        if (!in_array($mode, $allowedModes, true)) {
-            return new PostUploadResult(false, ['更新方法を確認できませんでした。もう一度投稿してください。']);
-        }
-        if (!empty($record->meta['source_conflict']) && !$allowConflict) {
-            return new PostUploadResult(false, ['競合している原稿は、上書きを明示した場合だけ更新できます。']);
-        }
-
-        $sourcePath = (string) ($record->meta['source_path'] ?? '');
-        $source = $this->editableMarkdown->readSource($sourcePath);
-        if (empty($source['ok']) || empty($source['exists'])) {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, [
-                '編集元の原稿が見つかりません。記事管理から原稿を確認し、必要であればもう一度ダウンロードしてください。',
-            ]);
-        }
-
-        $currentHash = (string) ($source['hash'] ?? '');
-        $expectedHash = (string) ($record->meta['existing_hash'] ?? '');
-        $currentStatus = (string) ($source['status'] ?? '');
-        $expectedStatus = (string) ($record->meta['current_status'] ?? '');
-        if (
-            $expectedHash === ''
-            || !hash_equals($expectedHash, $currentHash)
-            || $expectedStatus === ''
-            || !hash_equals($expectedStatus, $currentStatus)
-        ) {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, ['確認後に更新対象の内容が変わりました。もう一度投稿内容を確認してください。']);
-        }
-
-        $target = $this->targetFromRecord($record);
-        if ($target['error'] !== '') {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, [$target['error']]);
-        }
-        if (realpath($target['path']) !== (string) ($source['file'] ?? '')) {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, ['編集元と更新先を安全に照合できませんでした。']);
-        }
+        $sourceStatus = $validated->sourceStatus;
+        $source = $validated->source;
+        $targetPath = $validated->targetPath;
 
         $draft = $mode === 'draft';
         $markdown = $this->editableMarkdown->applyDraftState($record->markdown, $draft);
@@ -438,7 +361,7 @@ final class PostUpload
         }
 
         $publish = $this->publisher->updateExisting(
-            $target['path'],
+            $targetPath,
             $markdown,
             $record->imagePaths,
             (string) ($record->meta['folder'] ?? '')
@@ -447,7 +370,7 @@ final class PostUpload
             return new PostUploadResult(false, $publish->errors);
         }
 
-        $this->tempStore->delete($tempId);
+        $this->conflictManager->delete($tempId);
         $contentPath = (string) ($record->meta['content_path'] ?? '');
         $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
         $operation = $mode === 'draft'
@@ -476,22 +399,16 @@ final class PostUpload
 
     public function createEditableFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
     {
-        $record = $this->tempStore->load($tempId, $sessionId);
-        if ($record === null || (string) ($record->meta['upload_kind'] ?? '') !== 'editable_new') {
-            return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        $loaded = $this->conflictManager->loadForAction($tempId, $sessionId, $submissionId, 'editable_new');
+        if (!$loaded->ok || $loaded->record === null) {
+            return new PostUploadResult(false, $loaded->errors);
         }
-        if (!$this->submissionMatches($record, $submissionId)) {
-            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
+        $record = $loaded->record;
+        $validated = $this->conflictManager->validateEditableNew($record);
+        if (!$validated->ok || $validated->targetPath === null) {
+            return new PostUploadResult(false, $validated->errors);
         }
-
-        $target = $this->targetFromRecord($record);
-        if ($target['error'] !== '') {
-            $this->tempStore->delete($tempId);
-            return new PostUploadResult(false, [$target['error']]);
-        }
-        if (file_exists($target['path'])) {
-            return new PostUploadResult(false, ['変更後の保存先には、すでにページがあります。別の保存先を指定してください。']);
-        }
+        $targetPath = $validated->targetPath;
 
         $markdown = $this->editableMarkdown->applyDraftState($record->markdown, false);
         if ($markdown === null) {
@@ -500,12 +417,12 @@ final class PostUpload
         $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
 
         $folder = (string) ($record->meta['folder'] ?? '');
-        $publish = $this->publisher->publishNew($target['path'], $markdown, $record->imagePaths, $folder, false);
+        $publish = $this->publisher->publishNew($targetPath, $markdown, $record->imagePaths, $folder, false);
         if (!$publish->ok) {
             return new PostUploadResult(false, $publish->errors);
         }
 
-        $this->tempStore->delete($tempId);
+        $this->conflictManager->delete($tempId);
         $contentPath = (string) ($record->meta['content_path'] ?? '');
         $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
 
@@ -531,41 +448,26 @@ final class PostUpload
 
     public function createRenamedFromTemp(string $tempId, string $fileNameInput, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
     {
-        $record = $this->tempStore->load($tempId, $sessionId);
-        if ($record === null) {
-            return new PostUploadResult(false, ['確認用の一時ファイルが見つからないか、有効期限が切れました。もう一度投稿してください。']);
+        $loaded = $this->conflictManager->loadForAction($tempId, $sessionId, $submissionId);
+        if (!$loaded->ok || $loaded->record === null) {
+            return new PostUploadResult(false, $loaded->errors);
         }
-        if (!$this->submissionMatches($record, $submissionId)) {
-            return new PostUploadResult(false, ['投稿の送信情報と確認用データを照合できませんでした。もう一度投稿してください。']);
+        $record = $loaded->record;
+        $decision = $this->conflictManager->prepareRename($record, $fileNameInput);
+        if (!$decision->ok || $decision->targetPath === null) {
+            return new PostUploadResult(false, $decision->errors, [], '', '', '', $decision->originalFileName, $decision->savedFileName);
         }
-
-        if (PostBasicPage::isProtectedContentPath((string) ($record->meta['content_path'] ?? ''))) {
-            return new PostUploadResult(false, ['トップページとAboutページは別名で投稿できません。更新するか、投稿をやめてください。']);
-        }
-
-        $errors = [];
-        $safeFileName = $this->normalizeFileName($fileNameInput, $errors);
-        if ($errors !== []) {
-            return new PostUploadResult(false, $errors, [], '', '', '', (string) ($record->meta['original_file_name'] ?? ''), $safeFileName);
-        }
-
         $folder = (string) ($record->meta['folder'] ?? '');
-        $contentPath = ($folder === '' ? '' : $folder . '/') . $safeFileName;
-        $target = $this->targetFromFolderAndFile($folder, $safeFileName);
-        if ($target['error'] !== '') {
-            return new PostUploadResult(false, [$target['error']]);
-        }
+        $contentPath = $decision->contentPath;
+        $safeFileName = $decision->savedFileName;
+        $targetPath = $decision->targetPath;
 
-        if (file_exists($target['path'])) {
-            return new PostUploadResult(false, ['このファイル名もすでに使われています。別のファイル名を指定してください。']);
-        }
-
-        $publish = $this->publisher->publishNew($target['path'], $record->markdown, $record->imagePaths, $folder);
+        $publish = $this->publisher->publishNew($targetPath, $record->markdown, $record->imagePaths, $folder);
         if (!$publish->ok) {
             return new PostUploadResult(false, $publish->errors);
         }
 
-        $this->tempStore->delete($tempId);
+        $this->conflictManager->delete($tempId);
 
         $internalUrl = $this->urlFromContentPath($contentPath);
         $absoluteUrl = $this->absolutePublicUrl($internalUrl);
@@ -593,135 +495,44 @@ final class PostUpload
 
     public function cancelTemp(string $tempId, ?string $sessionId = null): bool
     {
-        if ($this->tempStore->load($tempId, $sessionId) === null) {
-            return false;
-        }
-
-        $this->tempStore->delete($tempId);
-        return true;
+        return $this->conflictManager->cancel($tempId, $sessionId);
     }
 
     public function loadTemp(string $tempId, ?string $sessionId = null): ?PostUploadTempRecord
     {
-        return $this->tempStore->load($tempId, $sessionId);
+        return $this->conflictManager->loadTemp($tempId, $sessionId);
     }
 
     public function suggestedRenamedFileName(PostUploadTempRecord $record): string
     {
-        $planned = (string) ($record->meta['planned_file_name'] ?? 'post.md');
-        $folder = (string) ($record->meta['folder'] ?? '');
-        $name = pathinfo($planned, PATHINFO_FILENAME);
-        $extension = pathinfo($planned, PATHINFO_EXTENSION) ?: 'md';
-        $counter = 2;
-        do {
-            $candidate = $name . '-' . $counter . '.' . $extension;
-            $target = $this->targetFromFolderAndFile($folder, $candidate);
-            $counter++;
-        } while ($target['error'] === '' && file_exists($target['path']));
-
-        return $candidate;
+        return $this->conflictManager->suggestedRenamedFileName($record);
     }
 
-    private function prepareEditableConfirmation(
-        array $editable,
-        string $markdown,
-        string $contentPath,
-        string $folder,
-        string $chosenName,
-        string $safeFileName,
-        string $targetPath,
-        array $imagePlan,
-        array $warnings,
-        ?string $sessionId,
-        string $submissionId
-    ): PostUploadResult {
-        $sourcePath = (string) ($editable['source_path'] ?? '');
-        $sourceStatus = (string) ($editable['source_status'] ?? '');
-        $destinationChanged = !hash_equals($sourcePath, $contentPath);
-        $sourceExists = !empty($editable['source_exists']);
-
-        if (!$destinationChanged && !$sourceExists) {
-            return new PostUploadResult(false, [
-                '編集元の原稿が見つかりません。記事管理から原稿を確認し、必要であればもう一度ダウンロードしてください。',
-            ]);
-        }
-        if ($destinationChanged && PostBasicPage::isProtectedContentPath($sourcePath)) {
-            return new PostUploadResult(false, ['固定ページの保存先は変更できません。元のファイル名と保存先のまま更新してください。']);
-        }
-        if ($destinationChanged && file_exists($targetPath)) {
-            return new PostUploadResult(false, ['変更後の保存先には、すでにページがあります。別の保存先を指定してください。']);
-        }
-
-        $currentMarkdown = (string) ($editable['current_markdown'] ?? '');
-        $currentHash = (string) ($editable['current_hash'] ?? '');
-        $currentStatus = (string) ($editable['current_status'] ?? '');
-        $sourceConflict = !$destinationChanged && (
-            $currentHash === ''
-            || !hash_equals((string) ($editable['source_hash'] ?? ''), $currentHash)
-            || !hash_equals($sourceStatus, $currentStatus)
-        );
-
-        $internalUrl = $this->urlFromContentPath($contentPath);
-        $absoluteUrl = $this->absolutePublicUrl($internalUrl);
-        $hasRelativeImages = $this->hasRelativeImageReferences($markdown);
-        if ($destinationChanged) {
-            $warnings[] = '保存先が変更されています。元の原稿は残したまま、新しい原稿として投稿します。';
-            if ($hasRelativeImages) {
-                $warnings[] = '保存先を変更すると、既存画像の相対パスが参照できなくなる場合があります。元の原稿と画像は変更されません。';
-            }
-        }
-
-        $tempRecord = $this->tempStore->create($markdown, [
-            'session_id' => $sessionId ?? '',
-            'submission_hash' => $this->submissionHash($submissionId),
-            'upload_kind' => $destinationChanged ? 'editable_new' : 'editable_update',
-            'folder' => $folder,
-            'original_file_name' => $chosenName,
-            'planned_file_name' => $safeFileName,
-            'saved_file_name' => $safeFileName,
-            'content_path' => $contentPath,
-            'internal_url' => $internalUrl,
-            'absolute_url' => $absoluteUrl,
-            'source_path' => $sourcePath,
-            'source_status' => $sourceStatus,
-            'source_download_hash' => (string) ($editable['source_hash'] ?? ''),
-            'source_conflict' => $sourceConflict,
-            'current_status' => $currentStatus,
-            'existing_hash' => $currentHash,
-            'existing_title' => $sourceExists ? $this->titleFromMarkdown($currentMarkdown, $sourcePath) : '',
-            'new_title' => $this->titleFromMarkdown($markdown, $contentPath),
-            'destination_changed' => $destinationChanged,
-            'has_relative_images' => $hasRelativeImages,
-            'image_count' => count($imagePlan),
-        ], $imagePlan);
-        if ($tempRecord === null) {
-            return new PostUploadResult(false, ['確認用の一時ファイルを保存できませんでした。時間をおいて再度投稿してください。']);
-        }
-
+    private function resultFromConflictDecision(PostConflictDecision $decision, int $imageCount = 0): PostUploadResult
+    {
         $result = new PostUploadResult(
-            false,
-            [],
-            array_values(array_unique($warnings)),
-            $contentPath,
-            $internalUrl,
-            $absoluteUrl,
-            $chosenName,
-            $safeFileName,
-            true,
-            $tempRecord->id,
-            (string) ($tempRecord->meta['existing_title'] ?? ''),
-            (string) ($tempRecord->meta['new_title'] ?? ''),
-            date('Y-m-d H:i', (int) ($tempRecord->meta['expires_at'] ?? 0)),
-            $destinationChanged ? 'editable_new_confirm' : ($sourceConflict ? 'editable_conflict' : 'editable_confirm'),
-            '',
-            count($imagePlan)
+            $decision->ok && !$decision->requiresConfirmation,
+            $decision->errors,
+            $decision->warnings,
+            $decision->contentPath,
+            $decision->internalUrl,
+            $decision->absoluteUrl,
+            $decision->originalFileName,
+            $decision->savedFileName,
+            $decision->requiresConfirmation,
+            $decision->tempId ?? '',
+            $decision->existingTitle,
+            $decision->newTitle,
+            $decision->expiresAt,
+            $decision->action,
+            $decision->suggestedFileName,
+            $imageCount
         );
-        $result->sourceStatus = $sourceStatus;
-        $result->sourcePath = $sourcePath;
-        $result->sourceConflict = $sourceConflict;
-        $result->destinationChanged = $destinationChanged;
-        $result->hasRelativeImages = $hasRelativeImages;
-
+        $result->sourceStatus = $decision->sourceStatus;
+        $result->sourcePath = $decision->sourcePath;
+        $result->sourceConflict = $decision->sourceConflict;
+        $result->destinationChanged = $decision->destinationChanged;
+        $result->hasRelativeImages = $decision->hasRelativeImages;
         return $result;
     }
 
@@ -892,14 +703,6 @@ final class PostUpload
         return array_values(array_unique($references));
     }
 
-    private function hasRelativeImageReferences(string $markdown): bool
-    {
-        return preg_match(
-            '/!\[[^\]\n]*\]\((?![A-Za-z][A-Za-z0-9+.-]*:|\/|#)[^)]+\)/u',
-            $markdown
-        ) === 1;
-    }
-
     /**
      * @return string[]
      */
@@ -1014,48 +817,6 @@ final class PostUpload
     }
 
     /**
-     * @return array{path:string,error:string}
-     */
-    private function targetFromRecord(PostUploadTempRecord $record): array
-    {
-        return $this->targetFromFolderAndFile(
-            (string) ($record->meta['folder'] ?? ''),
-            (string) ($record->meta['saved_file_name'] ?? '')
-        );
-    }
-
-    /**
-     * @return array{path:string,error:string}
-     */
-    private function targetFromFolderAndFile(string $folder, string $safeFileName): array
-    {
-        $contentDir = rtrim($this->contentDir, DIRECTORY_SEPARATOR);
-        $contentBase = realpath($contentDir);
-        if ($contentBase === false || !is_dir($contentBase)) {
-            return ['path' => '', 'error' => 'content/ フォルダが見つかりません。'];
-        }
-
-        $targetDir = $contentBase;
-        if ($folder !== '') {
-            $targetDir .= DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $folder);
-        }
-
-        if (!is_dir($targetDir) && !@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-            return ['path' => '', 'error' => '保存先フォルダを作成できませんでした。'];
-        }
-
-        $targetDirReal = realpath($targetDir);
-        if ($targetDirReal === false || strpos(rtrim($targetDirReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR, rtrim($contentBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR) !== 0) {
-            return ['path' => '', 'error' => '保存先は content/ 配下にしてください。'];
-        }
-
-        return [
-            'path' => $targetDirReal . DIRECTORY_SEPARATOR . $safeFileName,
-            'error' => '',
-        ];
-    }
-
-    /**
      * @return string[]
      */
     private function managedImageReferences(string $markdown, string $contentPath): array
@@ -1092,37 +853,6 @@ final class PostUpload
     private function normalizeFileName(string $fileName, array &$errors): string
     {
         return $this->submissionPreparer->normalizeFileName($fileName, $errors);
-    }
-
-    private function findEquivalentExistingFileName(string $targetDir, string $safeFileName): string
-    {
-        $items = @scandir($targetDir);
-        if (!is_array($items)) {
-            return '';
-        }
-
-        $normalizedCandidate = $this->normalizeUnicodeNfc($safeFileName);
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..' || $item === $safeFileName) {
-                continue;
-            }
-
-            $path = $targetDir . DIRECTORY_SEPARATOR . $item;
-            if (!is_file($path) || is_link($path)) {
-                continue;
-            }
-
-            if ($this->normalizeUnicodeNfc($item) === $normalizedCandidate) {
-                return $item;
-            }
-        }
-
-        return '';
-    }
-
-    private function normalizeUnicodeNfc(string $value): string
-    {
-        return $this->submissionPreparer->normalizeUnicodeNfc($value);
     }
 
     private function urlFromContentPath(string $contentPath): string
@@ -1164,24 +894,6 @@ final class PostUpload
         }
 
         return (string) ($this->site['base_path'] ?? '');
-    }
-
-    private function submissionHash(string $submissionId): string
-    {
-        return preg_match('/\A[a-f0-9]{64}\z/', $submissionId) === 1
-            ? hash('sha256', $submissionId)
-            : '';
-    }
-
-    private function submissionMatches(PostUploadTempRecord $record, string $submissionId): bool
-    {
-        $expected = (string) ($record->meta['submission_hash'] ?? '');
-        if ($expected === '') {
-            // Temporary records created immediately before this update remain usable.
-            return true;
-        }
-        $actual = $this->submissionHash($submissionId);
-        return $actual !== '' && hash_equals($expected, $actual);
     }
 
 }
