@@ -266,10 +266,15 @@ final class PostPublisher
             return $markdown;
         }
 
-        return PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
+        $now = $this->publicationNow();
+        return PublishedMetadata::addInitialMetadata(
+            $markdown,
+            $now->format('Y-m-d'),
+            $now->format(\DateTimeInterface::ATOM)
+        );
     }
 
-    private function publishedNow(): string
+    private function publicationNow(): \DateTimeImmutable
     {
         $timezoneName = (string) ($this->site['timezone'] ?? 'Asia/Tokyo');
         try {
@@ -278,7 +283,7 @@ final class PostPublisher
             $timezone = new \DateTimeZone('Asia/Tokyo');
         }
 
-        return (new \DateTimeImmutable('now', $timezone))->format('Y-m-d\\TH:i:sP');
+        return new \DateTimeImmutable('now', $timezone);
     }
 
     private function replaceFileSafely(string $targetPath, string $content): string
