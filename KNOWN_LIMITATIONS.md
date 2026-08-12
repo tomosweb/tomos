@@ -51,6 +51,8 @@ yet.
   implemented.
 - Per-page OGP image selection is not implemented.
 - HEIC/HEIF image upload is not implemented.
+- External Markdown Inbox accepts Markdown text but does not transfer referenced images.
+- External Inbox API requires HTTPS and a separately issued posting token. `draft: true` entries remain in the Inbox for manual publication.
 
 ## HTML Cache Scope
 
