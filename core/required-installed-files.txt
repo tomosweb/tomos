@@ -19,6 +19,7 @@ core/PostUploadInput.php
 core/PostSubmissionPreparer.php
 core/PostConflictManager.php
 core/PostInbox.php
+core/PostInboxAutoPublisher.php
 core/PostPublisher.php
 core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php

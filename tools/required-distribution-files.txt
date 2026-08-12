@@ -35,6 +35,7 @@ core/PostSubmissionGuard.php
 core/PostRateLimiter.php
 core/PostUpload.php
 core/PostInbox.php
+core/PostInboxAutoPublisher.php
 core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
 core/ThemePackageException.php

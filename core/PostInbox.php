@@ -156,6 +156,18 @@ final class PostInbox
         return trim($folder);
     }
 
+    public function isDraft(string $markdown, string $contentPath = 'inbox.md'): bool
+    {
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = is_array($parsed['metadata'] ?? null) ? $parsed['metadata'] : [];
+        $normalized = $this->frontMatterParser->buildPageMetadata(
+            $metadata,
+            (string) ($parsed['body'] ?? $markdown),
+            $contentPath
+        );
+        return !empty($normalized['draft']);
+    }
+
     private function ensureDirectory(): bool
     {
         if (!is_dir($this->inboxDir) && !@mkdir($this->inboxDir, 0775, true) && !is_dir($this->inboxDir)) {

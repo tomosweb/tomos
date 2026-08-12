@@ -426,6 +426,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'GET'
+    && !empty($_SESSION['tomos_post_authenticated'])
+) {
+    $autoPublisher = new Tomos\PostInboxAutoPublisher(
+        new Tomos\PostInbox($config, $rootDir),
+        new Tomos\PostUpload($config, $rootDir)
+    );
+    $autoPublishResult = $autoPublisher->process(session_id(), $submissionId);
+    $messages = array_merge($messages, $autoPublishResult['messages']);
+    $warnings = array_merge($warnings, $autoPublishResult['warnings']);
+}
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET'
     && $activeSection === 'manage'
     && !empty($_SESSION['tomos_post_authenticated'])
 ) {
