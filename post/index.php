@@ -177,7 +177,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'cancel_upload') {
         $upload = new Tomos\PostUpload($config, $rootDir);
-        $upload->cancelTemp((string) ($_POST['temp_id'] ?? ''), session_id());
+        $tempId = (string) ($_POST['temp_id'] ?? '');
+        $upload->cancelTemp($tempId, session_id());
+        forgetInboxTemp($tempId);
         $messages[] = '投稿をやめました。既存ページは変更していません。';
     } elseif ($action === 'resolve_withdraw') {
         try {
@@ -198,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = $authError;
         } else {
             $submissionGuard = null;
-            $submissionActions = ['upload', 'finalize_staged_upload', 'update_upload', 'rename_upload', 'resolve_editable_upload', 'create_editable_upload'];
+            $submissionActions = ['upload', 'finalize_staged_upload', 'update_upload', 'rename_upload', 'resolve_editable_upload', 'create_editable_upload', 'publish_inbox'];
             if (in_array($action, $submissionActions, true)) {
                 $submissionGuard = new Tomos\PostSubmissionGuard($config, $rootDir);
                 $guardResult = $submissionGuard->acquire($submissionId);
@@ -210,10 +212,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             if ($errors === []) {
-            if ($action === 'site_settings_auth') {
+            if ($action === 'publish_inbox') {
+                $inbox = new Tomos\PostInbox($config, $rootDir);
+                $inboxRead = $inbox->read((string) ($_POST['inbox_path'] ?? ''));
+                if (!$inboxRead->ok) {
+                    $errors = array_merge($errors, $inboxRead->errors);
+                } else {
+                    $upload = new Tomos\PostUpload($config, $rootDir);
+                    $uploadResult = $upload->handleContent(
+                        $inbox->contentForManualPublish($inboxRead->content),
+                        $inboxRead->fileName,
+                        $inbox->folderFromMarkdown($inboxRead->content),
+                        '',
+                        session_id(),
+                        [],
+                        [],
+                        false,
+                        $submissionId
+                    );
+                    if ($uploadResult->ok) {
+                        $messages[] = uploadSuccessMessage($uploadResult);
+                        if (!$inbox->delete($inboxRead->path)) {
+                            $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+                        }
+                        $warnings = array_merge($warnings, $uploadResult->warnings);
+                        $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                    } elseif ($uploadResult->conflict && $uploadResult->tempId !== '') {
+                        rememberInboxTemp($uploadResult->tempId, $inboxRead->path);
+                        $warnings = array_merge($warnings, $uploadResult->warnings);
+                    } else {
+                        $errors = array_merge($errors, $uploadResult->errors);
+                        $warnings = array_merge($warnings, $uploadResult->warnings);
+                    }
+                }
+            } elseif ($action === 'site_settings_auth') {
                 header('Location: ' . Tomos\Security::publicUrl('/post/settings/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
             }
+            if ($action !== 'publish_inbox') {
             if ($action === 'theme_auth') {
                 header('Location: ' . Tomos\Security::publicUrl('/post/theme/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
@@ -265,6 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conflictAction = (string) ($_POST['conflict_action'] ?? 'proceed');
                 if ($conflictAction === 'cancel') {
                     $upload->cancelTemp($tempId, session_id());
+                    forgetInboxTemp($tempId);
                     $messages[] = '更新を中止しました。サーバー上の原稿は変更していません。';
                 } else {
                     $uploadResult = $upload->updateEditableFromTemp(
@@ -275,6 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $submissionId
                     );
                     if ($uploadResult->ok) {
+                        publishPendingInbox((string) ($_POST['temp_id'] ?? ''), $config, $rootDir, $warnings);
                         $messages[] = uploadSuccessMessage($uploadResult);
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                         $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -286,6 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $upload = new Tomos\PostUpload($config, $rootDir);
                 $uploadResult = $upload->createEditableFromTemp((string) ($_POST['temp_id'] ?? ''), session_id(), $submissionId);
                 if ($uploadResult->ok) {
+                    publishPendingInbox((string) ($_POST['temp_id'] ?? ''), $config, $rootDir, $warnings);
                     $messages[] = uploadSuccessMessage($uploadResult);
                     $warnings = array_merge($warnings, $uploadResult->warnings);
                     $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -296,6 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $upload = new Tomos\PostUpload($config, $rootDir);
                 $uploadResult = $upload->updateFromTemp((string) ($_POST['temp_id'] ?? ''), session_id(), $submissionId);
                     if ($uploadResult->ok) {
+                        publishPendingInbox((string) ($_POST['temp_id'] ?? ''), $config, $rootDir, $warnings);
                         $messages[] = uploadSuccessMessage($uploadResult);
                     $warnings = array_merge($warnings, $uploadResult->warnings);
                     $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -307,6 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $tempId = (string) ($_POST['temp_id'] ?? '');
                 $uploadResult = $upload->createRenamedFromTemp($tempId, (string) ($_POST['new_file_name'] ?? ''), session_id(), $submissionId);
                 if ($uploadResult->ok) {
+                    publishPendingInbox($tempId, $config, $rootDir, $warnings);
                     $messages[] = '新しいページとして投稿しました。';
                     $warnings = array_merge($warnings, $uploadResult->warnings);
                     $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -368,6 +409,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
+            }
             if ($submissionGuard instanceof Tomos\PostSubmissionGuard) {
                 if ($uploadResult instanceof Tomos\PostUploadResult && $uploadResult->ok && !$submissionGuard->markCompleted()) {
                     $warnings[] = '投稿は完了しましたが、二重送信防止の完了記録を保存できませんでした。';
@@ -380,6 +422,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET'
+    && !empty($_SESSION['tomos_post_authenticated'])
+) {
+    $autoPublisher = new Tomos\PostInboxAutoPublisher(
+        new Tomos\PostInbox($config, $rootDir),
+        $config,
+        $rootDir
+    );
+    $autoPublishResult = $autoPublisher->process(session_id(), $submissionId);
+    $messages = array_merge($messages, $autoPublishResult['messages']);
+    $warnings = array_merge($warnings, $autoPublishResult['warnings']);
 }
 
 if (
@@ -655,6 +711,9 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
     echo '<div class="section">';
     renderMessages($errors, $messages, $warnings);
     if ($activeSection === 'manage') {
+        renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
+        renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
+        renderInboxSection($token, $config, $submissionId);
         renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);
         renderWithdrawResult($errors, $withdrawResult, $continueUrl);
         renderWithdrawSection($token, $withdrawTarget);
@@ -1747,6 +1806,64 @@ function renderEditableMarkdownSection(string $token, array $config, string $que
     echo '</nav>';
 }
 
+function renderInboxSection(string $token, array $config, string $submissionId): void
+{
+    $inbox = new Tomos\PostInbox($config, dirname(__DIR__));
+    $items = $inbox->list();
+    echo '<h2 id="post-inbox">受信箱</h2>';
+    echo '<p class="hint">SFTPなどで受信したMarkdownを確認して、Tomosの通常投稿処理で公開します。公開成功後に受信箱から削除します。</p>';
+    if ($inbox->error() !== '') {
+        echo '<div class="notice warning"><p>' . e($inbox->error()) . '</p></div>';
+        return;
+    }
+    if ($items === []) {
+        echo '<div class="result"><p>受信箱に投稿可能なファイルはありません。</p></div>';
+        return;
+    }
+
+    echo '<div class="editable-results">';
+    foreach ($items as $index => $item) {
+        $timestamp = formatInboxTimestamp($item->modifiedAt, $config);
+        echo '<article class="editable-result">';
+        echo '<h3>' . e($item->fileName) . '</h3>';
+        echo '<p class="hint">更新：' . e($timestamp) . ' / サイズ：' . e(formatInboxBytes($item->size)) . '</p>';
+        echo '<form class="inline-form" method="post" action="" data-submission-form>';
+        echo '<input type="hidden" name="action" value="publish_inbox">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
+        echo '<input type="hidden" name="inbox_path" value="' . e($item->path) . '">';
+        renderAuthenticationFields('inbox_password_' . $index);
+        echo '<div class="actions"><button type="submit">公開する</button></div>';
+        echo '</form>';
+        echo '</article>';
+    }
+    echo '</div>';
+}
+
+function formatInboxTimestamp(int $timestamp, array $config): string
+{
+    if ($timestamp <= 0) {
+        return '不明';
+    }
+    try {
+        $timezone = new DateTimeZone((string) ($config['site']['timezone'] ?? 'Asia/Tokyo'));
+        return (new DateTimeImmutable('@' . $timestamp))->setTimezone($timezone)->format('Y年n月j日 H:i');
+    } catch (Throwable $exception) {
+        return date('Y年n月j日 H:i', $timestamp);
+    }
+}
+
+function formatInboxBytes(int $bytes): string
+{
+    if ($bytes < 1024) {
+        return $bytes . 'B';
+    }
+    if ($bytes < 1048576) {
+        return number_format($bytes / 1024, 1) . 'KB';
+    }
+    return number_format($bytes / 1048576, 1) . 'MB';
+}
+
 function editableSearchPageUrl(string $publicBasePath, string $query, int $page): string
 {
     return Tomos\Security::publicUrl('/post/', $publicBasePath)
@@ -1922,7 +2039,7 @@ function normalizeSection(string $section): string
 
 function sectionForAction(string $action): string
 {
-    if (in_array($action, ['search_editable_markdown', 'download_editable_markdown', 'resolve_withdraw', 'withdraw'], true)) {
+    if (in_array($action, ['search_editable_markdown', 'download_editable_markdown', 'resolve_withdraw', 'withdraw', 'publish_inbox'], true)) {
         return 'manage';
     }
     if ($action === 'clear_trash') {
@@ -1936,6 +2053,38 @@ function sectionForAction(string $action): string
     }
 
     return 'upload';
+}
+
+function rememberInboxTemp(string $tempId, string $path): void
+{
+    if ($tempId === '' || $path === '') {
+        return;
+    }
+    if (!isset($_SESSION['tomos_inbox_temps']) || !is_array($_SESSION['tomos_inbox_temps'])) {
+        $_SESSION['tomos_inbox_temps'] = [];
+    }
+    $_SESSION['tomos_inbox_temps'][$tempId] = $path;
+}
+
+function forgetInboxTemp(string $tempId): void
+{
+    if ($tempId !== '' && isset($_SESSION['tomos_inbox_temps'][$tempId])) {
+        unset($_SESSION['tomos_inbox_temps'][$tempId]);
+    }
+}
+
+function publishPendingInbox(string $tempId, array $config, string $rootDir, array &$warnings): void
+{
+    $path = (string) ($_SESSION['tomos_inbox_temps'][$tempId] ?? '');
+    if ($path === '') {
+        return;
+    }
+    $inbox = new Tomos\PostInbox($config, $rootDir);
+    if (!$inbox->delete($path)) {
+        $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+        return;
+    }
+    forgetInboxTemp($tempId);
 }
 
 function e(string $value): string

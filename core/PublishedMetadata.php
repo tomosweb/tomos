@@ -43,4 +43,36 @@ final class PublishedMetadata
 
         return "---\n" . $frontMatter . "\n---" . substr($normalized, strlen($matches[0]));
     }
+
+    public static function addInitialMetadata(string $markdown, string $date, string $published): string
+    {
+        $normalized = str_replace(["\r\n", "\r"], "\n", $markdown);
+        if (preg_match('/\A---\n(.*?)\n---(?=\n|\z)/s', $normalized, $matches) !== 1) {
+            return "---\ndate: {$date}\npublished: {$published}\n---\n" . $normalized;
+        }
+
+        $frontMatter = $matches[1];
+        if (preg_match('/^date\s*:\s*(?:["\']\s*["\']\s*)?$/mi', $frontMatter) === 1) {
+            $frontMatter = preg_replace_callback(
+                '/^([ \t]*)date[ \t]*:[ \t]*.*$/mi',
+                static fn (array $matches): string => $matches[1] . 'date: ' . $date,
+                $frontMatter,
+                1
+            ) ?? $frontMatter;
+        } elseif (preg_match('/^date\s*:/mi', $frontMatter) !== 1) {
+            if (preg_match('/^published\s*:/mi', $frontMatter) === 1) {
+                $frontMatter = preg_replace(
+                    '/^(\s*published\s*:)/mi',
+                    'date: ' . $date . "\n$1",
+                    $frontMatter,
+                    1
+                ) ?? $frontMatter;
+            } else {
+                $frontMatter .= ($frontMatter === '' ? '' : "\n") . 'date: ' . $date;
+            }
+        }
+
+        $updated = "---\n" . $frontMatter . "\n---" . substr($normalized, strlen($matches[0]));
+        return self::addIfMissing($updated, $published);
+    }
 }
