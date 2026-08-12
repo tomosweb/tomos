@@ -6,7 +6,6 @@ namespace Tomos;
 
 foreach ([
     'PostInbox' => 'PostInbox.php',
-    'PostUpload' => 'PostUpload.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -16,12 +15,15 @@ foreach ([
 final class PostInboxAutoPublisher
 {
     private PostInbox $inbox;
-    private PostUpload $upload;
+    private array $config;
+    private string $rootDir;
+    private ?PostUpload $upload = null;
 
-    public function __construct(PostInbox $inbox, PostUpload $upload)
+    public function __construct(PostInbox $inbox, array $config, string $rootDir)
     {
         $this->inbox = $inbox;
-        $this->upload = $upload;
+        $this->config = $config;
+        $this->rootDir = $rootDir;
     }
 
     /**
@@ -31,7 +33,15 @@ final class PostInboxAutoPublisher
     {
         $messages = [];
         $warnings = [];
+        $lockHandle = @fopen($this->inbox->autoPublishLockPath(), 'c');
+        if ($lockHandle === false || !@flock($lockHandle, LOCK_EX | LOCK_NB)) {
+            if (is_resource($lockHandle)) {
+                @fclose($lockHandle);
+            }
+            return ['messages' => [], 'warnings' => []];
+        }
 
+        try {
         foreach ($this->inbox->list() as $item) {
             $read = $this->inbox->read($item->path);
             if (!$read->ok) {
@@ -42,7 +52,7 @@ final class PostInboxAutoPublisher
                 continue;
             }
 
-            $result = $this->upload->handleContent(
+            $result = $this->upload()->handleContent(
                 $read->content,
                 $read->fileName,
                 $this->inbox->folderFromMarkdown($read->content),
@@ -63,11 +73,26 @@ final class PostInboxAutoPublisher
             }
 
             if ($result->conflict && $result->tempId !== '') {
-                $this->upload->cancelTemp($result->tempId, $sessionId);
+                $this->upload()->cancelTemp($result->tempId, $sessionId);
             }
             $warnings[] = '「' . $item->fileName . '」は自動公開できなかったため受信箱に残しています。';
         }
+        } finally {
+            @flock($lockHandle, LOCK_UN);
+            @fclose($lockHandle);
+        }
 
         return ['messages' => $messages, 'warnings' => $warnings];
+    }
+
+    private function upload(): PostUpload
+    {
+        if ($this->upload === null) {
+            if (!class_exists(PostUpload::class)) {
+                require_once __DIR__ . DIRECTORY_SEPARATOR . 'PostUpload.php';
+            }
+            $this->upload = new PostUpload($this->config, $this->rootDir);
+        }
+        return $this->upload;
     }
 }

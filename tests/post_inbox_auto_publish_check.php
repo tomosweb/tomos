@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/core/PostInboxAutoPublisher.php';
+require_once dirname(__DIR__) . '/core/PostUpload.php';
 
 use Tomos\PostInbox;
 use Tomos\PostInboxAutoPublisher;
@@ -36,7 +37,7 @@ file_put_contents($content . DIRECTORY_SEPARATOR . 'conflict.md', "# Existing\n"
 
 $inbox = new PostInbox($config, $root);
 $upload = new PostUpload($config, $root);
-$processor = new PostInboxAutoPublisher($inbox, $upload);
+$processor = new PostInboxAutoPublisher($inbox, $config, $root);
 $result = $processor->process('auto-session', str_repeat('a', 64));
 
 if (!is_file($draftPath)) {
@@ -56,5 +57,19 @@ $manual = $upload->handleContent(file_get_contents($draftPath), 'draft.md', '', 
 if (!$manual->ok || !$inbox->delete('draft.md') || is_file($draftPath)) {
     throw new RuntimeException('draft true file must remain manually publishable');
 }
+
+$lockPath = $inbox->autoPublishLockPath();
+$lockHandle = fopen($lockPath, 'c');
+if ($lockHandle === false || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
+    throw new RuntimeException('test lock could not be acquired');
+}
+$lockedPath = $inboxPath . DIRECTORY_SEPARATOR . 'locked.md';
+file_put_contents($lockedPath, "# Locked\n");
+$lockedResult = $processor->process('lock-session', str_repeat('c', 64));
+if ($lockedResult['messages'] !== [] || !is_file($lockedPath)) {
+    throw new RuntimeException('locked auto publish must be skipped');
+}
+flock($lockHandle, LOCK_UN);
+fclose($lockHandle);
 
 echo "post_inbox_auto_publish_check: OK\n";

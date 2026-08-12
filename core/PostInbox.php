@@ -72,6 +72,11 @@ final class PostInbox
         return $this->error;
     }
 
+    public function autoPublishLockPath(): string
+    {
+        return $this->inboxDir . DIRECTORY_SEPARATOR . '.auto-publish.lock';
+    }
+
     /** @return PostInboxItem[] */
     public function list(): array
     {

@@ -32,6 +32,15 @@ final class App
         $publicBasePath = $this->publicBasePath();
         $router = new Router($basePath);
         $frontMatterParser = new FrontMatterParser();
+        try {
+            (new PostInboxAutoPublisher(
+                new PostInbox($this->config, dirname(__DIR__)),
+                $this->config,
+                dirname(__DIR__)
+            ))->process(null, '');
+        } catch (\Throwable $exception) {
+            // Public page rendering must continue when best-effort Inbox processing fails.
+        }
         $metadataIndex = $this->createMetadataIndex($frontMatterParser);
         $markdownParser = new MarkdownParser((bool) $this->config['security']['allow_raw_html'], $publicBasePath);
         $htmlCache = new HtmlCache(

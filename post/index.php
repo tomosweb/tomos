@@ -430,7 +430,8 @@ if (
 ) {
     $autoPublisher = new Tomos\PostInboxAutoPublisher(
         new Tomos\PostInbox($config, $rootDir),
-        new Tomos\PostUpload($config, $rootDir)
+        $config,
+        $rootDir
     );
     $autoPublishResult = $autoPublisher->process(session_id(), $submissionId);
     $messages = array_merge($messages, $autoPublishResult['messages']);
