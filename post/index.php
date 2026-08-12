@@ -249,6 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: ' . Tomos\Security::publicUrl('/post/settings/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
             }
+            if ($action !== 'publish_inbox') {
             if ($action === 'theme_auth') {
                 header('Location: ' . Tomos\Security::publicUrl('/post/theme/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
@@ -407,6 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                     }
                 }
+            }
             }
             if ($submissionGuard instanceof Tomos\PostSubmissionGuard) {
                 if ($uploadResult instanceof Tomos\PostUploadResult && $uploadResult->ok && !$submissionGuard->markCompleted()) {
@@ -1796,6 +1798,10 @@ function renderInboxSection(string $token, array $config, string $submissionId):
     $items = $inbox->list();
     echo '<h2 id="post-inbox">受信箱</h2>';
     echo '<p class="hint">SFTPなどで受信したMarkdownを確認して、Tomosの通常投稿処理で公開します。公開成功後に受信箱から削除します。</p>';
+    if ($inbox->error() !== '') {
+        echo '<div class="notice warning"><p>' . e($inbox->error()) . '</p></div>';
+        return;
+    }
     if ($items === []) {
         echo '<div class="result"><p>受信箱に投稿可能なファイルはありません。</p></div>';
         return;

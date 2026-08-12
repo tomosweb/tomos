@@ -12,7 +12,7 @@ $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-inbox-' . bin2hex(rand
 $content = $root . DIRECTORY_SEPARATOR . 'content';
 $cache = $root . DIRECTORY_SEPARATOR . 'cache';
 $inboxPath = $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'inbox';
-foreach ([$content, $cache, $inboxPath] as $directory) {
+foreach ([$content, $cache] as $directory) {
     if (!mkdir($directory, 0775, true)) {
         throw new RuntimeException('test directory could not be created');
     }
@@ -25,6 +25,9 @@ $config = [
     'metadata' => ['include_drafts' => false],
 ];
 $inbox = new PostInbox($config, $root);
+if (!is_dir($inboxPath)) {
+    throw new RuntimeException('inbox directory must be created on initialization');
+}
 
 $oldPath = $inboxPath . DIRECTORY_SEPARATOR . 'old.txt';
 $newPath = $inboxPath . DIRECTORY_SEPARATOR . '受信記事.markdown';

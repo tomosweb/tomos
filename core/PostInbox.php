@@ -56,6 +56,7 @@ final class PostInbox
     private string $inboxDir;
     private FrontMatterParser $frontMatterParser;
     private PostSubmissionPreparer $submissionPreparer;
+    private string $error = '';
 
     public function __construct(array $config, string $rootDir)
     {
@@ -63,6 +64,12 @@ final class PostInbox
         $this->frontMatterParser = new FrontMatterParser();
         $editableMarkdown = new PostEditableMarkdown($config, $rootDir);
         $this->submissionPreparer = new PostSubmissionPreparer($editableMarkdown);
+        $this->ensureDirectory();
+    }
+
+    public function error(): string
+    {
+        return $this->error;
     }
 
     /** @return PostInboxItem[] */
@@ -152,8 +159,10 @@ final class PostInbox
     private function ensureDirectory(): bool
     {
         if (!is_dir($this->inboxDir) && !@mkdir($this->inboxDir, 0775, true) && !is_dir($this->inboxDir)) {
+            $this->error = '受信箱フォルダを作成できませんでした。storage/inbox/ の権限を確認してください。';
             return false;
         }
+        $this->error = '';
         $htaccess = $this->inboxDir . DIRECTORY_SEPARATOR . '.htaccess';
         if (!is_file($htaccess)) {
             @file_put_contents($htaccess, "Options -Indexes\n\nOrder allow,deny\nDeny from all\nRequire all denied\n", LOCK_EX);
