@@ -220,7 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $upload = new Tomos\PostUpload($config, $rootDir);
                     $uploadResult = $upload->handleContent(
-                        $inboxRead->content,
+                        $inbox->contentForManualPublish($inboxRead->content),
                         $inboxRead->fileName,
                         $inbox->folderFromMarkdown($inboxRead->content),
                         '',

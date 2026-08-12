@@ -157,6 +157,41 @@ final class PostInbox
         return $path !== null && is_file($path) && @unlink($path);
     }
 
+    public function contentForManualPublish(string $markdown): string
+    {
+        $parsed = $this->frontMatterParser->parse($markdown);
+        if (empty($parsed['has_frontmatter']) || !is_array($parsed['metadata'] ?? null)) {
+            return $markdown;
+        }
+
+        $metadata = $this->frontMatterParser->buildPageMetadata(
+            $parsed['metadata'],
+            (string) ($parsed['body'] ?? ''),
+            'inbox.md'
+        );
+        if (empty($metadata['draft'])) {
+            return $markdown;
+        }
+
+        $normalized = str_replace(["\r\n", "\r"], "\n", $markdown);
+        $closingPosition = strpos($normalized, "\n---", 4);
+        if ($closingPosition === false) {
+            return $markdown;
+        }
+        $frontMatter = substr($normalized, 4, $closingPosition - 4);
+        $updatedFrontMatter = preg_replace_callback(
+            '/^([ \t]*draft[ \t]*:)[ \t]*(.*)$/mi',
+            static fn (array $matches): string => $matches[1] . ' false',
+            $frontMatter,
+            1
+        );
+        if (!is_string($updatedFrontMatter) || $updatedFrontMatter === $frontMatter) {
+            return $markdown;
+        }
+
+        return "---\n" . $updatedFrontMatter . "\n---" . substr($normalized, $closingPosition + 4);
+    }
+
     public function receive(string $fileName, string $content): PostInboxReceiveResult
     {
         if (!$this->ensureDirectory()) {
