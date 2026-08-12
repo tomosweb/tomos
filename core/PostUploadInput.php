@@ -39,7 +39,12 @@ final class PostUploadInputResult
 
 final class PostUploadInput
 {
-    private const MAX_BYTES = 1048576;
+    public const MAX_BYTES = 1048576;
+
+    public static function maxBytes(): int
+    {
+        return self::MAX_BYTES;
+    }
 
     /**
      * @param array<string,mixed> $file

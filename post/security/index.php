@@ -40,6 +40,7 @@ $publicPath = static function (string $path) use ($basePath): string {
 
 $messages = [];
 $errors = [];
+$issuedInboxApiToken = '';
 $authenticated = !empty($_SESSION['tomos_post_authenticated']);
 $remember = null;
 if ($config !== []) {
@@ -47,6 +48,30 @@ if ($config !== []) {
     if (!$authenticated) {
         $remember->restoreSession();
         $authenticated = !empty($_SESSION['tomos_post_authenticated']);
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'issue_inbox_api_token' && $authenticated) {
+    $token = (string) ($_POST['_token'] ?? '');
+    if ($token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
+        $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
+    } else {
+        try {
+            $issuedInboxApiToken = bin2hex(random_bytes(32));
+            $newConfig = $config;
+            $newConfig['security']['inbox_api_token_hash'] = Tomos\PostPassword::hash($issuedInboxApiToken);
+            if (!Tomos\ConfigWriter::write($configPath, $newConfig, $rootDir)) {
+                $issuedInboxApiToken = '';
+                $errors[] = '投稿用トークンを保存できませんでした。';
+            } else {
+                $config = $newConfig;
+                $messages[] = '投稿用トークンを発行しました。この画面を離れる前にObsidianへ設定してください。';
+                $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+            }
+        } catch (Throwable $exception) {
+            $issuedInboxApiToken = '';
+            $errors[] = '投稿用トークンを発行できませんでした。';
+        }
     }
 }
 
@@ -122,6 +147,25 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php foreach ($errors as $error): ?>
 <div class="result"><p><?= htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8') ?></p></div>
 <?php endforeach; ?>
+
+<?php if ($issuedInboxApiToken !== ''): ?>
+<div class="result">
+<p>この投稿用トークンは今回だけ表示されます。</p>
+<pre style="white-space:pre-wrap;word-break:break-all;user-select:all;"><?= htmlspecialchars($issuedInboxApiToken, ENT_QUOTES, 'UTF-8') ?></pre>
+</div>
+<?php endif; ?>
+
+<?php if ($authenticated): ?>
+<section class="card">
+<h2>Obsidian投稿用トークン</h2>
+<p class="hint">ObsidianからTomos InboxへHTTPS投稿するための専用トークンです。再発行すると以前のトークンは無効になります。</p>
+<form method="post" action="">
+<input type="hidden" name="action" value="issue_inbox_api_token">
+<input type="hidden" name="_token" value="<?= htmlspecialchars((string) ($_SESSION['tomos_post_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+<button type="submit">投稿用トークンを発行・再発行</button>
+</form>
+</section>
+<?php endif; ?>
 
 <?php if (empty($status['available'])): ?>
 <div class="result"><p>この環境ではパスキー機能を利用できません。管理用合言葉によるTomos Post認証は引き続き利用できます。</p></div>

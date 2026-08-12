@@ -8,7 +8,9 @@ foreach ([
     'FrontMatterParser' => 'FrontMatterParser.php',
     'Security' => 'Security.php',
     'PostEditableMarkdown' => 'PostEditableMarkdown.php',
+    'PostBasicPage' => 'PostBasicPage.php',
     'PostSubmissionPreparer' => 'PostSubmissionPreparer.php',
+    'PostUploadInput' => 'PostUploadInput.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -48,6 +50,20 @@ final class PostInboxReadResult
         $this->content = $content;
         $this->fileName = $fileName;
         $this->path = $path;
+    }
+}
+
+final class PostInboxReceiveResult
+{
+    public bool $ok;
+    public int $status;
+    public string $message;
+
+    public function __construct(bool $ok, int $status, string $message)
+    {
+        $this->ok = $ok;
+        $this->status = $status;
+        $this->message = $message;
     }
 }
 
@@ -139,6 +155,43 @@ final class PostInbox
     {
         $path = $this->safePath($relativePath);
         return $path !== null && is_file($path) && @unlink($path);
+    }
+
+    public function receive(string $fileName, string $content): PostInboxReceiveResult
+    {
+        if (!$this->ensureDirectory()) {
+            return new PostInboxReceiveResult(false, 500, 'Tomos受信箱を利用できません。');
+        }
+        if ($fileName === '' || strpos($fileName, "\0") !== false || $fileName !== basename($fileName) || strpos($fileName, '/') !== false || strpos($fileName, '\\') !== false || strpos($fileName, ':') !== false) {
+            return new PostInboxReceiveResult(false, 400, 'ファイル名が正しくありません。');
+        }
+        if (strlen($content) > PostUploadInput::maxBytes()) {
+            return new PostInboxReceiveResult(false, 413, 'ファイルサイズが大きすぎます。初期版では1MBまでです。');
+        }
+        $prepared = $this->submissionPreparer->prepare($content, $fileName, '', '');
+        if (!$prepared->ok) {
+            return new PostInboxReceiveResult(false, 400, (string) ($prepared->errors[0] ?? 'Markdownを受信できません。'));
+        }
+
+        $target = $this->inboxDir . DIRECTORY_SEPARATOR . $fileName;
+        if (is_link($target) || file_exists($target)) {
+            return new PostInboxReceiveResult(false, 409, '同名ファイルがすでに受信箱にあります。');
+        }
+        $inboxBase = realpath($this->inboxDir);
+        if ($inboxBase === false || realpath(dirname($target)) !== $inboxBase) {
+            return new PostInboxReceiveResult(false, 400, 'ファイル名が正しくありません。');
+        }
+        $handle = @fopen($target, 'x');
+        if ($handle === false) {
+            return new PostInboxReceiveResult(false, file_exists($target) ? 409 : 500, file_exists($target) ? '同名ファイルがすでに受信箱にあります。' : 'Tomos受信箱へ保存できません。');
+        }
+        $written = @fwrite($handle, $content);
+        @fclose($handle);
+        if ($written !== strlen($content)) {
+            @unlink($target);
+            return new PostInboxReceiveResult(false, 500, 'Tomos受信箱へ保存できません。');
+        }
+        return new PostInboxReceiveResult(true, 201, 'Tomos Inboxへ送信しました。');
     }
 
     public function folderFromMarkdown(string $markdown): string

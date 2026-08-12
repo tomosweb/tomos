@@ -93,6 +93,7 @@ final class ConfigWriter
                 'hide_error_detail' => true,
                 'content_security_policy' => true,
                 'post_password_hash' => (string) ($input['post_password_hash'] ?? ''),
+                'inbox_api_token_hash' => (string) (($currentConfig['security']['inbox_api_token_hash'] ?? '') ?: ''),
                 'rate_limit_salt' => (string) ($input['rate_limit_salt'] ?? ''),
             ],
             'setup_completed' => true,
