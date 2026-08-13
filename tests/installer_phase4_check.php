@@ -42,6 +42,10 @@ try {
     check(strpos($html, 'Tomos かんたんインストール') !== false, 'initial UI has title');
     check(strpos($html, 'この場所に設置') !== false && strpos($html, '新しいフォルダに設置') !== false, 'initial UI has A/B choices');
     check(strpos($html, 'staging') === false && strpos($html, 'RSA') === false && strpos($html, 'ZipArchive') === false, 'initial UI hides internal terminology');
+    check(strpos($html, expectedDiagnostic('ready')) !== false, 'initial UI uses ready diagnostic code');
+    checkDiagnosticFor($ui, 'environment', 'environment');
+    checkDiagnosticFor($ui, 'manifest_signature', 'manifest_signature');
+    checkDiagnosticFor($ui, 'asset_hash', 'asset_hash');
     cleanup($uiRoot);
 
     $aRoot = newRoot();
@@ -167,4 +171,21 @@ function expectCode(string $label, string $expected, callable $action): void
     try { $action(); }
     catch (InstallManifestException $exception) { check($exception->errorCode() === $expected, $label . ' expected ' . $expected . ', got ' . $exception->errorCode()); return; }
     check(false, $label . ' did not fail');
+}
+
+function checkDiagnosticFor(InstallerApplication $application, string $errorCode, string $label): void
+{
+    $mapper = new ReflectionMethod(InstallerApplication::class, 'messageFor');
+    $message = $mapper->invoke($application, new InstallManifestException($errorCode, 'test'));
+    $renderer = new ReflectionMethod(InstallerApplication::class, 'render');
+    ob_start();
+    $renderer->invoke($application, ['errors' => [], 'warnings' => []], [], $message);
+    $html = (string) ob_get_clean();
+    check(strpos($html, expectedDiagnostic($errorCode)) !== false, $label . ' diagnostic code uses actual error code');
+    check(strpos($html, expectedDiagnostic('ready')) === false, $label . ' diagnostic code is not ready');
+}
+
+function expectedDiagnostic(string $code): string
+{
+    return 'TOMOS-INSTALL-' . strtoupper(substr(hash('sha256', $code . '|' . gmdate('Y-m-d-H')), 0, 10));
 }
