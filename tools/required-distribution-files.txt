@@ -36,6 +36,8 @@ core/PostSubmissionGuard.php
 core/PostRateLimiter.php
 core/PostUpload.php
 core/PostInbox.php
+core/PostInboxPreview.php
+core/PostDrafts.php
 core/PostInboxApi.php
 core/PostInboxAutoPublisher.php
 core/PostImageUploadSessionStore.php
