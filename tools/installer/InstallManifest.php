@@ -122,6 +122,19 @@ final class InstallManifest
         return $decoded;
     }
 
+    public static function decodePointer(string $raw): array
+    {
+        if ($raw === '' || !preg_match('//u', $raw)) {
+            self::fail('pointer_schema', 'Pointer is not valid UTF-8.');
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            self::fail('pointer_schema', 'Pointer JSON is invalid.');
+        }
+        self::validatePointer($decoded);
+        return $decoded;
+    }
+
     public static function validateManifest(array $manifest): void
     {
         if (($manifest['schema_version'] ?? null) !== self::SCHEMA_VERSION
@@ -189,6 +202,13 @@ final class InstallManifest
             self::fail('manifest_signature', 'Manifest signature verification failed.');
         }
         $manifest = self::decodeAndValidate($raw);
+        self::verifyZipAgainstManifest($zipPath, $manifest);
+        return $manifest;
+    }
+
+    public static function verifyZipAgainstManifest(string $zipPath, array $manifest): void
+    {
+        self::validateManifest($manifest);
         if (!is_file($zipPath) || is_link($zipPath)) {
             self::fail('asset_size', 'ZIP file is missing.');
         }
@@ -224,7 +244,89 @@ final class InstallManifest
         } finally {
             $zip->close();
         }
-        return $manifest;
+    }
+
+    public static function extractVerifiedZip(string $zipPath, array $manifest, string $stagingPath): void
+    {
+        self::verifyZipAgainstManifest($zipPath, $manifest);
+        if (file_exists($stagingPath) || is_link($stagingPath) || !@mkdir($stagingPath, 0700, true)) {
+            self::fail('extract_write', 'Staging directory is unavailable.');
+        }
+        @chmod($stagingPath, 0700);
+        $stagingReal = realpath($stagingPath);
+        if ($stagingReal === false) {
+            self::fail('extract_write', 'Staging directory could not be resolved.');
+        }
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CHECKCONS) !== true) {
+            self::fail('zip_open', 'Could not reopen ZIP for extraction.');
+        }
+        try {
+            foreach ($manifest['files'] as $path => $record) {
+                if (!self::isSafePath($path)) {
+                    self::fail('zip_path', 'Manifest path is unsafe.');
+                }
+                $destination = $stagingReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
+                $parent = dirname($destination);
+                if (!self::isSafeDestination($stagingReal, $destination) || !self::safeParentChain($stagingReal, $parent)) {
+                    self::fail('zip_path', 'Extraction path is outside staging.');
+                }
+                if (!is_dir($parent) && !@mkdir($parent, 0700, true)) {
+                    self::fail('extract_write', 'Could not create extraction directory.');
+                }
+                if (is_link($parent) || is_link($destination)) {
+                    self::fail('zip_symlink', 'Extraction path contains a symbolic link.');
+                }
+                $input = $zip->getStream($path);
+                $output = @fopen($destination, 'xb');
+                if (!is_resource($input) || !is_resource($output)) {
+                    if (is_resource($input)) {
+                        fclose($input);
+                    }
+                    if (is_resource($output)) {
+                        fclose($output);
+                    }
+                    self::fail('extract_write', 'Could not create extracted file.');
+                }
+                $context = hash_init('sha256');
+                $bytes = 0;
+                $ok = true;
+                while (!feof($input)) {
+                    $chunk = fread($input, 65536);
+                    if (!is_string($chunk)) {
+                        $ok = false;
+                        break;
+                    }
+                    $length = strlen($chunk);
+                    $bytes += $length;
+                    if ($bytes > self::MAX_FILE_BYTES || $length > 0 && fwrite($output, $chunk) !== $length) {
+                        $ok = false;
+                        break;
+                    }
+                    if ($length > 0) {
+                        hash_update($context, $chunk);
+                    }
+                }
+                fclose($input);
+                fclose($output);
+                if (!$ok) {
+                    @unlink($destination);
+                    self::fail('extract_write', 'Could not stream extracted file.');
+                }
+                if ($bytes !== $record['size']) {
+                    @unlink($destination);
+                    self::fail('file_size', 'Extracted file size does not match manifest: ' . $path);
+                }
+                if (!hash_equals(strtolower($record['sha256']), strtolower(hash_final($context)))) {
+                    @unlink($destination);
+                    self::fail('file_hash', 'Extracted file hash does not match manifest: ' . $path);
+                }
+                @chmod($destination, 0600);
+            }
+        } finally {
+            $zip->close();
+        }
+        self::validateExtractedFiles($stagingPath, $manifest);
     }
 
     public static function buildPointer(string $version, string $manifestUrl, string $signatureUrl): array
@@ -404,6 +506,57 @@ final class InstallManifest
             && preg_match('#(^|/)\.?\.?(/|$)#', $path) !== 1
             && preg_match('/[\x00-\x1F\x7F]/', $path) !== 1
             && preg_match('//u', $path) === 1;
+    }
+
+    private static function isSafeDestination(string $base, string $destination): bool
+    {
+        $baseReal = realpath($base);
+        if ($baseReal === false) {
+            return false;
+        }
+        $basePrefix = rtrim($baseReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        return strpos($destination, $basePrefix) === 0;
+    }
+
+    private static function safeParentChain(string $base, string $parent): bool
+    {
+        $base = rtrim((string) realpath($base), DIRECTORY_SEPARATOR);
+        $cursor = $parent;
+        while ($cursor !== '' && $cursor !== dirname($cursor)) {
+            if (is_link($cursor)) {
+                return false;
+            }
+            if ($cursor === $base) {
+                return true;
+            }
+            $cursor = dirname($cursor);
+        }
+        return false;
+    }
+
+    private static function validateExtractedFiles(string $stagingPath, array $manifest): void
+    {
+        $actual = [];
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($stagingPath, FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $entry) {
+            if (!$entry instanceof SplFileInfo || $entry->isLink() || !$entry->isFile()) {
+                self::fail('extract_write', 'Staging contains an unsafe entry.');
+            }
+            $actual[str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen(rtrim($stagingPath, DIRECTORY_SEPARATOR)) + 1))] = [
+                'size' => (int) $entry->getSize(),
+                'sha256' => (string) hash_file('sha256', $entry->getPathname()),
+            ];
+        }
+        ksort($actual, SORT_STRING);
+        if (array_keys($actual) !== array_keys($manifest['files'])) {
+            self::fail('zip_contents', 'Extracted file inventory does not match manifest.');
+        }
+        foreach ($manifest['files'] as $path => $record) {
+            if ($actual[$path]['size'] !== $record['size'] || !hash_equals(strtolower($actual[$path]['sha256']), strtolower($record['sha256']))) {
+                self::fail('file_hash', 'Extracted file verification failed: ' . $path);
+            }
+        }
+        self::validateRequiredFiles(array_keys($actual));
     }
 
     private static function validateRequiredFiles(array $files): void

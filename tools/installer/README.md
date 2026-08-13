@@ -60,3 +60,15 @@ Phase 1はGitHub公開やCI本番署名を行わない。private keyはproject�
 - pointer正常、pointer schema不正、versioned URL構造不正
 
 Phase 2以降で、missing entry、重複entry、file size超過、総展開容量超過、unknown schema、VERSION mismatch、truncated ZIPを追加fixtureとして固定する。
+
+## Phase 2 core
+
+`InstallerCore`は、固定latest pointer、versioned manifest／signature、署名済みassetをfixtureまたはHTTPS transportから取得し、`.tomos-installer/work-<random>/staging/`へ完全検証済み状態を作る。`InstallerCore::prepare()`は`verified_staging_path`とmanifest metadataを返すが、target rootへ配置しない。
+
+ローカル統合テストは次で実行する。
+
+```bash
+php tests/installer_phase2_check.php
+```
+
+本番では`InstallerPublicKey::PEM`を最終1ファイルinstallerへ内蔵する。GitHub Release CDNのredirect hostは未確定のため、Phase 2のproduction allowlistへ追加していない。
