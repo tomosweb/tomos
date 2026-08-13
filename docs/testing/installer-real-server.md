@@ -43,6 +43,34 @@ https://<検証ホスト>/installer-test-app/install.php
 
 `installer-test-assets/` は、installerが配置するTomosの対象外にしてください。実際のURLは候補生成時の `--asset-base-url` と一致させます。
 
+URLは次の構成になります。生成toolのversioned directory名は `v<version>` です。
+
+```text
+https://<検証ホスト>/installer-test-assets/latest.json
+https://<検証ホスト>/installer-test-assets/v<version>/tomos-<version>.zip
+https://<検証ホスト>/installer-test-assets/v<version>/install-manifest.json
+https://<検証ホスト>/installer-test-assets/v<version>/install-manifest.sig
+
+https://<検証ホスト>/installer-a/install.php
+https://<検証ホスト>/installer-b/install.php
+```
+
+### アップロード対象
+
+mirror側へアップロードするのは次のファイルです。
+
+- `latest.json`
+- `versioned/tomos-<version>.zip`
+- `versioned/install-manifest.json`
+- `versioned/install-manifest.sig`
+- 任意で `SHA256SUMS`
+
+A方式側とB方式側には、それぞれ `install.php` だけをアップロードします。mirror資産とinstaller targetを同じ空directoryへ置かないでください。
+
+### アップロード後の確認
+
+ブラウザまたはHTTP確認手段で、`latest.json`、manifest、signature、ZIPがすべてHTTPSで200を返すことを確認します。redirectがある場合は想定したものだけであることを確認し、directory listingは不要です。Content-Typeが一般的な値でなくても、binary取得が成功すれば記録上の問題とはしません。
+
 ## 3. A方式 正常系
 
 空のinstaller rootで実施します。
@@ -105,3 +133,90 @@ Tomosは通常のファイルアップロードで設置できます。
 | 総合判断 | 未実施 | Go / 条件付きGo / No-Go |
 
 実サーバー確認が完了するまで正式Release Goとは判定しません。
+
+## 実サーバー最終検証結果
+
+以下は人間が実測後に記入します。作業時点では未実施です。
+
+環境：未記入
+検証日：未記入
+Tomos version：未記入
+Installer version：未記入
+
+### A方式
+
+- [ ] 初期画面
+- [ ] 環境診断
+- [ ] pointer / manifest / signature / ZIP取得
+- [ ] signature検証
+- [ ] ZIP検証
+- [ ] 配置
+- [ ] `installed.json`
+- [ ] `disabled.json`
+- [ ] 完了画面
+- [ ] `./setup/`遷移
+- [ ] Tomos setup画面
+
+self-delete：未実施（成功 / 安全な失敗）
+timeout：未実施（なし / あり）
+permission特殊対応：未実施（なし / あり）
+
+### B方式
+
+- [ ] child validation
+- [ ] target child事前不存在
+- [ ] pointer / manifest / signature / ZIP取得
+- [ ] verified staging
+- [ ] same-filesystem rename
+- [ ] target child生成
+- [ ] `installed.json`
+- [ ] `disabled.json`
+- [ ] 完了画面
+- [ ] `./blog/setup/`遷移
+- [ ] Tomos setup画面
+
+self-delete：未実施（成功 / 安全な失敗）
+timeout：未実施（なし / あり）
+permission特殊対応：未実施（なし / あり）
+
+### fallback
+
+- [ ] 通常ファイルアップロード導線表示
+- [ ] `/start/install/`到達
+
+### recovery
+
+- [ ] 今回実施
+- [ ] PoC＋Phase 3自動テストを根拠として省略
+
+test-only fault injectionが安全に利用できない場合は、recoveryを実サーバーで再現しません。既存fileを改変して検証することも禁止します。
+
+### 総合
+
+- [ ] Go
+- [ ] 条件付きGo
+- [ ] No-Go
+
+## 実サーバー後の正式公開工程
+
+実サーバー結果がGoまたは条件付きGoの場合でも、次の順序で人間が正式公開を実施します。今回の検証では実行しません。
+
+1. production Release Candidateを本番署名で生成する。
+2. versioned mirrorへZIP、manifest、signatureをimmutableに配置する。
+3. production `install.php` を配置する。
+4. 公開URLから `verify-published-install-assets.php` を実行する。
+5. SHA-256、signature、ZIP inventory、VERSION、installer hashを確認する。
+6. 確認成功後にproduction `latest.json`を切り替える。
+7. 公式サイトの導線を公開する。
+
+## 公式サイトへのhandoff情報
+
+- 正式 installer URL：`https://tomoswords.org/download/install/install.php`（公開前に最終確認）
+- 通常ZIP URL：`https://tomoswords.org/download/install/v<version>/tomos-<version>.zip`
+- latest pointer：`https://tomoswords.org/download/install/latest.json`
+- versioned manifest：`https://tomoswords.org/download/install/v<version>/install-manifest.json`
+- versioned signature：`https://tomoswords.org/download/install/v<version>/install-manifest.sig`
+- fallback：`https://tomoswords.org/start/install/`
+- SHA-256：installerおよび通常ZIPの確認情報として公開候補に含める。一般利用者の必須操作にはしない。
+- GitHub Release：補助配布・参照先として扱い、installerの通常取得先は公式mirrorとする。
+- 導線：「かんたんインストール」と「通常のファイルアップロード」を併記し、自動install非対応環境を行き止まりにしない。
