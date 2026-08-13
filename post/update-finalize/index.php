@@ -20,6 +20,8 @@ $rootDir = dirname(__DIR__, 2);
 $configPath = $rootDir . '/config.php';
 $config = is_file($configPath) ? require $configPath : [];
 $config = is_array($config) ? $config : [];
+$publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+$postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
 $errors = [];
 $criticalErrors = [];
 $messages = [];
@@ -145,7 +147,7 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <?php else: ?>
 <p>反映待ちのUpdater更新はありません。</p>
 <?php endif; ?>
-<p><a href="../">Tomos Postへ戻る</a></p>
+<p><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
 </section>
 </main>
 </body>

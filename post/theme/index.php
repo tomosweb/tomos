@@ -49,7 +49,7 @@ renderThemePage($config, $themes, $currentTheme, $currentLabel, (string) $_SESSI
 function renderThemePage(array $config, array $themes, string $currentTheme, string $currentLabel, string $token): void
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
-    $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath);
+    $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
     $confirmUrl = Tomos\Security::publicUrl('/post/theme/confirm/', $publicBasePath);
     $addUrl = Tomos\Security::publicUrl('/post/theme/add/', $publicBasePath);
 
