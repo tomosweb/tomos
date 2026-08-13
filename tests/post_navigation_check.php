@@ -29,4 +29,18 @@ if (strpos($source, "return 'published';") === false || strpos($source, "return 
     throw new RuntimeException('section compatibility routing is missing');
 }
 
+foreach (['/post/?section=settings', "publicUrl('/post/?section=settings'"] as $needle) {
+    $sources = [
+        file_get_contents(dirname(__DIR__) . '/post/theme/index.php'),
+        file_get_contents(dirname(__DIR__) . '/post/theme/confirm/index.php'),
+        file_get_contents(dirname(__DIR__) . '/post/security/index.php'),
+        file_get_contents(dirname(__DIR__) . '/update/index.php'),
+        file_get_contents(dirname(__DIR__) . '/post/update-finalize/index.php'),
+    ];
+    $joined = implode("\n", array_filter($sources, 'is_string'));
+    if (strpos($joined, $needle) === false) {
+        throw new RuntimeException('settings return target is missing: ' . $needle);
+    }
+}
+
 echo "post_navigation_check: OK\n";
