@@ -28,9 +28,9 @@ setupを再実行したい場合は、明示的に `setup_completed => false` �
 
 - `site.name`
 - `site.description`
-- `site.url`
-- `site.base_path`
-- `site.public_base_path`
+- `site.url`（setupを開いたURLから自動設定）
+- `site.base_path`（`site.url`から自動生成）
+- `site.public_base_path`（通常は空。特殊なproxy構成でconfig.phpを直接編集する場合のみ使用）
 - `site.language`
 - `site.timezone`
 - `theme.name`
@@ -43,21 +43,21 @@ setupを再実行したい場合は、明示的に `setup_completed => false` �
 
 `allow_raw_html` などの危険な設定は setup 画面では変更できません。
 
-## 入力項目の目安
+## 自動設定されるURL
 
 ### サイトURL
 
-公開されるサイトのURLです。通常は、ブラウザで表示されるトップページのURLを入力します。最後の `/` はあってもなくても構いません。
+setupは、setup画面を開いたURLから公開URLを自動取得します。たとえば `/tomos/setup/` から開始した場合は `https://example.com/tomos` が保存されます。通常のsetupでは入力する必要はありません。
 
 ### base_path
 
-URL上の設置パスです。独自ドメイン直下に設置する場合は空で構いません。たとえば `https://example.com/tomos/` に設置する場合は `/tomos` です。
+`base_path` は自動取得したサイトURLのpathから生成されます。独自ドメイン直下では空になり、`https://example.com/tomos/` では `/tomos` になります。通常のsetup画面には表示されません。
 
-サーバー内の実パスではありません。`/home/example/www/site` のような値は入力しないでください。
+これはサーバー内の実パスではありません。特殊なproxy構成で上書きが必要な場合だけ、生成後の `config.php` を確認してください。
 
 ### public_base_path
 
-通常は空で構いません。特殊なプロキシ構成などで、HTMLに出力するURLパスだけを補正したい場合に指定します。よく分からない場合は空のままにしてください。
+通常のsetupでは空で保存されます。特殊なproxy構成などで、HTMLに出力するURLパスだけを補正したい場合に限り、生成後の `config.php` で指定します。よく分からない場合は空のままにしてください。
 
 ### .htaccess
 

@@ -34,6 +34,8 @@ $checks = Tomos\SetupGuard::environmentChecks($rootDir);
 $errors = [];
 $completed = false;
 $postPassword = '';
+$detectedUrl = null;
+$setupUrlError = '';
 
 if (empty($_SESSION['tomos_setup_token'])) {
     $_SESSION['tomos_setup_token'] = bin2hex(random_bytes(32));
@@ -44,12 +46,35 @@ if (Tomos\SetupGuard::isDisabled($config, $configExists)) {
     exit;
 }
 
+try {
+    $detectedUrl = Tomos\SetupUrlResolver::resolve($_SERVER);
+} catch (Throwable $exception) {
+    $setupUrlError = 'このアクセスからTomosの公開URLを自動取得できませんでした。サーバーのURL設定を確認してください。';
+    if (!in_array($setupUrlError, $errors, true)) {
+        $errors[] = $setupUrlError;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string) ($_POST['_token'] ?? '');
     if (!hash_equals((string) $_SESSION['tomos_setup_token'], $token)) {
         $errors[] = 'フォームの有効期限が切れました。もう一度送信してください。';
     } else {
         $input = $_POST;
+        try {
+            $detectedUrl = Tomos\SetupUrlResolver::resolve($_SERVER);
+            $setupUrlError = '';
+        } catch (Throwable $exception) {
+            $setupUrlError = 'このアクセスからTomosの公開URLを自動取得できませんでした。サーバーのURL設定を確認してください。';
+            if (!in_array($setupUrlError, $errors, true)) {
+                $errors[] = $setupUrlError;
+            }
+        }
+        if ($detectedUrl !== null) {
+            $input['site_url'] = $detectedUrl['site_url'];
+            $input['base_path'] = $detectedUrl['base_path'];
+            $input['public_base_path'] = '';
+        }
         $generatedPostPassword = '';
         if (!empty($input['feature_post'])) {
             $generatedPostPassword = Tomos\PostPassword::generate();
@@ -73,9 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-renderPage($completed ? 'セットアップが完了しました' : 'Tomos セットアップ', $config, $checks, $errors, false, $completed, $postPassword);
+renderPage($completed ? 'セットアップが完了しました' : 'Tomos セットアップ', $config, $checks, $errors, false, $completed, $postPassword, $setupUrlError, $detectedUrl);
 
-function renderPage(string $title, array $config, array $checks, array $errors, bool $disabled, bool $completed, string $postPassword = ''): void
+/** @param array{site_url:string,base_path:string}|null $detectedUrl */
+function renderPage(string $title, array $config, array $checks, array $errors, bool $disabled, bool $completed, string $postPassword = '', string $setupUrlError = '', ?array $detectedUrl = null): void
 {
     header('Content-Type: text/html; charset=utf-8');
     $site = $config['site'] ?? [];
@@ -149,12 +175,9 @@ code{background:#f1f1ee;border-radius:4px;padding:0.1rem 0.25rem}
     echo '<h2>サイト基本設定</h2>';
     input('サイト名', 'site_name', (string) ($site['name'] ?? 'Tomos Site'), 'text');
     input('サイト説明', 'site_description', (string) ($site['description'] ?? ''), 'text');
-    input('サイトURL', 'site_url', (string) ($site['url'] ?? 'http://localhost'), 'url');
-    input('URL上の設置パス base_path', 'base_path', (string) ($site['base_path'] ?? ''), 'text');
-    input('公開URL補正 public_base_path', 'public_base_path', (string) ($site['public_base_path'] ?? ''), 'text');
-
-    echo '<p class="hint"><code>base_path</code> はURL上の設置パスです。ドメイン直下なら空、サブディレクトリ公開なら <code>/tomos</code> のように指定します。サーバー内の実パスは入力しません。</p>';
-    echo '<p class="hint"><code>public_base_path</code> は特殊なプロキシ構成などでHTMLに出力するURLパスだけを補正したい場合の任意項目です。通常の独自ドメインやサブディレクトリ設置では空で構いません。</p>';
+    echo '<label for="detected_site_url">TomosのURL</label>';
+    echo '<input id="detected_site_url" type="url" value="' . e((string) ($detectedUrl['site_url'] ?? '')) . '" readonly aria-describedby="detected_site_url_hint">';
+    echo '<p id="detected_site_url_hint" class="hint">このサーバーから自動的に取得しました。URLや設置パスの入力は必要ありません。</p>';
 
     echo '<label for="language">言語</label><select id="language" name="language">';
     foreach (['ja' => 'ja', 'en' => 'en'] as $value => $label) {
@@ -185,7 +208,7 @@ code{background:#f1f1ee;border-radius:4px;padding:0.1rem 0.25rem}
     echo '<p class="hint">Tomos Postは、Tomos Writeなどで作成したMarkdownファイルの投稿、投稿の取り下げ、trash整理、テーマ切り替えを扱う最小機能です。有効にすると、setup完了時に管理用合言葉を一度だけ表示します。</p>';
     echo '<p class="hint">メタデータキャッシュは有効として保存します。生HTML許可などの危険な項目はセットアップ画面では変更できません。</p>';
 
-    echo '<div class="actions"><button type="submit"' . ($validThemeCount === 0 ? ' disabled' : '') . '>config.php を保存する</button></div>';
+    echo '<div class="actions"><button type="submit"' . ($validThemeCount === 0 || $detectedUrl === null || $setupUrlError !== '' ? ' disabled' : '') . '>config.php を保存する</button></div>';
     if ($validThemeCount === 0) {
         echo '<p class="hint">利用できるテーマがないため保存できません。<code>themes/</code> フォルダに有効なテーマを配置してください。</p>';
     }

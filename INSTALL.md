@@ -120,30 +120,11 @@ setup完了時には、管理用合言葉が一度だけ表示されます。こ
 
 設置後にテーマを追加したい場合は、Tomos Postのテーマ管理画面からテーマZIPをアップロードできます。追加後はテーマ管理画面から使用テーマを切り替えます。
 
-### 独自ドメイン直下
+初回setupでは、setup画面を開いた公開URLから `site.url` が自動設定され、`base_path` はそのpathから自動生成されます。通常ユーザーが入力する必要はありません。
 
-```text
-site.url:
-https://tomoswords.org
+独自ドメイン直下では `base_path` は空になり、サブディレクトリ設置では `/tomos` のような設置パスになります。
 
-base_path:
-
-public_base_path:
-```
-
-### 独自ドメインのサブディレクトリ
-
-```text
-site.url:
-https://example.com/tomos
-
-base_path:
-/tomos
-
-public_base_path:
-```
-
-通常ホストでは `public_base_path` は空で構いません。特殊なプロキシ構成などで、HTMLに出力するURLパスだけを補正したい場合に指定します。
+`public_base_path` は通常空で保存されます。特殊なproxy構成でHTMLに出力するURLパスだけを補正する場合に限り、生成後の `config.php` で設定します。
 
 `base_path` と `public_base_path` はURL上のパスです。サーバー内の実パスは入力しません。
 
