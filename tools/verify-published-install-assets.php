@@ -27,6 +27,7 @@ $pointerUrl = (string) ($options['pointer-url'] ?? '');
 $installerUrl = (string) ($options['installer-url'] ?? '');
 $installerHash = strtolower((string) ($options['installer-sha256'] ?? ''));
 $publicKeyPath = (string) ($options['public-key'] ?? $root . '/update/public-key.pem');
+$cleanupOutput = !isset($options['output-dir']);
 $outputDir = (string) ($options['output-dir'] ?? sys_get_temp_dir() . '/tomos-published-verify-' . bin2hex(random_bytes(8)));
 $pointerHosts = csvHosts($options['pointer-hosts'] ?? 'tomoswords.org');
 $manifestHosts = csvHosts($options['manifest-hosts'] ?? 'tomoswords.org');
@@ -73,7 +74,7 @@ try {
     fwrite(STDERR, 'ERROR[' . $exception->errorCode() . ']: ' . $exception->getMessage() . PHP_EOL);
     exit(1);
 } finally {
-    removeTree($outputDir);
+    if ($cleanupOutput) removeTree($outputDir);
 }
 
 function csvHosts($value): array
