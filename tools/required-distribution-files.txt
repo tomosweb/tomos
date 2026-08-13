@@ -17,6 +17,7 @@ cache/security/post-auth/.gitkeep
 cache/security/post-submissions/.gitkeep
 cache/post-upload-sessions/.gitkeep
 post/index.php
+post/inbox/api/index.php
 post/update-finalize/index.php
 update/index.php
 update/public-key.pem
@@ -34,6 +35,12 @@ core/PostAuthRememberToken.php
 core/PostSubmissionGuard.php
 core/PostRateLimiter.php
 core/PostUpload.php
+core/PostInbox.php
+core/PostInboxPreview.php
+core/PostDrafts.php
+core/PostPublished.php
+core/PostInboxApi.php
+core/PostInboxAutoPublisher.php
 core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
 core/ThemePackageException.php

@@ -53,6 +53,7 @@ final class PostUploadResult
     public bool $sourceConflict = false;
     public bool $destinationChanged = false;
     public bool $hasRelativeImages = false;
+    public bool $isDraft = false;
 
     /**
      * @param string[] $errors
@@ -193,6 +194,48 @@ final class PostUpload
         );
     }
 
+    public function publishDraft(string $contentPath, string $expectedHash = '', ?string $sessionId = null, string $submissionId = ''): PostUploadResult
+    {
+        if (!Security::isSafeRelativePath($contentPath) || !Security::hasAllowedExtension($contentPath, ['md'])) {
+            return new PostUploadResult(false, ['下書き原稿の保存先が正しくありません。']);
+        }
+        $contentBase = realpath($this->contentDir);
+        $candidate = rtrim($this->contentDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $contentPath);
+        if ($this->hasSymlinkSegment($candidate)) {
+            return new PostUploadResult(false, ['下書き原稿を安全に確認できません。']);
+        }
+        $current = realpath($candidate);
+        if ($contentBase === false || $current === false || is_link($current) || !is_file($current) || !Security::isPathInside($current, $contentBase)) {
+            return new PostUploadResult(false, ['下書き原稿が見つかりません。']);
+        }
+        $markdown = @file_get_contents($current);
+        if ($markdown === false) {
+            return new PostUploadResult(false, ['下書き原稿を読み込めません。']);
+        }
+        if ($expectedHash !== '' && !hash_equals(strtolower($expectedHash), hash('sha256', $markdown))) {
+            return new PostUploadResult(false, ['下書き原稿が変更されています。画面を再読み込みしてください。']);
+        }
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = $this->frontMatterParser->buildPageMetadata($parsed['metadata'], $parsed['body'], $contentPath);
+        if (empty($metadata['draft'])) {
+            return new PostUploadResult(false, ['この原稿はすでに公開されています。']);
+        }
+        $published = $this->editableMarkdown->applyDraftState($markdown, false);
+        if ($published === null) {
+            return new PostUploadResult(false, ['Front Matterの公開状態を安全に更新できませんでした。']);
+        }
+        $published = $this->setDraftFalse($published);
+        $published = $this->publisher->withInitialPublishedMetadata($published);
+        $folder = dirname(str_replace('/', DIRECTORY_SEPARATOR, $contentPath));
+        $folder = $folder === '.' ? '' : str_replace(DIRECTORY_SEPARATOR, '/', $folder);
+        $publish = $this->publisher->updateExisting($current, $published, [], $folder);
+        if (!$publish->ok) {
+            return new PostUploadResult(false, $publish->errors);
+        }
+        $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
+        return new PostUploadResult(true, [], $warnings, $contentPath, $this->urlFromContentPath($contentPath), $this->absolutePublicUrl($this->urlFromContentPath($contentPath)), basename($contentPath), basename($contentPath), false, '', '', (string) ($metadata['title'] ?? ''), '', 'draft_publish', '', 0);
+    }
+
     private function handlePreparedContent(
         string $content,
         string $originalFileName,
@@ -319,7 +362,10 @@ final class PostUpload
 
         $warnings = array_merge($warnings, $this->publisher->rebuildIndexes($contentPath));
 
-        return new PostUploadResult(true, [], $warnings, $contentPath, $internalUrl, $absoluteUrl, $chosenName, $safeFileName, false, '', '', '', '', 'create', '', count($imagePlan));
+        $isDraft = $this->isDraftMarkdown($content);
+        $result = new PostUploadResult(true, [], $warnings, $contentPath, $internalUrl, $absoluteUrl, $chosenName, $safeFileName, false, '', '', '', '', $isDraft ? 'draft_create' : 'create', '', count($imagePlan));
+        $result->isDraft = $isDraft;
+        return $result;
     }
 
     public function updateFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
@@ -360,7 +406,7 @@ final class PostUpload
                 $warnings
             )
         );
-        return new PostUploadResult(
+        $result = new PostUploadResult(
             true,
             [],
             $warnings,
@@ -378,6 +424,8 @@ final class PostUpload
             '',
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
+        $result->isDraft = $this->isDraftMarkdown($record->markdown);
+        return $result;
     }
 
     public function updateEditableFromTemp(
@@ -426,7 +474,7 @@ final class PostUpload
             ? 'editable_draft'
             : ($sourceStatus === 'draft' ? 'editable_publish' : 'editable_update');
 
-        return new PostUploadResult(
+        $result = new PostUploadResult(
             true,
             [],
             $warnings,
@@ -444,6 +492,8 @@ final class PostUpload
             '',
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
+        $result->isDraft = $draft;
+        return $result;
     }
 
     public function createEditableFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
@@ -459,11 +509,14 @@ final class PostUpload
         }
         $targetPath = $validated->targetPath;
 
-        $markdown = $this->editableMarkdown->applyDraftState($record->markdown, false);
+        $draft = (string) ($record->meta['source_status'] ?? '') === 'draft';
+        $markdown = $this->editableMarkdown->applyDraftState($record->markdown, $draft);
         if ($markdown === null) {
             return new PostUploadResult(false, ['Front Matterの公開状態を安全に更新できませんでした。']);
         }
-        $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
+        if (!$draft) {
+            $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
+        }
 
         $folder = (string) ($record->meta['folder'] ?? '');
         $publish = $this->publisher->publishNew($targetPath, $markdown, $record->imagePaths, $folder, false);
@@ -475,7 +528,7 @@ final class PostUpload
         $contentPath = (string) ($record->meta['content_path'] ?? '');
         $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
 
-        return new PostUploadResult(
+        $result = new PostUploadResult(
             true,
             [],
             $warnings,
@@ -493,6 +546,8 @@ final class PostUpload
             '',
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
+        $result->isDraft = $draft;
+        return $result;
     }
 
     public function createRenamedFromTemp(string $tempId, string $fileNameInput, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
@@ -522,7 +577,7 @@ final class PostUpload
         $absoluteUrl = $this->absolutePublicUrl($internalUrl);
         $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
 
-        return new PostUploadResult(
+        $result = new PostUploadResult(
             true,
             [],
             $warnings,
@@ -540,6 +595,8 @@ final class PostUpload
             '',
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
+        $result->isDraft = $this->isDraftMarkdown($record->markdown);
+        return $result;
     }
 
     public function cancelTemp(string $tempId, ?string $sessionId = null): bool
@@ -853,6 +910,13 @@ final class PostUpload
         return $this->publisher->withInitialPublishedMetadata($markdown);
     }
 
+    private function isDraftMarkdown(string $markdown): bool
+    {
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = $this->frontMatterParser->buildPageMetadata($parsed['metadata'], $parsed['body'], 'post.md');
+        return !empty($metadata['draft']);
+    }
+
     private function publishedNow(): string
     {
         $timezoneName = (string) ($this->site['timezone'] ?? 'Asia/Tokyo');
@@ -863,6 +927,34 @@ final class PostUpload
         }
 
         return (new \DateTimeImmutable('now', $timezone))->format('Y-m-d\\TH:i:sP');
+    }
+
+    private function setDraftFalse(string $markdown): string
+    {
+        $normalized = str_replace(["\r\n", "\r"], "\n", $markdown);
+        if (preg_match('/\A---\n(.*?)\n---(?=\n|\z)/s', $normalized, $matches) !== 1) {
+            return $normalized;
+        }
+        $frontMatter = $matches[1];
+        if (preg_match('/^draft\s*:/mi', $frontMatter) === 1) {
+            $frontMatter = preg_replace('/^([ \t]*draft[ \t]*:).*$/mi', '$1 false', $frontMatter, 1) ?? $frontMatter;
+        } else {
+            $frontMatter .= ($frontMatter === '' ? '' : "\n") . 'draft: false';
+        }
+        return "---\n" . $frontMatter . "\n---" . substr($normalized, strlen($matches[0]));
+    }
+
+    private function hasSymlinkSegment(string $candidate): bool
+    {
+        $current = rtrim($this->contentDir, DIRECTORY_SEPARATOR);
+        $relative = substr($candidate, strlen($current) + 1);
+        foreach (explode(DIRECTORY_SEPARATOR, $relative) as $segment) {
+            $current .= DIRECTORY_SEPARATOR . $segment;
+            if (is_link($current)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

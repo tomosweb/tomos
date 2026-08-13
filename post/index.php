@@ -39,29 +39,79 @@ $trashResult = null;
 $editableSearchResult = null;
 $editableQuery = '';
 $editablePage = 1;
-$activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'));
+$publishedSearchResult = null;
+$publishedQuery = trim((string) ($_GET['q'] ?? ''));
+$publishedYear = trim((string) ($_GET['year'] ?? ''));
+$publishedPage = (int) ($_GET['page'] ?? 1);
+$publishedWithdrawTarget = null;
+$activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'), $_GET);
 $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (string) ($_POST['submission_id'] ?? '')
     : Tomos\PostSubmissionGuard::issueId();
 
 if ($config === []) {
-    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
     exit;
 }
 
 if (empty($config['features']['post'])) {
-    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
     exit;
 }
 
 $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
 if ($postPasswordHash === '') {
-    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
     exit;
 }
 
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
+
+$inboxPreviewPath = trim((string) ($_GET['preview_inbox'] ?? ''));
+$inboxDownloadPath = trim((string) ($_GET['download_inbox_markdown'] ?? ($_GET['download_inbox'] ?? '')));
+$postDraftPreviewPath = trim((string) ($_GET['preview_draft'] ?? ''));
+$postDraftDownloadPath = trim((string) ($_GET['download_draft_markdown'] ?? ''));
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($inboxPreviewPath !== '' || $inboxDownloadPath !== '' || $postDraftPreviewPath !== '' || $postDraftDownloadPath !== '')) {
+    if (empty($_SESSION['tomos_post_authenticated'])) {
+        http_response_code(403);
+        header('Cache-Control: no-store, private');
+        header('X-Content-Type-Options: nosniff');
+        echo '認証が必要です。';
+        exit;
+    }
+
+    $drafts = new Tomos\PostDrafts($config, $rootDir);
+    $isPostDraft = $postDraftPreviewPath !== '' || $postDraftDownloadPath !== '';
+    $requestedPath = $isPostDraft
+        ? ($postDraftPreviewPath !== '' ? $postDraftPreviewPath : $postDraftDownloadPath)
+        : ($inboxPreviewPath !== '' ? $inboxPreviewPath : $inboxDownloadPath);
+    $read = $drafts->read($isPostDraft ? 'post' : 'inbox', $requestedPath);
+    if (!$read->ok) {
+        http_response_code(404);
+        header('Cache-Control: no-store, private');
+        echo '受信箱の原稿を確認できませんでした。';
+        exit;
+    }
+    if ($inboxDownloadPath !== '' || $postDraftDownloadPath !== '') {
+        sendInboxMarkdownDownload($read->content, $read->fileName);
+    }
+
+    try {
+        $preview = (new Tomos\PostInboxPreview($config, $rootDir))->render($read->content, $read->fileName, $isPostDraft ? $read->path : '');
+    } catch (Throwable $exception) {
+        http_response_code(500);
+        header('Cache-Control: no-store, private');
+        echo 'プレビューを表示できませんでした。';
+        exit;
+    }
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('X-Content-Type-Options: nosniff');
+    echo $preview;
+    exit;
+}
 
 $postApi = (string) ($_GET['post_api'] ?? '');
 if ($postApi !== '' && !class_exists(Tomos\PostUploadCapabilities::class)) {
@@ -150,9 +200,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($authError !== '') {
             $errors[] = $authError;
         } else {
-            $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
-            if (empty($editableSearchResult['ok'])) {
-                $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
+            $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+            $query = http_build_query([
+                'section' => 'published',
+                'edit_query' => $editableQuery,
+                'edit_page' => $editablePage,
+            ], '', '&', PHP_QUERY_RFC3986);
+            header('Location: ' . Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . $query);
+            exit;
+        }
+    } elseif ($action === 'view_published') {
+        $publishedQuery = trim((string) ($_POST['q'] ?? ''));
+        $publishedYear = trim((string) ($_POST['year'] ?? ''));
+        $publishedPage = max(1, (int) ($_POST['page'] ?? 1));
+        $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $warnings);
+        if ($authError !== '') {
+            $errors[] = $authError;
+        } else {
+            $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+            $query = http_build_query([
+                'section' => 'published',
+                'q' => $publishedQuery,
+                'year' => $publishedYear,
+                'page' => $publishedPage,
+            ], '', '&', PHP_QUERY_RFC3986);
+            header('Location: ' . Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . $query);
+            exit;
+        }
+    } elseif ($action === 'download_published_markdown') {
+        $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $warnings);
+        if ($authError !== '') {
+            $errors[] = $authError;
+        } else {
+            $contentPath = (string) ($_POST['content_path'] ?? '');
+            if (!(new Tomos\PostPublished($config, $rootDir))->isPublishedPath($contentPath)) {
+                $errors[] = '公開済み投稿を確認できませんでした。一覧を再読み込みしてください。';
+            } else {
+                $downloadError = sendEditableMarkdownDownload($config, $rootDir, $contentPath);
+                if ($downloadError !== '') {
+                    $errors[] = $downloadError;
+                }
             }
         }
     } elseif ($action === 'download_editable_markdown') {
@@ -200,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = $authError;
         } else {
             $submissionGuard = null;
-            $submissionActions = ['upload', 'finalize_staged_upload', 'update_upload', 'rename_upload', 'resolve_editable_upload', 'create_editable_upload', 'publish_inbox'];
+            $submissionActions = ['upload', 'finalize_staged_upload', 'update_upload', 'rename_upload', 'resolve_editable_upload', 'create_editable_upload', 'publish_inbox', 'publish_draft', 'delete_draft'];
             if (in_array($action, $submissionActions, true)) {
                 $submissionGuard = new Tomos\PostSubmissionGuard($config, $rootDir);
                 $guardResult = $submissionGuard->acquire($submissionId);
@@ -245,11 +332,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                     }
                 }
+            } elseif ($action === 'delete_draft') {
+                $drafts = new Tomos\PostDrafts($config, $rootDir);
+                $deleteResult = $drafts->delete((string) ($_POST['draft_source'] ?? ''), (string) ($_POST['draft_path'] ?? ''));
+                if (!empty($deleteResult['ok'])) {
+                    $messages[] = '下書きを削除しました。';
+                    $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                } else {
+                    $errors = array_merge($errors, is_array($deleteResult['errors'] ?? null) ? $deleteResult['errors'] : ['下書きを削除できませんでした。']);
+                }
+            } elseif ($action === 'publish_draft') {
+                $source = (string) ($_POST['draft_source'] ?? '');
+                $path = (string) ($_POST['draft_path'] ?? '');
+                $expectedHash = (string) ($_POST['draft_hash'] ?? '');
+                $drafts = new Tomos\PostDrafts($config, $rootDir);
+                if ($source === 'inbox') {
+                    $inboxRead = $drafts->read('inbox', $path);
+                    if (!$inboxRead->ok) {
+                        $errors = array_merge($errors, $inboxRead->errors);
+                    } else {
+                        $upload = new Tomos\PostUpload($config, $rootDir);
+                        $uploadResult = $upload->handleContent(
+                            $drafts->inbox()->contentForManualPublish($inboxRead->content),
+                            $inboxRead->fileName,
+                            $drafts->inbox()->folderFromMarkdown($inboxRead->content),
+                            '', session_id(), [], [], false, $submissionId
+                        );
+                        if ($uploadResult->ok) {
+                            $messages[] = uploadSuccessMessage($uploadResult);
+                            if (!$drafts->inbox()->delete($inboxRead->path)) {
+                                $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+                            }
+                            $warnings = array_merge($warnings, $uploadResult->warnings);
+                            $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                        } else {
+                            $errors = array_merge($errors, $uploadResult->errors);
+                            $warnings = array_merge($warnings, $uploadResult->warnings);
+                        }
+                    }
+                } elseif ($source === 'post') {
+                    $uploadResult = (new Tomos\PostUpload($config, $rootDir))->publishDraft($path, $expectedHash, session_id(), $submissionId);
+                    if ($uploadResult->ok) {
+                        $messages[] = '下書きを公開しました。';
+                        $warnings = array_merge($warnings, $uploadResult->warnings);
+                        $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                    } else {
+                        $errors = array_merge($errors, $uploadResult->errors);
+                        $warnings = array_merge($warnings, $uploadResult->warnings);
+                    }
+                } else {
+                    $errors[] = '下書きの保存先が正しくありません。';
+                }
             } elseif ($action === 'site_settings_auth') {
                 header('Location: ' . Tomos\Security::publicUrl('/post/settings/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
             }
-            if ($action !== 'publish_inbox') {
+            if (!in_array($action, ['publish_inbox', 'publish_draft', 'delete_draft'], true)) {
             if ($action === 'theme_auth') {
                 header('Location: ' . Tomos\Security::publicUrl('/post/theme/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
@@ -358,6 +496,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $uploadResult = uploadConflictResultFromRecord($record);
                     }
                 }
+            } elseif ($action === 'withdraw_published') {
+                $publishedQuery = trim((string) ($_POST['q'] ?? ''));
+                $publishedYear = trim((string) ($_POST['year'] ?? ''));
+                $publishedPage = max(1, (int) ($_POST['page'] ?? 1));
+                $contentPath = (string) ($_POST['content_path'] ?? '');
+                if (!(new Tomos\PostPublished($config, $rootDir))->isPublishedPath($contentPath)) {
+                    $errors[] = '公開済み投稿を確認できませんでした。一覧を再読み込みしてください。';
+                } else {
+                    try {
+                        $resolver = new Tomos\PostContentResolver($config, $rootDir);
+                        $publishedWithdrawTarget = $resolver->resolveContentPath($contentPath);
+                    } catch (RuntimeException $exception) {
+                        $publishedWithdrawTarget = null;
+                        $errors[] = 'content/ フォルダを確認できませんでした。';
+                    }
+                }
+                if ($publishedWithdrawTarget instanceof Tomos\PostContentResolveResult && !$publishedWithdrawTarget->ok) {
+                    $errors = array_merge($errors, $publishedWithdrawTarget->errors);
+                } elseif ($errors === [] && $publishedWithdrawTarget instanceof Tomos\PostContentResolveResult) {
+                    $withdraw = new Tomos\PostWithdraw($config, $rootDir);
+                    $withdrawResult = $withdraw->withdraw($publishedWithdrawTarget->contentPath);
+                    if ($withdrawResult->ok) {
+                        $messages[] = '投稿を取り下げました。';
+                        $warnings = array_merge($warnings, $withdrawResult->warnings);
+                        $publishedWithdrawTarget = null;
+                        $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                    } else {
+                        $errors = array_merge($errors, $withdrawResult->errors);
+                    }
+                }
             } elseif ($action === 'withdraw') {
                 try {
                     $resolver = new Tomos\PostContentResolver($config, $rootDir);
@@ -440,15 +608,37 @@ if (
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'GET'
-    && $activeSection === 'manage'
+    && in_array($activeSection, ['published', 'drafts'], true)
     && !empty($_SESSION['tomos_post_authenticated'])
 ) {
-    $editableQuery = trim((string) ($_GET['edit_query'] ?? ''));
-    $editablePage = max(1, (int) ($_GET['edit_page'] ?? 1));
-    if ($editableQuery !== '') {
-        $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
-        if (empty($editableSearchResult['ok'])) {
-            $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
+    if ($activeSection === 'published') {
+        $editableQuery = trim((string) ($_GET['edit_query'] ?? ''));
+        $editablePage = max(1, (int) ($_GET['edit_page'] ?? 1));
+        if ($editableQuery !== '') {
+            $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
+            if (empty($editableSearchResult['ok'])) {
+                $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
+            }
+        }
+        $publishedSearchResult = searchPublishedPosts($config, $rootDir, $publishedQuery, $publishedYear, $publishedPage);
+        if (empty($publishedSearchResult['ok'])) {
+            $errors[] = (string) ($publishedSearchResult['error'] ?? '公開済み投稿を検索できませんでした。');
+        }
+
+        $publishedWithdrawPath = trim((string) ($_GET['published_withdraw'] ?? ''));
+        if ($publishedWithdrawPath !== '') {
+            if (!(new Tomos\PostPublished($config, $rootDir))->isPublishedPath($publishedWithdrawPath)) {
+                $errors[] = '公開済み投稿を確認できませんでした。一覧を再読み込みしてください。';
+            } else {
+                try {
+                    $publishedWithdrawTarget = (new Tomos\PostContentResolver($config, $rootDir))->resolveContentPath($publishedWithdrawPath);
+                    if (!$publishedWithdrawTarget->ok) {
+                        $errors = array_merge($errors, $publishedWithdrawTarget->errors);
+                    }
+                } catch (RuntimeException $exception) {
+                    $errors[] = 'content/ フォルダを確認できませんでした。';
+                }
+            }
         }
     }
 }
@@ -464,7 +654,7 @@ function isPostRequestTooLarge(): bool
     return $limit > 0 && $contentLength > $limit;
 }
 
-renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, false, $activeSection, $submissionId);
+renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, false, $activeSection, $submissionId);
 
 function jsonResponse(array $data, int $status = 200): void
 {
@@ -552,6 +742,25 @@ function searchEditableMarkdown(array $config, string $rootDir, string $query, i
     }
 }
 
+function searchPublishedPosts(array $config, string $rootDir, string $query, string $year, int $page): array
+{
+    try {
+        return (new Tomos\PostPublished($config, $rootDir))->list($query, $year, $page, 50);
+    } catch (Throwable $exception) {
+        return [
+            'ok' => false,
+            'error' => '公開済み投稿の一覧情報を準備できませんでした。Tomosのファイル構成を確認してください。',
+            'items' => [],
+            'years' => [],
+            'query' => $query,
+            'year' => $year,
+            'page' => 1,
+            'total' => 0,
+            'total_pages' => 0,
+        ];
+    }
+}
+
 function sendEditableMarkdownDownload(array $config, string $rootDir, string $contentPath): string
 {
     try {
@@ -583,8 +792,34 @@ function sendEditableMarkdownDownload(array $config, string $rootDir, string $co
     exit;
 }
 
+function sendInboxMarkdownDownload(string $content, string $fileName): void
+{
+    $downloadName = basename($fileName);
+    $fallbackName = preg_replace('/[^A-Za-z0-9._-]/', '_', $downloadName) ?? 'download.md';
+    if ($fallbackName === '' || $fallbackName === '.md') {
+        $fallbackName = 'download.md';
+    }
+
+    header('Content-Type: text/markdown; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $fallbackName . '"; filename*=UTF-8\'\'' . rawurlencode($downloadName));
+    header('Content-Length: ' . (string) strlen($content));
+    header('Cache-Control: no-store, private');
+    header('X-Content-Type-Options: nosniff');
+    echo $content;
+    exit;
+}
+
 function uploadSuccessMessage(Tomos\PostUploadResult $result): string
 {
+    if ($result->isDraft) {
+        if ($result->operation === 'draft_create') {
+            return '下書き投稿が完了しました。下書き一覧から確認できます。';
+        }
+        if (in_array($result->operation, ['rename_create', 'editable_new'], true)) {
+            return '下書きを新しい名前で保存しました。下書き一覧から確認できます。';
+        }
+        return '下書きを更新しました。下書き一覧から確認できます。';
+    }
     if ($result->operation === 'editable_draft') {
         return '下書きを保存しました。';
     }
@@ -647,6 +882,11 @@ function renderPage(
     ?Tomos\TrashClearResult $trashResult,
     ?array $editableSearchResult,
     string $editableQuery,
+    ?array $publishedSearchResult,
+    string $publishedQuery,
+    string $publishedYear,
+    int $publishedPage,
+    ?Tomos\PostContentResolveResult $publishedWithdrawTarget,
     bool $disabled,
     string $activeSection,
     string $submissionId
@@ -671,7 +911,7 @@ html,body{width:100%;overflow-x:hidden}
 body{background:var(--tomos-bg);box-sizing:border-box;color:var(--tomos-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}
 .wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:860px;padding:28px}
 h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}h2{border-top:1px solid var(--tomos-border-soft);color:var(--tomos-text);font-size:1.2rem;margin:2rem 0 1rem;padding-top:1.5rem}h3{color:var(--tomos-text);font-size:1rem;margin:1.4rem 0 0.4rem}
-label{color:var(--tomos-text);display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=password],input[type=text],input[type=file]{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;box-sizing:border-box;color:var(--tomos-text);font:inherit;font-size:16px;padding:0.65rem;width:100%}input::placeholder{color:var(--tomos-placeholder);opacity:1}input[type=password]:focus,input[type=text]:focus,input[type=file]:focus{border-color:var(--tomos-accent);box-shadow:0 0 0 3px rgba(164,74,29,0.12);outline:none}input[type=file]::file-selector-button{background:var(--tomos-button-hover);border:1px solid var(--tomos-border);border-radius:5px;color:var(--tomos-text);font:inherit;font-weight:700;margin-right:0.75rem;padding:0.45rem 0.75rem}
+label{color:var(--tomos-text);display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=password],input[type=text],input[type=file],select{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;box-sizing:border-box;color:var(--tomos-text);font:inherit;font-size:16px;padding:0.65rem;width:100%}input::placeholder{color:var(--tomos-placeholder);opacity:1}input[type=password]:focus,input[type=text]:focus,input[type=file]:focus,select:focus{border-color:var(--tomos-accent);box-shadow:0 0 0 3px rgba(164,74,29,0.12);outline:none}input[type=file]::file-selector-button{background:var(--tomos-button-hover);border:1px solid var(--tomos-border);border-radius:5px;color:var(--tomos-text);font:inherit;font-weight:700;margin-right:0.75rem;padding:0.45rem 0.75rem}
 .hint{color:var(--tomos-muted);font-size:0.95rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,.nav a:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}button:disabled,.button[aria-disabled="true"]{background:var(--tomos-primary-disabled);border-color:var(--tomos-primary-disabled);color:#fff}button.danger{background:var(--tomos-danger);border-color:var(--tomos-danger)}button.danger:hover{background:var(--tomos-danger-hover);border-color:var(--tomos-danger-hover)}button.danger:active{background:var(--tomos-danger-active);border-color:var(--tomos-danger-active)}button.danger:focus-visible{outline:3px solid rgba(180,56,46,0.25);outline-offset:2px}button.secondary,.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}button.secondary:hover,.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}button.secondary:active,.button.secondary:active{background:var(--tomos-button-active)}button.danger.secondary{background:var(--tomos-input);color:var(--tomos-danger-text);border-color:var(--tomos-error-border)}button.danger.secondary:hover{background:var(--tomos-error-bg);border-color:var(--tomos-error-border)}
 code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}.result a{overflow-wrap:anywhere;word-break:break-word}.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}.grid>*{min-width:0}.nav{display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0}.nav a{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:999px;color:var(--tomos-text);padding:0.35rem 0.75rem;text-decoration:none}.nav a:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.meta p{margin:0.35rem 0;min-width:0}
@@ -680,6 +920,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 </style></head><body><main class="wrap">';
 
+    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}</style>';
     echo '<h1>' . e($title) . '</h1>';
     echo '<p class="hint">Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。</p>';
     renderSectionNav($activeSection, $publicBasePath);
@@ -710,19 +951,14 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 
     echo '<div class="section">';
     renderMessages($errors, $messages, $warnings);
-    if ($activeSection === 'manage') {
+    if ($activeSection === 'published') {
+        renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $withdrawTarget, $withdrawResult, $trashSummary, $editableQuery, $editableSearchResult);
+    } elseif ($activeSection === 'drafts') {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
-        renderInboxSection($token, $config, $submissionId);
-        renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);
-        renderWithdrawResult($errors, $withdrawResult, $continueUrl);
-        renderWithdrawSection($token, $withdrawTarget);
-        renderTrashSection($token, $trashSummary);
+        renderDraftSection($token, $config, $submissionId);
     } elseif ($activeSection === 'settings') {
-        renderSiteSettingsSection($token, $config);
-        renderThemeSettingsSection($token, $config);
-        renderAnalyticsSettingsSection($token, $config);
-        renderUpdateSettingsSection($config);
+        renderSettingsHomeSection($token, $config);
     } else {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
@@ -740,6 +976,14 @@ document.querySelectorAll("form[data-submission-form]").forEach((form) => {
     button.textContent = "投稿中…";
   });
 });
+document.querySelectorAll("form[data-withdraw-submit]").forEach((form) => {
+  form.addEventListener("submit", () => {
+    const button = form.querySelector('button[type="submit"]');
+    if (!button || button.disabled) return;
+    button.disabled = true;
+    button.textContent = "取り下げ中…";
+  });
+});
 </script>
 HTML;
     echo '</main></body></html>';
@@ -749,18 +993,17 @@ function renderSectionNav(string $activeSection, string $publicBasePath): void
 {
     $items = [
         'upload' => '投稿',
-        'manage' => '記事管理',
-        'settings' => 'サイト設定',
+        'drafts' => '下書き',
+        'published' => '公開済み',
+        'settings' => '設定',
     ];
 
     echo '<nav class="nav" aria-label="Tomos Postの操作">';
     foreach ($items as $section => $label) {
-        $url = Tomos\Security::publicUrl('/post/?section=' . $section, $publicBasePath);
+        $url = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . http_build_query(['section' => $section], '', '&', PHP_QUERY_RFC3986);
         $current = $section === $activeSection ? ' aria-current="page"' : '';
         echo '<a href="' . e($url) . '"' . $current . '>' . e($label) . '</a>';
     }
-    $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
-echo '<a href="' . e($securityUrl) . '">セキュリティ</a>';
 echo '</nav>';
 }
 
@@ -813,6 +1056,28 @@ function renderUpdateSettingsSection(array $config): void
     echo '<p><a class="button secondary" href="' . e($updateUrl) . '">Tomos Updateを開く</a></p>';
 }
 
+function renderSettingsHomeSection(string $token, array $config): void
+{
+    $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+    $links = [
+        [Tomos\Security::publicUrl('/post/settings/', $publicBasePath), 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
+        [Tomos\Security::publicUrl('/post/theme/', $publicBasePath), 'テーマ', '公開サイトの見た目を切り替えます。'],
+        [Tomos\Security::publicUrl('/post/security/', $publicBasePath), 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
+        [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', '署名済みの更新を実行します。'],
+    ];
+
+    echo '<h2 id="post-settings">設定</h2>';
+    echo '<p class="hint">Tomos Postの動作や公開サイトに関する設定です。投稿や記事管理とは分けて管理します。</p>';
+    echo '<div class="settings-links">';
+    foreach ($links as [$url, $label, $description]) {
+        echo '<a class="settings-link" href="' . e($url) . '"><strong>' . e($label) . '</strong><span>' . e($description) . '</span></a>';
+    }
+    echo '</div>';
+    echo '<details class="settings-details"><summary>アクセス解析</summary>';
+    renderAnalyticsSettingsSection($token, $config);
+    echo '</details>';
+}
+
 function renderMessages(array $errors, array $messages, array $warnings): void
 {
     if ($errors !== []) {
@@ -863,7 +1128,10 @@ function renderUploadResult(array $errors, ?Tomos\PostUploadResult $result, stri
     if ($result->imageCount > 0) {
         echo '<p><strong>画像:</strong><br>' . e((string) $result->imageCount) . '点を保存しました。</p>';
     }
-    $isDraftSave = $result->operation === 'editable_draft';
+    $isDraftSave = $result->isDraft;
+    if ($isDraftSave) {
+        echo '<p class="hint">下書き一覧から確認できます。</p>';
+    }
     if (!$isDraftSave) {
         echo '<p><strong>公開URL:</strong><br><a href="' . e($displayUrl) . '">' . e($displayUrl) . '</a></p>';
     }
@@ -1143,6 +1411,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   let oversizedImageCount = 0;
   let formatMismatchImageCount = 0;
   let editableReupload = false;
+  let draftState = false;
   let editableSourcePath = "";
   let imageSelectionTask = Promise.resolve();
   let submitting = false;
@@ -1205,10 +1474,10 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       pageTypeNotice.textContent = editableReupload
         ? `編集済み原稿の保存先と競合状態を確認します。${imageText}`
         : `記事として投稿します。${imageText}`;
-      submitButton.textContent = editableReupload ? "更新内容を確認する" : "公開する";
+      submitButton.textContent = editableReupload ? "更新内容を確認する" : (draftState ? "下書きとして保存" : "公開する");
     } else {
       pageTypeNotice.textContent = "ファイルを選択すると投稿対象を表示します。";
-      submitButton.textContent = "公開する";
+      submitButton.textContent = draftState ? "下書きとして保存" : "公開する";
     }
   };
 
@@ -1249,6 +1518,19 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       if (line.startsWith("folder:")) return unquoteScalar(line.slice(7));
     }
     return null;
+  };
+
+  const extractDraftState = (markdown) => {
+    const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+    if ((lines[0] || "").trim() !== "---") return false;
+    for (let index = 1; index < lines.length; index += 1) {
+      const line = lines[index] || "";
+      if (line.trim() === "---") break;
+      const match = line.match(/^draft\s*:\s*(.*)$/i);
+      if (!match) continue;
+      return ["true", "1", "yes"].includes(unquoteScalar(match[1]).toLowerCase());
+    }
+    return false;
   };
 
   const extractSourceMetadata = (markdown) => {
@@ -1369,6 +1651,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     folderInput.disabled = false;
     editableReupload = false;
     editableSourcePath = "";
+    draftState = false;
     updatePageSelection();
     imageNotice.hidden = true;
     imageNotice.textContent = "";
@@ -1385,6 +1668,8 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       const markdown = String(reader.result || "");
+      draftState = extractDraftState(markdown);
+      updatePageSelection();
       const images = extractImages(markdown);
       requiredImages = images;
       if (images.length > 0) {
@@ -1672,7 +1957,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       submitting = false;
       activeUploadSessionId = "";
       submitButton.disabled = false;
-      submitButton.textContent = "公開する";
+      submitButton.textContent = draftState ? "下書きとして保存" : "公開する";
       processingStatus.style.color = "var(--tomos-danger-text)";
       processingStatus.textContent = error && error.message
         ? error.message
@@ -1806,18 +2091,196 @@ function renderEditableMarkdownSection(string $token, array $config, string $que
     echo '</nav>';
 }
 
-function renderInboxSection(string $token, array $config, string $submissionId): void
-{
-    $inbox = new Tomos\PostInbox($config, dirname(__DIR__));
-    $items = $inbox->list();
-    echo '<h2 id="post-inbox">受信箱</h2>';
-    echo '<p class="hint">SFTPなどで受信したMarkdownを確認して、Tomosの通常投稿処理で公開します。公開成功後に受信箱から削除します。</p>';
-    if ($inbox->error() !== '') {
-        echo '<div class="notice warning"><p>' . e($inbox->error()) . '</p></div>';
+function renderPublishedSection(
+    string $token,
+    array $config,
+    ?array $result,
+    string $query,
+    string $year,
+    int $page,
+    ?Tomos\PostContentResolveResult $withdrawTarget,
+    ?Tomos\PostContentResolveResult $manualWithdrawTarget,
+    ?Tomos\PostWithdrawResult $withdrawResult,
+    array $trashSummary,
+    string $editableQuery,
+    ?array $editableSearchResult
+): void {
+    echo '<h2 id="published-posts">公開済み投稿</h2>';
+    echo '<p class="hint">公開済みの記事を検索し、公開ページの確認、Markdownの取得、取り下げを行います。</p>';
+
+    if (empty($_SESSION['tomos_post_authenticated'])) {
+        echo '<form method="post" action="">';
+        echo '<input type="hidden" name="action" value="view_published">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="q" value="' . e($query) . '">';
+        echo '<input type="hidden" name="year" value="' . e($year) . '">';
+        echo '<input type="hidden" name="page" value="1">';
+        renderAuthenticationFields('published_view_password', '公開済み投稿を開くための管理用合言葉');
+        echo '<div class="actions"><button type="submit">公開済み投稿を開く</button></div>';
+        echo '</form>';
         return;
     }
+
+    if (!is_array($result)) {
+        $result = searchPublishedPosts($config, dirname(__DIR__), $query, $year, $page);
+    }
+    if (empty($result['ok'])) {
+        return;
+    }
+
+    $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+    $years = is_array($result['years'] ?? null) ? $result['years'] : [];
+    echo '<form method="get" action="' . e(Tomos\Security::publicUrl('/post/', $publicBasePath)) . '">';
+    echo '<input type="hidden" name="section" value="published">';
+    echo '<input type="hidden" name="page" value="1">';
+    echo '<label for="published-query">検索</label>';
+    echo '<input id="published-query" type="text" name="q" value="' . e($query) . '" maxlength="200" autocomplete="off" placeholder="タイトル・ファイル名・本文など">';
+    echo '<label for="published-year">公開年</label>';
+    echo '<select id="published-year" name="year">';
+    echo '<option value="">すべて</option>';
+    foreach ($years as $availableYear) {
+        $availableYear = (string) $availableYear;
+        $selected = $availableYear === $year ? ' selected' : '';
+        echo '<option value="' . e($availableYear) . '"' . $selected . '>' . e($availableYear) . '</option>';
+    }
+    echo '</select>';
+    echo '<div class="actions"><button type="submit">検索する</button></div>';
+    echo '</form>';
+
+    $items = is_array($result['items'] ?? null) ? $result['items'] : [];
+    $total = (int) ($result['total'] ?? 0);
+    echo '<p class="hint">' . e((string) $total) . '件</p>';
+
+    if ($withdrawTarget instanceof Tomos\PostContentResolveResult && $withdrawTarget->ok) {
+        echo '<div class="result meta">';
+        echo '<h3>取り下げの確認</h3>';
+        echo '<p><strong>タイトル:</strong><br>' . e($withdrawTarget->title !== '' ? $withdrawTarget->title : '（タイトルなし）') . '</p>';
+        echo '<p><strong>公開日:</strong><br>' . e($withdrawTarget->date !== '' ? $withdrawTarget->date : '（未設定）') . '</p>';
+        echo '<p><strong>更新日:</strong><br>' . e($withdrawTarget->updated !== '' ? $withdrawTarget->updated : '（未設定）') . '</p>';
+        echo '<p><strong>保存先:</strong><br><code>content/' . e($withdrawTarget->contentPath) . '</code></p>';
+        echo '<p><strong>公開URL:</strong><br><a href="' . e(Tomos\Security::safeHref($withdrawTarget->absoluteUrl)) . '" target="_blank" rel="noopener noreferrer">' . e($withdrawTarget->absoluteUrl) . '</a></p>';
+        echo '<div class="notice"><p>この投稿を公開状態から取り下げます。Markdownは完全削除せず、取り下げ済みとして保管します。</p></div>';
+        echo '<form method="post" action="" data-withdraw-submit>';
+        echo '<input type="hidden" name="action" value="withdraw_published">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="content_path" value="' . e($withdrawTarget->contentPath) . '">';
+        echo '<input type="hidden" name="q" value="' . e($query) . '">';
+        echo '<input type="hidden" name="year" value="' . e($year) . '">';
+        echo '<input type="hidden" name="page" value="' . e((string) $page) . '">';
+        echo '<div class="actions"><button class="danger" type="submit">取り下げる</button></div>';
+        echo '</form>';
+        echo '</div>';
+    }
+
     if ($items === []) {
-        echo '<div class="result"><p>受信箱に投稿可能なファイルはありません。</p></div>';
+        echo '<div class="result"><p>該当する公開済み投稿はありません。</p></div>';
+    } else {
+        echo '<div class="editable-results">';
+        foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $title = trim((string) ($item['title'] ?? ''));
+        if ($title === '') {
+            $title = (string) ($item['filename'] ?? '（タイトルなし）');
+        }
+        $internalUrl = (string) ($item['url'] ?? '');
+        $publicUrl = publishedPublicUrl($config, $internalUrl);
+        $tags = is_array($item['tags'] ?? null) ? $item['tags'] : [];
+        echo '<article class="editable-result">';
+        echo '<p class="editable-status">公開中</p>';
+        echo '<h3>' . e($title) . '</h3>';
+        echo '<p><strong>公開日:</strong> ' . e((string) (($item['date'] ?? '') !== '' ? $item['date'] : '（未設定）')) . '</p>';
+        echo '<p><strong>更新日:</strong> ' . e((string) (($item['updated'] ?? '') !== '' ? $item['updated'] : '（未設定）')) . '</p>';
+        echo '<p><strong>タグ:</strong> ' . e($tags === [] ? '（なし）' : implode(', ', array_map('strval', $tags))) . '</p>';
+        echo '<p><strong>保存先:</strong><br><code>content/' . e((string) ($item['path'] ?? '')) . '</code></p>';
+        echo '<p><strong>公開ページ:</strong><br><a href="' . e(Tomos\Security::safeHref($publicUrl)) . '" target="_blank" rel="noopener noreferrer">' . e($publicUrl) . '</a></p>';
+        echo '<div class="actions">';
+        echo '<a class="button secondary" href="' . e(Tomos\Security::safeHref($publicUrl)) . '" target="_blank" rel="noopener noreferrer">公開ページを確認</a>';
+        echo '<form class="inline-form" method="post" action="">';
+        echo '<input type="hidden" name="action" value="download_published_markdown">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="content_path" value="' . e((string) ($item['path'] ?? '')) . '">';
+        echo '<button class="secondary" type="submit">Markdownを取得</button>';
+        echo '</form>';
+        if (empty($item['protected'])) {
+            $withdrawUrl = publishedWithdrawUrl($publicBasePath, $query, $year, (int) ($result['page'] ?? 1), (string) ($item['path'] ?? ''));
+            echo '<a class="button danger secondary" href="' . e($withdrawUrl) . '">取り下げ</a>';
+        }
+        echo '</div>';
+        echo '</article>';
+        }
+        echo '</div>';
+
+        $currentPage = (int) ($result['page'] ?? 1);
+        $totalPages = (int) ($result['total_pages'] ?? 0);
+        if ($totalPages > 1) {
+            echo '<nav class="pager" aria-label="公開済み投稿のページ">';
+            if ($currentPage > 1) {
+                echo '<a class="button secondary" href="' . e(publishedPageUrl($publicBasePath, $query, $year, $currentPage - 1)) . '">前へ</a>';
+            } else {
+                echo '<span></span>';
+            }
+            echo '<p>' . e((string) $currentPage) . ' / ' . e((string) $totalPages) . '</p>';
+            if ($currentPage < $totalPages) {
+                echo '<a class="button secondary" href="' . e(publishedPageUrl($publicBasePath, $query, $year, $currentPage + 1)) . '">次へ</a>';
+            } else {
+                echo '<span></span>';
+            }
+            echo '</nav>';
+        }
+    }
+
+    echo '<details class="advanced-tools">';
+    echo '<summary>高度な操作</summary>';
+    renderWithdrawResult([], $withdrawResult, Tomos\Security::publicUrl('/post/?section=published', $publicBasePath));
+    renderWithdrawSection($token, $manualWithdrawTarget, true);
+    renderTrashSection($token, $trashSummary, true);
+    renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);
+    echo '</details>';
+}
+
+function publishedPublicUrl(array $config, string $internalUrl): string
+{
+    $siteUrl = (string) ($config['site']['url'] ?? '');
+    $absolute = Tomos\Security::absoluteUrl($siteUrl, $internalUrl);
+    if ($absolute !== '') {
+        return $absolute;
+    }
+
+    $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+    return Tomos\Security::publicUrl($internalUrl, $publicBasePath);
+}
+
+function publishedPageUrl(string $publicBasePath, string $query, string $year, int $page): string
+{
+    return Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . http_build_query([
+        'section' => 'published',
+        'q' => $query,
+        'year' => $year,
+        'page' => max(1, $page),
+    ], '', '&', PHP_QUERY_RFC3986);
+}
+
+function publishedWithdrawUrl(string $publicBasePath, string $query, string $year, int $page, string $path): string
+{
+    return Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . http_build_query([
+        'section' => 'published',
+        'q' => $query,
+        'year' => $year,
+        'page' => max(1, $page),
+        'published_withdraw' => $path,
+    ], '', '&', PHP_QUERY_RFC3986);
+}
+
+function renderDraftSection(string $token, array $config, string $submissionId): void
+{
+    $drafts = new Tomos\PostDrafts($config, dirname(__DIR__));
+    $items = $drafts->list();
+    echo '<h2 id="post-inbox">下書き</h2>';
+    echo '<p class="hint">InboxやTomos Postから保存された下書きを確認し、必要な原稿だけ公開します。</p>';
+    if ($items === []) {
+        echo '<div class="result"><p>下書きはありません。</p></div>';
         return;
     }
 
@@ -1825,15 +2288,39 @@ function renderInboxSection(string $token, array $config, string $submissionId):
     foreach ($items as $index => $item) {
         $timestamp = formatInboxTimestamp($item->modifiedAt, $config);
         echo '<article class="editable-result">';
-        echo '<h3>' . e($item->fileName) . '</h3>';
+        echo '<p class="editable-status">' . e($item->source === 'inbox' ? '投稿元: Inbox' : '投稿元: Tomos Post') . '</p>';
+        echo '<h3>' . e($item->title !== '' ? $item->title : $item->fileName) . '</h3>';
+        echo '<p><code>' . e($item->fileName) . '</code></p>';
         echo '<p class="hint">更新：' . e($timestamp) . ' / サイズ：' . e(formatInboxBytes($item->size)) . '</p>';
+        $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+        $queryKey = $item->source === 'inbox' ? 'preview_inbox' : 'preview_draft';
+        $downloadKey = $item->source === 'inbox' ? 'download_inbox_markdown' : 'download_draft_markdown';
+        $previewUrl = Tomos\Security::publicUrl('/post/?section=drafts&' . $queryKey . '=' . rawurlencode($item->path), $publicBasePath);
+        $downloadUrl = Tomos\Security::publicUrl('/post/?section=drafts&' . $downloadKey . '=' . rawurlencode($item->path), $publicBasePath);
+        echo '<div class="actions inbox-actions">';
+        echo '<a class="button secondary" href="' . e($previewUrl) . '" target="_blank" rel="noopener noreferrer">プレビュー</a>';
+        echo '<a class="button secondary" href="' . e($downloadUrl) . '">Markdownをダウンロード</a>';
+        echo '</div>';
         echo '<form class="inline-form" method="post" action="" data-submission-form>';
-        echo '<input type="hidden" name="action" value="publish_inbox">';
+        echo '<input type="hidden" name="action" value="publish_draft">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
         echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
-        echo '<input type="hidden" name="inbox_path" value="' . e($item->path) . '">';
+        echo '<input type="hidden" name="draft_source" value="' . e($item->source) . '">';
+        echo '<input type="hidden" name="draft_path" value="' . e($item->path) . '">';
+        $read = $drafts->read($item->source, $item->path);
+        $hash = $read->ok ? hash('sha256', $read->content) : '';
+        echo '<input type="hidden" name="draft_hash" value="' . e($hash) . '">';
         renderAuthenticationFields('inbox_password_' . $index);
         echo '<div class="actions"><button type="submit">公開する</button></div>';
+        echo '</form>';
+        echo '<form class="inline-form" method="post" action="" onsubmit="return confirm(\'この下書きを削除しますか？この操作は元に戻せません。\');">';
+        echo '<input type="hidden" name="action" value="delete_draft">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
+        echo '<input type="hidden" name="draft_source" value="' . e($item->source) . '">';
+        echo '<input type="hidden" name="draft_path" value="' . e($item->path) . '">';
+        renderAuthenticationFields('delete_draft_password_' . $index);
+        echo '<div class="actions"><button class="danger secondary" type="submit">削除</button></div>';
         echo '</form>';
         echo '</article>';
     }
@@ -1884,9 +2371,9 @@ function formatEditableTimestamp(int $timestamp, array $config): string
     }
 }
 
-function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $target): void
+function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $target, bool $compact = false): void
 {
-    echo '<h2 id="post-withdraw">投稿を取り下げる</h2>';
+    echo $compact ? '<h3 id="post-withdraw">手動取り下げ</h3>' : '<h2 id="post-withdraw">投稿を取り下げる</h2>';
     echo '<p class="hint">公開済みページをWebから外します。Markdownファイルは取り下げ済みとして保管されます。</p>';
 
     echo '<form method="post" action="">';
@@ -1924,9 +2411,9 @@ function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $t
     echo '</div>';
 }
 
-function renderTrashSection(string $token, array $summary): void
+function renderTrashSection(string $token, array $summary, bool $compact = false): void
 {
-    echo '<h2 id="post-trash">取り下げ済みを削除</h2>';
+    echo $compact ? '<h3 id="post-trash">ゴミ箱</h3>' : '<h2 id="post-trash">取り下げ済みを削除</h2>';
     echo '<p class="hint">取り下げたMarkdownファイルを完全に削除します。この操作は元に戻せません。</p>';
     echo '<div class="grid">';
     echo '<div class="result"><strong>取り下げ済みファイル</strong><br>' . e((string) ($summary['count'] ?? 0)) . '件</div>';
@@ -2025,25 +2512,34 @@ function trashSummary(): array
     }
 }
 
-function normalizeSection(string $section): string
+function normalizeSection(string $section, array $query = []): string
 {
+    if ($section === 'manage') {
+        if (array_intersect(['preview_draft', 'preview_inbox', 'download_draft_markdown', 'download_inbox_markdown'], array_keys($query)) !== []) {
+            return 'drafts';
+        }
+        return 'published';
+    }
     if (in_array($section, ['withdraw', 'trash'], true)) {
-        return 'manage';
+        return 'published';
     }
     if (in_array($section, ['theme', 'analytics'], true)) {
         return 'settings';
     }
 
-    return in_array($section, ['upload', 'manage', 'settings'], true) ? $section : 'upload';
+    return in_array($section, ['upload', 'drafts', 'published', 'settings'], true) ? $section : 'upload';
 }
 
 function sectionForAction(string $action): string
 {
-    if (in_array($action, ['search_editable_markdown', 'download_editable_markdown', 'resolve_withdraw', 'withdraw', 'publish_inbox'], true)) {
-        return 'manage';
+    if (in_array($action, ['view_published', 'download_published_markdown', 'withdraw_published', 'resolve_withdraw', 'withdraw', 'clear_trash'], true)) {
+        return 'published';
     }
-    if ($action === 'clear_trash') {
-        return 'manage';
+    if (in_array($action, ['search_editable_markdown', 'download_editable_markdown'], true)) {
+        return 'published';
+    }
+    if (in_array($action, ['publish_inbox', 'publish_draft', 'delete_draft'], true)) {
+        return 'drafts';
     }
     if (in_array($action, ['site_settings_auth', 'theme_auth'], true)) {
         return 'settings';

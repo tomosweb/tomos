@@ -87,7 +87,7 @@ renderConfirmPage($config, $themes, $currentTheme, $selectedTheme, $errors, $mes
 function renderConfirmPage(array $config, array $themes, string $currentTheme, string $selectedTheme, array $errors, array $messages, array $warnings, string $token): void
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
-    $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath);
+    $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
     $siteUrl = Tomos\Security::publicUrl('/', $publicBasePath);
     $confirmUrl = Tomos\Security::publicUrl('/post/theme/confirm/', $publicBasePath);

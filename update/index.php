@@ -21,7 +21,7 @@ $configPath = $rootDir . '/config.php';
 $config = is_file($configPath) ? require $configPath : [];
 $config = is_array($config) ? $config : [];
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
-$postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath);
+$postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
 $updateUrl = Tomos\Security::publicUrl('/update/', $publicBasePath);
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
