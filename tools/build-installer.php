@@ -3,13 +3,30 @@
 declare(strict_types=1);
 
 $repo = dirname(__DIR__);
-$output = $repo . '/build/install.php';
+$options = getopt('', ['output::', 'pointer-url::', 'public-key-file::']);
+$output = (string) ($options['output'] ?? $repo . '/build/install.php');
+$pointerUrl = (string) ($options['pointer-url'] ?? 'https://tomoswords.org/download/install/latest.json');
+$publicKeyFile = (string) ($options['public-key-file'] ?? $repo . '/update/public-key.pem');
 $publicKeySource = $repo . '/tools/installer/InstallerPublicKey.php';
 $updateKey = $repo . '/update/public-key.pem';
 if (!is_file($publicKeySource) || !is_file($updateKey)) fail('Public key source is missing.');
-$publicKeyText = (string) file_get_contents($publicKeySource);
-$updateKeyText = trim((string) file_get_contents($updateKey));
-if (strpos($publicKeyText, $updateKeyText) === false) fail('Embedded installer public key does not match Update public key.');
+$publicKeyText = trim((string) @file_get_contents($publicKeyFile));
+if ($publicKeyText === '' || strpos($publicKeyText, '-----BEGIN') === false) fail('Public key file is missing or invalid.');
+$defaultKey = realpath($publicKeyFile) === realpath($updateKey);
+if ($defaultKey) {
+    $embeddedSource = (string) file_get_contents($publicKeySource);
+    $updateKeyText = trim((string) file_get_contents($updateKey));
+    if (strpos($embeddedSource, $updateKeyText) === false) fail('Embedded installer public key does not match Update public key.');
+} else {
+    if (strpos($publicKeyText, '-----BEGIN PUBLIC KEY-----') === false && strpos($publicKeyText, '-----BEGIN RSA PUBLIC KEY-----') === false) {
+        fail('Test public key must be a PEM public key.');
+    }
+}
+$pointer = parse_url($pointerUrl);
+if (!is_array($pointer) || ($pointer['scheme'] ?? '') !== 'https' || empty($pointer['host']) || isset($pointer['user'], $pointer['pass'], $pointer['query'], $pointer['fragment'])) {
+    fail('Pointer URL must be an HTTPS URL without credentials, query, or fragment.');
+}
+$pointerHost = strtolower((string) $pointer['host']);
 $sources = [
     'tools/installer/InstallManifest.php',
     'tools/installer/InstallerPublicKey.php',
@@ -33,9 +50,17 @@ foreach ($sources as $relative) {
     if ($relative === 'tools/installer/InstallerPlacement.php') {
         $source = stripTestHooks($source);
     }
+    if ($relative === 'tools/installer/InstallerPublicKey.php' && !$defaultKey) {
+        $source = replaceEmbeddedPublicKey($source, $publicKeyText);
+    }
+    if ($relative === 'tools/installer/InstallerCore.php' && !$defaultKey) {
+        $source = str_replace("public const DEFAULT_POINTER_URL = 'https://tomoswords.org/download/install/latest.json';", "public const DEFAULT_POINTER_URL = " . var_export($pointerUrl, true) . ";", $source);
+    }
     $bundle .= "\n/* BEGIN " . $relative . " */\n" . $source . "\n/* END " . $relative . " */\n";
 }
-$bundle .= <<<'PHP'
+
+if ($defaultKey && $pointerUrl === 'https://tomoswords.org/download/install/latest.json') {
+    $bundle .= <<<'PHP'
 
 /* BEGIN installer entry */
 (new InstallerApplication(__DIR__, [
@@ -44,8 +69,21 @@ $bundle .= <<<'PHP'
 ]))->run();
 /* END installer entry */
 PHP;
+} else {
+    $bundle .= "\n/* TEST RELEASE CANDIDATE entry */\n";
+    $bundle .= '(new InstallerApplication(__DIR__, ' . var_export([
+        'installer_path' => '__INSTALLER_PATH__',
+        'allow_self_delete' => true,
+        'pointer_url' => $pointerUrl,
+        'pointer_hosts' => [$pointerHost],
+        'manifest_hosts' => [$pointerHost],
+        'asset_hosts' => [$pointerHost],
+    ], true) . '))->run();';
+    $bundle = str_replace("'__INSTALLER_PATH__'", '__FILE__', $bundle);
+    $bundle .= "\n/* END TEST RELEASE CANDIDATE entry */\n";
+}
 $bundle .= "\n";
-if (strpos($bundle, 'require_once') !== false || strpos($bundle, 'require(') !== false || strpos($bundle, 'fixture.test') !== false || strpos($bundle, 'localhost') !== false || preg_match('/BEGIN.*test/i', $bundle)) {
+if ($defaultKey && (strpos($bundle, 'require_once') !== false || strpos($bundle, 'require(') !== false || strpos($bundle, 'fixture.test') !== false || strpos($bundle, 'localhost') !== false || preg_match('/BEGIN.*test/i', $bundle))) {
     fail('Generated installer contains a forbidden external or test dependency.');
 }
 if (preg_match('/-----BEGIN (?:RSA )?PRIVATE KEY-----/', $bundle)) {
@@ -83,4 +121,14 @@ function stripTestHooks(string $source): string
         fail('Could not remove test-only fault hooks from generated installer.');
     }
     return $source;
+}
+
+function replaceEmbeddedPublicKey(string $source, string $publicKey): string
+{
+    $replacement = "public const PEM = <<<'PEM'\n" . rtrim($publicKey) . "\nPEM;";
+    $updated = preg_replace('/public const PEM = <<<\'PEM\'.*?\nPEM;/s', $replacement, $source, 1, $count);
+    if (!is_string($updated) || $count !== 1) {
+        fail('Could not replace embedded test public key.');
+    }
+    return $updated;
 }

@@ -92,7 +92,16 @@ Phase 5では本番`latest.json`を更新しない。公式サイト側のdeploy
 
 ## 10. 代表実サーバー
 
-本Phaseでは外部サーバーへアップロードしない。人間が検証用に、公開候補から作成した`install.php`だけを空の検証directoryへ置き、HTTPS、診断、A/B設置、`setup/`遷移、journal recovery、disabled marker、self-deleteを確認する。GitHub asset直リンクではなく、公式サイトmirror URLを使うtest candidateを用意する。
+本Phaseでは外部サーバーへアップロードしない。人間が検証用に、次のcommandでtest keyと検証用pointerを埋め込んだ候補を作成する。
+
+```bash
+bash tools/build-installer-real-server-test.sh \
+  --private-key=/secure/outside-repo/test-private.pem \
+  --public-key=/secure/outside-repo/test-public.pem \
+  --asset-base-url=https://<検証ホスト>/installer-test-assets
+```
+
+候補の`versioned/`資産と`latest.json`は`installer-test-assets/`へ、`install.php`は別の空の`installer-test-app/`へアップロードする。test版はproduction latest URLを実行時設定にせず、test public keyで署名された資産だけを受け入れる。GitHub asset直リンクではなく、検証用mirror URLを使う。詳細手順と記録欄は`docs/testing/installer-real-server.md`に固定する。
 
 ## 11. Go条件
 
