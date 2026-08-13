@@ -38,6 +38,7 @@ core/PostUpload.php
 core/PostInbox.php
 core/PostInboxPreview.php
 core/PostDrafts.php
+core/PostPublished.php
 core/PostInboxApi.php
 core/PostInboxAutoPublisher.php
 core/PostImageUploadSessionStore.php
