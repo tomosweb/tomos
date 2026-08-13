@@ -44,7 +44,7 @@ $publishedQuery = trim((string) ($_GET['q'] ?? ''));
 $publishedYear = trim((string) ($_GET['year'] ?? ''));
 $publishedPage = (int) ($_GET['page'] ?? 1);
 $publishedWithdrawTarget = null;
-$activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'));
+$activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'), $_GET);
 $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (string) ($_POST['submission_id'] ?? '')
     : Tomos\PostSubmissionGuard::issueId();
@@ -200,10 +200,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($authError !== '') {
             $errors[] = $authError;
         } else {
-            $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
-            if (empty($editableSearchResult['ok'])) {
-                $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
-            }
+            $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+            $query = http_build_query([
+                'section' => 'published',
+                'edit_query' => $editableQuery,
+                'edit_page' => $editablePage,
+            ], '', '&', PHP_QUERY_RFC3986);
+            header('Location: ' . Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . $query);
+            exit;
         }
     } elseif ($action === 'view_published') {
         $publishedQuery = trim((string) ($_POST['q'] ?? ''));
@@ -215,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
             $query = http_build_query([
-                'section' => 'manage',
+                'section' => 'published',
                 'q' => $publishedQuery,
                 'year' => $publishedYear,
                 'page' => $publishedPage,
@@ -604,19 +608,18 @@ if (
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'GET'
-    && $activeSection === 'manage'
+    && in_array($activeSection, ['published', 'drafts'], true)
     && !empty($_SESSION['tomos_post_authenticated'])
 ) {
-    $editableQuery = trim((string) ($_GET['edit_query'] ?? ''));
-    $editablePage = max(1, (int) ($_GET['edit_page'] ?? 1));
-    if ($editableQuery !== '') {
-        $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
-        if (empty($editableSearchResult['ok'])) {
-            $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
+    if ($activeSection === 'published') {
+        $editableQuery = trim((string) ($_GET['edit_query'] ?? ''));
+        $editablePage = max(1, (int) ($_GET['edit_page'] ?? 1));
+        if ($editableQuery !== '') {
+            $editableSearchResult = searchEditableMarkdown($config, $rootDir, $editableQuery, $editablePage);
+            if (empty($editableSearchResult['ok'])) {
+                $errors[] = (string) ($editableSearchResult['error'] ?? '原稿を検索できませんでした。');
+            }
         }
-    }
-
-    if ($activeSection === 'manage') {
         $publishedSearchResult = searchPublishedPosts($config, $rootDir, $publishedQuery, $publishedYear, $publishedPage);
         if (empty($publishedSearchResult['ok'])) {
             $errors[] = (string) ($publishedSearchResult['error'] ?? '公開済み投稿を検索できませんでした。');
@@ -917,6 +920,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 </style></head><body><main class="wrap">';
 
+    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}</style>';
     echo '<h1>' . e($title) . '</h1>';
     echo '<p class="hint">Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。</p>';
     renderSectionNav($activeSection, $publicBasePath);
@@ -947,20 +951,14 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 
     echo '<div class="section">';
     renderMessages($errors, $messages, $warnings);
-    if ($activeSection === 'manage') {
+    if ($activeSection === 'published') {
+        renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $withdrawTarget, $withdrawResult, $trashSummary, $editableQuery, $editableSearchResult);
+    } elseif ($activeSection === 'drafts') {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
         renderDraftSection($token, $config, $submissionId);
-        renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget);
-        renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);
-        renderWithdrawResult($errors, $withdrawResult, $continueUrl);
-        renderWithdrawSection($token, $withdrawTarget);
-        renderTrashSection($token, $trashSummary);
     } elseif ($activeSection === 'settings') {
-        renderSiteSettingsSection($token, $config);
-        renderThemeSettingsSection($token, $config);
-        renderAnalyticsSettingsSection($token, $config);
-        renderUpdateSettingsSection($config);
+        renderSettingsHomeSection($token, $config);
     } else {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
@@ -995,18 +993,17 @@ function renderSectionNav(string $activeSection, string $publicBasePath): void
 {
     $items = [
         'upload' => '投稿',
-        'manage' => '記事管理',
-        'settings' => 'サイト設定',
+        'drafts' => '下書き',
+        'published' => '公開済み',
+        'settings' => '設定',
     ];
 
     echo '<nav class="nav" aria-label="Tomos Postの操作">';
     foreach ($items as $section => $label) {
-        $url = Tomos\Security::publicUrl('/post/?section=' . $section, $publicBasePath);
+        $url = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . http_build_query(['section' => $section], '', '&', PHP_QUERY_RFC3986);
         $current = $section === $activeSection ? ' aria-current="page"' : '';
         echo '<a href="' . e($url) . '"' . $current . '>' . e($label) . '</a>';
     }
-    $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
-echo '<a href="' . e($securityUrl) . '">セキュリティ</a>';
 echo '</nav>';
 }
 
@@ -1057,6 +1054,28 @@ function renderUpdateSettingsSection(array $config): void
     echo '<h2 id="tomos-update">Tomos本体の更新</h2>';
     echo '<p class="hint">署名済みの更新ZIPを使い、設定・記事・画像を変えずにTomos本体を更新します。</p>';
     echo '<p><a class="button secondary" href="' . e($updateUrl) . '">Tomos Updateを開く</a></p>';
+}
+
+function renderSettingsHomeSection(string $token, array $config): void
+{
+    $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+    $links = [
+        [Tomos\Security::publicUrl('/post/settings/', $publicBasePath), 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
+        [Tomos\Security::publicUrl('/post/theme/', $publicBasePath), 'テーマ', '公開サイトの見た目を切り替えます。'],
+        [Tomos\Security::publicUrl('/post/security/', $publicBasePath), 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
+        [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', '署名済みの更新を実行します。'],
+    ];
+
+    echo '<h2 id="post-settings">設定</h2>';
+    echo '<p class="hint">Tomos Postの動作や公開サイトに関する設定です。投稿や記事管理とは分けて管理します。</p>';
+    echo '<div class="settings-links">';
+    foreach ($links as [$url, $label, $description]) {
+        echo '<a class="settings-link" href="' . e($url) . '"><strong>' . e($label) . '</strong><span>' . e($description) . '</span></a>';
+    }
+    echo '</div>';
+    echo '<details class="settings-details"><summary>アクセス解析</summary>';
+    renderAnalyticsSettingsSection($token, $config);
+    echo '</details>';
 }
 
 function renderMessages(array $errors, array $messages, array $warnings): void
@@ -2079,7 +2098,12 @@ function renderPublishedSection(
     string $query,
     string $year,
     int $page,
-    ?Tomos\PostContentResolveResult $withdrawTarget
+    ?Tomos\PostContentResolveResult $withdrawTarget,
+    ?Tomos\PostContentResolveResult $manualWithdrawTarget,
+    ?Tomos\PostWithdrawResult $withdrawResult,
+    array $trashSummary,
+    string $editableQuery,
+    ?array $editableSearchResult
 ): void {
     echo '<h2 id="published-posts">公開済み投稿</h2>';
     echo '<p class="hint">公開済みの記事を検索し、公開ページの確認、Markdownの取得、取り下げを行います。</p>';
@@ -2107,7 +2131,7 @@ function renderPublishedSection(
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
     $years = is_array($result['years'] ?? null) ? $result['years'] : [];
     echo '<form method="get" action="' . e(Tomos\Security::publicUrl('/post/', $publicBasePath)) . '">';
-    echo '<input type="hidden" name="section" value="manage">';
+    echo '<input type="hidden" name="section" value="published">';
     echo '<input type="hidden" name="page" value="1">';
     echo '<label for="published-query">検索</label>';
     echo '<input id="published-query" type="text" name="q" value="' . e($query) . '" maxlength="200" autocomplete="off" placeholder="タイトル・ファイル名・本文など">';
@@ -2150,11 +2174,9 @@ function renderPublishedSection(
 
     if ($items === []) {
         echo '<div class="result"><p>該当する公開済み投稿はありません。</p></div>';
-        return;
-    }
-
-    echo '<div class="editable-results">';
-    foreach ($items as $item) {
+    } else {
+        echo '<div class="editable-results">';
+        foreach ($items as $item) {
         if (!is_array($item)) {
             continue;
         }
@@ -2187,26 +2209,35 @@ function renderPublishedSection(
         }
         echo '</div>';
         echo '</article>';
-    }
-    echo '</div>';
+        }
+        echo '</div>';
 
-    $currentPage = (int) ($result['page'] ?? 1);
-    $totalPages = (int) ($result['total_pages'] ?? 0);
-    if ($totalPages > 1) {
-        echo '<nav class="pager" aria-label="公開済み投稿のページ">';
-        if ($currentPage > 1) {
-            echo '<a class="button secondary" href="' . e(publishedPageUrl($publicBasePath, $query, $year, $currentPage - 1)) . '">前へ</a>';
-        } else {
-            echo '<span></span>';
+        $currentPage = (int) ($result['page'] ?? 1);
+        $totalPages = (int) ($result['total_pages'] ?? 0);
+        if ($totalPages > 1) {
+            echo '<nav class="pager" aria-label="公開済み投稿のページ">';
+            if ($currentPage > 1) {
+                echo '<a class="button secondary" href="' . e(publishedPageUrl($publicBasePath, $query, $year, $currentPage - 1)) . '">前へ</a>';
+            } else {
+                echo '<span></span>';
+            }
+            echo '<p>' . e((string) $currentPage) . ' / ' . e((string) $totalPages) . '</p>';
+            if ($currentPage < $totalPages) {
+                echo '<a class="button secondary" href="' . e(publishedPageUrl($publicBasePath, $query, $year, $currentPage + 1)) . '">次へ</a>';
+            } else {
+                echo '<span></span>';
+            }
+            echo '</nav>';
         }
-        echo '<p>' . e((string) $currentPage) . ' / ' . e((string) $totalPages) . '</p>';
-        if ($currentPage < $totalPages) {
-            echo '<a class="button secondary" href="' . e(publishedPageUrl($publicBasePath, $query, $year, $currentPage + 1)) . '">次へ</a>';
-        } else {
-            echo '<span></span>';
-        }
-        echo '</nav>';
     }
+
+    echo '<details class="advanced-tools">';
+    echo '<summary>高度な操作</summary>';
+    renderWithdrawResult([], $withdrawResult, Tomos\Security::publicUrl('/post/?section=published', $publicBasePath));
+    renderWithdrawSection($token, $manualWithdrawTarget, true);
+    renderTrashSection($token, $trashSummary, true);
+    renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);
+    echo '</details>';
 }
 
 function publishedPublicUrl(array $config, string $internalUrl): string
@@ -2224,7 +2255,7 @@ function publishedPublicUrl(array $config, string $internalUrl): string
 function publishedPageUrl(string $publicBasePath, string $query, string $year, int $page): string
 {
     return Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . http_build_query([
-        'section' => 'manage',
+        'section' => 'published',
         'q' => $query,
         'year' => $year,
         'page' => max(1, $page),
@@ -2234,7 +2265,7 @@ function publishedPageUrl(string $publicBasePath, string $query, string $year, i
 function publishedWithdrawUrl(string $publicBasePath, string $query, string $year, int $page, string $path): string
 {
     return Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . http_build_query([
-        'section' => 'manage',
+        'section' => 'published',
         'q' => $query,
         'year' => $year,
         'page' => max(1, $page),
@@ -2264,8 +2295,8 @@ function renderDraftSection(string $token, array $config, string $submissionId):
         $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
         $queryKey = $item->source === 'inbox' ? 'preview_inbox' : 'preview_draft';
         $downloadKey = $item->source === 'inbox' ? 'download_inbox_markdown' : 'download_draft_markdown';
-        $previewUrl = Tomos\Security::publicUrl('/post/?section=manage&' . $queryKey . '=' . rawurlencode($item->path), $publicBasePath);
-        $downloadUrl = Tomos\Security::publicUrl('/post/?section=manage&' . $downloadKey . '=' . rawurlencode($item->path), $publicBasePath);
+        $previewUrl = Tomos\Security::publicUrl('/post/?section=drafts&' . $queryKey . '=' . rawurlencode($item->path), $publicBasePath);
+        $downloadUrl = Tomos\Security::publicUrl('/post/?section=drafts&' . $downloadKey . '=' . rawurlencode($item->path), $publicBasePath);
         echo '<div class="actions inbox-actions">';
         echo '<a class="button secondary" href="' . e($previewUrl) . '" target="_blank" rel="noopener noreferrer">プレビュー</a>';
         echo '<a class="button secondary" href="' . e($downloadUrl) . '">Markdownをダウンロード</a>';
@@ -2340,9 +2371,9 @@ function formatEditableTimestamp(int $timestamp, array $config): string
     }
 }
 
-function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $target): void
+function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $target, bool $compact = false): void
 {
-    echo '<h2 id="post-withdraw">投稿を取り下げる</h2>';
+    echo $compact ? '<h3 id="post-withdraw">手動取り下げ</h3>' : '<h2 id="post-withdraw">投稿を取り下げる</h2>';
     echo '<p class="hint">公開済みページをWebから外します。Markdownファイルは取り下げ済みとして保管されます。</p>';
 
     echo '<form method="post" action="">';
@@ -2380,9 +2411,9 @@ function renderWithdrawSection(string $token, ?Tomos\PostContentResolveResult $t
     echo '</div>';
 }
 
-function renderTrashSection(string $token, array $summary): void
+function renderTrashSection(string $token, array $summary, bool $compact = false): void
 {
-    echo '<h2 id="post-trash">取り下げ済みを削除</h2>';
+    echo $compact ? '<h3 id="post-trash">ゴミ箱</h3>' : '<h2 id="post-trash">取り下げ済みを削除</h2>';
     echo '<p class="hint">取り下げたMarkdownファイルを完全に削除します。この操作は元に戻せません。</p>';
     echo '<div class="grid">';
     echo '<div class="result"><strong>取り下げ済みファイル</strong><br>' . e((string) ($summary['count'] ?? 0)) . '件</div>';
@@ -2481,25 +2512,34 @@ function trashSummary(): array
     }
 }
 
-function normalizeSection(string $section): string
+function normalizeSection(string $section, array $query = []): string
 {
+    if ($section === 'manage') {
+        if (array_intersect(['preview_draft', 'preview_inbox', 'download_draft_markdown', 'download_inbox_markdown'], array_keys($query)) !== []) {
+            return 'drafts';
+        }
+        return 'published';
+    }
     if (in_array($section, ['withdraw', 'trash'], true)) {
-        return 'manage';
+        return 'published';
     }
     if (in_array($section, ['theme', 'analytics'], true)) {
         return 'settings';
     }
 
-    return in_array($section, ['upload', 'manage', 'settings'], true) ? $section : 'upload';
+    return in_array($section, ['upload', 'drafts', 'published', 'settings'], true) ? $section : 'upload';
 }
 
 function sectionForAction(string $action): string
 {
-    if (in_array($action, ['search_editable_markdown', 'view_published', 'download_published_markdown', 'download_editable_markdown', 'resolve_withdraw', 'withdraw_published', 'withdraw', 'publish_inbox', 'publish_draft', 'delete_draft'], true)) {
-        return 'manage';
+    if (in_array($action, ['view_published', 'download_published_markdown', 'withdraw_published', 'resolve_withdraw', 'withdraw', 'clear_trash'], true)) {
+        return 'published';
     }
-    if ($action === 'clear_trash') {
-        return 'manage';
+    if (in_array($action, ['search_editable_markdown', 'download_editable_markdown'], true)) {
+        return 'published';
+    }
+    if (in_array($action, ['publish_inbox', 'publish_draft', 'delete_draft'], true)) {
+        return 'drafts';
     }
     if (in_array($action, ['site_settings_auth', 'theme_auth'], true)) {
         return 'settings';
