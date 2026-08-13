@@ -81,6 +81,16 @@ final class InstallerPlacement
         return $this->management . DIRECTORY_SEPARATOR . 'installed.json';
     }
 
+    public function installedData(): array
+    {
+        $raw = @file_get_contents($this->markerPath());
+        $data = is_string($raw) ? json_decode($raw, true) : null;
+        if (!is_array($data) || ($data['schema_version'] ?? null) !== 1) {
+            throw new InstallManifestException('recovery_unsafe', 'Installed marker is invalid.');
+        }
+        return $data;
+    }
+
     private function placeCurrent(InstallerVerifiedResult $input, array $faults): array
     {
         InstallManifest::verifyStagingDirectory($input->stagingPath, $input->manifest);
