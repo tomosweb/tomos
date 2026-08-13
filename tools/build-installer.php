@@ -27,6 +27,7 @@ if (!is_array($pointer) || ($pointer['scheme'] ?? '') !== 'https' || empty($poin
     fail('Pointer URL must be an HTTPS URL without credentials, query, or fragment.');
 }
 $pointerHost = strtolower((string) $pointer['host']);
+$requiredFileLists = readRequiredFileLists($repo);
 $sources = [
     'tools/installer/InstallManifest.php',
     'tools/installer/InstallerPublicKey.php',
@@ -50,6 +51,9 @@ foreach ($sources as $relative) {
     if ($relative === 'tools/installer/InstallerPlacement.php') {
         $source = stripTestHooks($source);
     }
+    if ($relative === 'tools/installer/InstallManifest.php') {
+        $source = stripExternalRequiredFileLoader($source);
+    }
     if ($relative === 'tools/installer/InstallerPublicKey.php' && !$defaultKey) {
         $source = replaceEmbeddedPublicKey($source, $publicKeyText);
     }
@@ -60,6 +64,7 @@ foreach ($sources as $relative) {
 }
 
 if ($defaultKey && $pointerUrl === 'https://tomoswords.org/download/install/latest.json') {
+    $bundle .= "\nInstallManifest::setRequiredFileLists(" . exportPhp($requiredFileLists) . ");\n";
     $bundle .= <<<'PHP'
 
 /* BEGIN installer entry */
@@ -70,6 +75,7 @@ if ($defaultKey && $pointerUrl === 'https://tomoswords.org/download/install/late
 /* END installer entry */
 PHP;
 } else {
+    $bundle .= "\nInstallManifest::setRequiredFileLists(" . exportPhp($requiredFileLists) . ");\n";
     $bundle .= "\n/* TEST RELEASE CANDIDATE entry */\n";
     $bundle .= '(new InstallerApplication(__DIR__, ' . var_export([
         'installer_path' => '__INSTALLER_PATH__',
@@ -109,6 +115,39 @@ function fail(string $message): void
     exit(1);
 }
 
+function exportPhp(array $value): string
+{
+    $exported = var_export($value, true);
+    $exported = preg_replace('/[ \t]+$/m', '', $exported);
+    if (!is_string($exported)) fail('Could not encode embedded required file lists.');
+    return $exported;
+}
+
+function readRequiredFileLists(string $repo): array
+{
+    $files = [
+        'distribution' => $repo . '/tools/required-distribution-files.txt',
+        'installed' => $repo . '/core/required-installed-files.txt',
+    ];
+    $lists = [];
+    foreach ($files as $label => $path) {
+        if (!is_file($path) || !is_readable($path)) fail('Required ' . $label . ' file list is missing.');
+        $raw = (string) file_get_contents($path);
+        if (!preg_match('//u', $raw)) fail('Required ' . $label . ' file list is not valid UTF-8.');
+        $seen = [];
+        foreach (preg_split('/\R/', $raw) as $line) {
+            $relative = trim((string) $line);
+            if ($relative === '') continue;
+            if ($relative[0] === '/' || strpos($relative, '\\') !== false || preg_match('#(^|/)\.\.?(/|$)#', $relative) === 1 || preg_match('/[\x00-\x1F\x7F]/', $relative) === 1 || preg_match('//u', $relative) !== 1 || isset($seen[$relative])) {
+                fail('Required ' . $label . ' file list contains an unsafe or duplicate path.');
+            }
+            $seen[$relative] = true;
+        }
+        $lists[$label] = array_keys($seen);
+    }
+    return $lists;
+}
+
 function stripTestHooks(string $source): string
 {
     $source = preg_replace('/final class InstallerSimulatedTermination extends RuntimeException\s*\{\s*\}\s*/', '', $source, 1);
@@ -129,6 +168,21 @@ function replaceEmbeddedPublicKey(string $source, string $publicKey): string
     $updated = preg_replace('/public const PEM = <<<\'PEM\'.*?\nPEM;/s', $replacement, $source, 1, $count);
     if (!is_string($updated) || $count !== 1) {
         fail('Could not replace embedded test public key.');
+    }
+    return $updated;
+}
+
+function stripExternalRequiredFileLoader(string $source): string
+{
+    $replacement = <<<'PHP'
+    private static function readRequiredFileLists(): array
+    {
+        self::fail('required_file', 'Embedded required file lists are unavailable.');
+    }
+PHP;
+    $updated = preg_replace('/    private static function readRequiredFileLists\(\): array\n    \{.*?\n    \}\n\n    private static function validateVersion/s', $replacement . "\n\n    private static function validateVersion", $source, 1, $count);
+    if (!is_string($updated) || $count !== 1) {
+        fail('Could not remove standalone external required file loader.');
     }
     return $updated;
 }

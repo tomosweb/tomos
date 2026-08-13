@@ -27,6 +27,27 @@ final class InstallManifest
     public const MAX_FILE_BYTES = 10485760;
     public const MAX_UNCOMPRESSED_BYTES = 104857600;
 
+    private static $requiredFileLists;
+
+    public static function setRequiredFileLists(array $lists): void
+    {
+        $normalized = [];
+        foreach (['distribution', 'installed'] as $label) {
+            if (!isset($lists[$label]) || !is_array($lists[$label])) {
+                self::fail('required_file', 'Embedded ' . $label . ' file list is invalid.');
+            }
+            $seen = [];
+            foreach ($lists[$label] as $path) {
+                if (!is_string($path) || !self::isSafePath($path) || isset($seen[$path])) {
+                    self::fail('required_file', 'Embedded ' . $label . ' file list contains an unsafe or duplicate path.');
+                }
+                $seen[$path] = true;
+            }
+            $normalized[$label] = array_keys($seen);
+        }
+        self::$requiredFileLists = $normalized;
+    }
+
     public static function buildFromZip(
         string $zipPath,
         string $versionPath,
@@ -578,20 +599,19 @@ final class InstallManifest
     private static function validateRequiredFiles(array $files): void
     {
         $available = array_fill_keys($files, true);
-        foreach ([
-            __DIR__ . '/../required-distribution-files.txt' => 'distribution',
-            dirname(__DIR__, 2) . '/core/required-installed-files.txt' => 'installed',
-        ] as $required => $label) {
-            if (!is_file($required) || !is_readable($required)) {
-                self::fail('required_file', 'Required ' . $label . ' file list is missing.');
-            }
-            foreach (file($required, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $path) {
-                $path = trim((string) $path);
-                if ($path !== '' && !isset($available[$path])) {
+        $lists = self::$requiredFileLists ?? self::readRequiredFileLists();
+        foreach ($lists as $label => $paths) {
+            foreach ($paths as $path) {
+                if (!isset($available[$path])) {
                     self::fail('required_file', 'Required ' . $label . ' file is missing: ' . $path);
                 }
             }
         }
+    }
+
+    private static function readRequiredFileLists(): array
+    {
+        self::fail('required_file', 'Embedded required file lists are unavailable.');
     }
 
     private static function validateVersion(string $version): void
@@ -2277,6 +2297,155 @@ final class InstallerApplication
 }
 
 /* END tools/installer/InstallerApplication.php */
+
+InstallManifest::setRequiredFileLists(array (
+  'distribution' =>
+  array (
+    0 => 'index.php',
+    1 => '.htaccess',
+    2 => 'VERSION',
+    3 => 'LICENSE',
+    4 => 'NOTICE',
+    5 => 'DISCLAIMER.md',
+    6 => 'TRADEMARKS.md',
+    7 => 'CHANGELOG.md',
+    8 => 'SECURITY.md',
+    9 => 'KNOWN_LIMITATIONS.md',
+    10 => 'cache/.gitkeep',
+    11 => 'cache/index/.gitkeep',
+    12 => 'cache/html/.gitkeep',
+    13 => 'cache/logs/.gitkeep',
+    14 => 'cache/security/post-rate-limit/.gitkeep',
+    15 => 'cache/security/post-auth/.gitkeep',
+    16 => 'cache/security/post-submissions/.gitkeep',
+    17 => 'cache/post-upload-sessions/.gitkeep',
+    18 => 'post/index.php',
+    19 => 'post/inbox/api/index.php',
+    20 => 'post/update-finalize/index.php',
+    21 => 'update/index.php',
+    22 => 'update/public-key.pem',
+    23 => 'storage/.gitkeep',
+    24 => 'storage/update-backups/.gitkeep',
+    25 => 'storage/update-logs/.gitkeep',
+    26 => 'storage/update-tmp/.gitkeep',
+    27 => 'core/UpdateLock.php',
+    28 => 'core/UpdateService.php',
+    29 => 'core/InstalledIntegrityVerifier.php',
+    30 => 'core/UpdaterSelfUpdate.php',
+    31 => 'core/required-installed-files.txt',
+    32 => 'core/PostBasicPage.php',
+    33 => 'core/PostAuthRememberToken.php',
+    34 => 'core/PostSubmissionGuard.php',
+    35 => 'core/PostRateLimiter.php',
+    36 => 'core/PostUpload.php',
+    37 => 'core/PostInbox.php',
+    38 => 'core/PostInboxPreview.php',
+    39 => 'core/PostDrafts.php',
+    40 => 'core/PostPublished.php',
+    41 => 'core/PostInboxApi.php',
+    42 => 'core/PostInboxAutoPublisher.php',
+    43 => 'core/PostImageUploadSessionStore.php',
+    44 => 'core/SiteSettingsConfigWriter.php',
+    45 => 'core/ThemePackageException.php',
+    46 => 'core/ThemePackageInstaller.php',
+    47 => 'core/ThemePackagePolicy.php',
+    48 => 'core/PasskeyEnvironment.php',
+    49 => 'core/PasskeyCredentialStore.php',
+    50 => 'core/PasskeyChallengeStore.php',
+    51 => 'core/PasskeyWebAuthnClient.php',
+    52 => 'core/LbuchsPasskeyWebAuthnClient.php',
+    53 => 'core/PasskeyRegistrationService.php',
+    54 => 'core/PasskeyAuthenticationService.php',
+    55 => 'core/PasskeyManagementService.php',
+    56 => 'core/PostPasswordHashUpdater.php',
+    57 => 'core/PasskeyPasswordResetService.php',
+    58 => 'core/PasskeyServerRecoveryService.php',
+    59 => 'core/webauthn/composer.json',
+    60 => 'core/webauthn/composer.lock',
+    61 => 'core/webauthn/vendor/autoload.php',
+    62 => 'core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php',
+    63 => 'post/settings/index.php',
+    64 => 'post/theme/index.php',
+    65 => 'post/theme/confirm/index.php',
+    66 => 'post/theme/add/index.php',
+    67 => 'post/theme/add/confirm/index.php',
+    68 => 'post/reset/index.php',
+    69 => 'post/assets/tomos-post-security.css',
+    70 => 'post/security/index.php',
+    71 => 'post/passkey/login/index.php',
+    72 => 'post/passkey/manage/index.php',
+    73 => 'post/passkey/register/index.php',
+    74 => 'post/passkey/password-reset/index.php',
+    75 => 'post/passkey/recovery/index.php',
+    76 => 'trash/.gitkeep',
+  ),
+  'installed' =>
+  array (
+    0 => 'index.php',
+    1 => '.htaccess',
+    2 => 'VERSION',
+    3 => 'post/index.php',
+    4 => 'post/inbox/api/index.php',
+    5 => 'post/update-finalize/index.php',
+    6 => 'update/index.php',
+    7 => 'update/public-key.pem',
+    8 => 'core/UpdateLock.php',
+    9 => 'core/UpdateService.php',
+    10 => 'core/InstalledIntegrityVerifier.php',
+    11 => 'core/UpdaterSelfUpdate.php',
+    12 => 'core/required-installed-files.txt',
+    13 => 'core/PostBasicPage.php',
+    14 => 'core/PostAuthRememberToken.php',
+    15 => 'core/PostSubmissionGuard.php',
+    16 => 'core/PostRateLimiter.php',
+    17 => 'core/PostUpload.php',
+    18 => 'core/PostUploadInput.php',
+    19 => 'core/PostSubmissionPreparer.php',
+    20 => 'core/PostConflictManager.php',
+    21 => 'core/PostInbox.php',
+    22 => 'core/PostInboxPreview.php',
+    23 => 'core/PostDrafts.php',
+    24 => 'core/PostPublished.php',
+    25 => 'core/PostInboxApi.php',
+    26 => 'core/PostInboxAutoPublisher.php',
+    27 => 'core/PostPublisher.php',
+    28 => 'core/PostImageUploadSessionStore.php',
+    29 => 'core/SiteSettingsConfigWriter.php',
+    30 => 'core/ThemePackageException.php',
+    31 => 'core/ThemePackageInstaller.php',
+    32 => 'core/ThemePackagePolicy.php',
+    33 => 'core/PasskeyEnvironment.php',
+    34 => 'core/PasskeyCredentialStore.php',
+    35 => 'core/PasskeyChallengeStore.php',
+    36 => 'core/PasskeyWebAuthnClient.php',
+    37 => 'core/LbuchsPasskeyWebAuthnClient.php',
+    38 => 'core/PasskeyRegistrationService.php',
+    39 => 'core/PasskeyAuthenticationService.php',
+    40 => 'core/PasskeyManagementService.php',
+    41 => 'core/PostPasswordHashUpdater.php',
+    42 => 'core/PageSorter.php',
+    43 => 'core/PublishedMetadata.php',
+    44 => 'core/PasskeyPasswordResetService.php',
+    45 => 'core/PasskeyServerRecoveryService.php',
+    46 => 'core/webauthn/composer.json',
+    47 => 'core/webauthn/composer.lock',
+    48 => 'core/webauthn/vendor/autoload.php',
+    49 => 'core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php',
+    50 => 'post/settings/index.php',
+    51 => 'post/theme/index.php',
+    52 => 'post/theme/confirm/index.php',
+    53 => 'post/theme/add/index.php',
+    54 => 'post/theme/add/confirm/index.php',
+    55 => 'post/reset/index.php',
+    56 => 'post/assets/tomos-post-security.css',
+    57 => 'post/security/index.php',
+    58 => 'post/passkey/login/index.php',
+    59 => 'post/passkey/manage/index.php',
+    60 => 'post/passkey/register/index.php',
+    61 => 'post/passkey/password-reset/index.php',
+    62 => 'post/passkey/recovery/index.php',
+  ),
+));
 
 /* BEGIN installer entry */
 (new InstallerApplication(__DIR__, [

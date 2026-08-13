@@ -31,6 +31,22 @@ try {
     check(strpos((string) file_get_contents($candidate . '/install.php'), 'require_once') === false, 'installer has no external require');
     check(strpos((string) file_get_contents($candidate . '/install.php'), 'fixture.test') === false, 'installer has no fixture URL');
     check(strpos((string) file_get_contents($candidate . '/install.php'), '-----BEGIN PRIVATE KEY-----') === false, 'installer has no private key');
+    $installerSource = (string) file_get_contents($candidate . '/install.php');
+    check(strpos($installerSource, 'InstallManifest::setRequiredFileLists') !== false, 'installer embeds required file lists');
+    foreach (['tools/required-distribution-files.txt', 'core/required-installed-files.txt'] as $listPath) {
+        $list = file($root . '/' . $listPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($list as $requiredPath) {
+            check(strpos($installerSource, var_export(trim((string) $requiredPath), true)) !== false, 'installer required list contains ' . trim((string) $requiredPath));
+        }
+    }
+    $missingRequired = $manifest;
+    unset($missingRequired['files']['index.php']);
+    try {
+        InstallManifest::validateManifest($missingRequired);
+        throw new RuntimeException('missing required file was accepted');
+    } catch (InstallManifestException $exception) {
+        check($exception->errorCode() === 'required_file', 'missing required file is rejected');
+    }
     InstallManifest::verifyPackage(
         $candidate . '/install-manifest.json',
         $candidate . '/install-manifest.sig',

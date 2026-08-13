@@ -25,6 +25,27 @@ final class InstallManifest
     public const MAX_FILE_BYTES = 10485760;
     public const MAX_UNCOMPRESSED_BYTES = 104857600;
 
+    private static $requiredFileLists;
+
+    public static function setRequiredFileLists(array $lists): void
+    {
+        $normalized = [];
+        foreach (['distribution', 'installed'] as $label) {
+            if (!isset($lists[$label]) || !is_array($lists[$label])) {
+                self::fail('required_file', 'Embedded ' . $label . ' file list is invalid.');
+            }
+            $seen = [];
+            foreach ($lists[$label] as $path) {
+                if (!is_string($path) || !self::isSafePath($path) || isset($seen[$path])) {
+                    self::fail('required_file', 'Embedded ' . $label . ' file list contains an unsafe or duplicate path.');
+                }
+                $seen[$path] = true;
+            }
+            $normalized[$label] = array_keys($seen);
+        }
+        self::$requiredFileLists = $normalized;
+    }
+
     public static function buildFromZip(
         string $zipPath,
         string $versionPath,
@@ -576,6 +597,19 @@ final class InstallManifest
     private static function validateRequiredFiles(array $files): void
     {
         $available = array_fill_keys($files, true);
+        $lists = self::$requiredFileLists ?? self::readRequiredFileLists();
+        foreach ($lists as $label => $paths) {
+            foreach ($paths as $path) {
+                if (!isset($available[$path])) {
+                    self::fail('required_file', 'Required ' . $label . ' file is missing: ' . $path);
+                }
+            }
+        }
+    }
+
+    private static function readRequiredFileLists(): array
+    {
+        $lists = [];
         foreach ([
             __DIR__ . '/../required-distribution-files.txt' => 'distribution',
             dirname(__DIR__, 2) . '/core/required-installed-files.txt' => 'installed',
@@ -583,13 +617,12 @@ final class InstallManifest
             if (!is_file($required) || !is_readable($required)) {
                 self::fail('required_file', 'Required ' . $label . ' file list is missing.');
             }
-            foreach (file($required, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $path) {
-                $path = trim((string) $path);
-                if ($path !== '' && !isset($available[$path])) {
-                    self::fail('required_file', 'Required ' . $label . ' file is missing: ' . $path);
-                }
-            }
+            $lists[$label] = array_values(array_filter(array_map('trim', file($required, FILE_IGNORE_NEW_LINES)), static function (string $path): bool {
+                return $path !== '';
+            }));
         }
+        self::setRequiredFileLists($lists);
+        return self::$requiredFileLists;
     }
 
     private static function validateVersion(string $version): void
