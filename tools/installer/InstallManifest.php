@@ -329,6 +329,20 @@ final class InstallManifest
         self::validateExtractedFiles($stagingPath, $manifest);
     }
 
+    public static function verifyStagingDirectory(string $stagingPath, array $manifest): void
+    {
+        self::validateManifest($manifest);
+        if (!is_dir($stagingPath) || is_link($stagingPath)) {
+            self::fail('placement_verify', 'Verified staging directory is unavailable.');
+        }
+        self::validateExtractedFiles($stagingPath, $manifest);
+    }
+
+    public static function isSafeRelativePath(string $path): bool
+    {
+        return self::isSafePath($path);
+    }
+
     public static function buildPointer(string $version, string $manifestUrl, string $signatureUrl): array
     {
         self::validateVersion($version);

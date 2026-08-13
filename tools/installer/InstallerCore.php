@@ -120,6 +120,8 @@ final class InstallerCore
                 'transaction_candidate_id' => $work['id'],
                 'installer_root' => $this->rootDir,
                 'selected_mode' => null,
+                'child_directory' => null,
+                'verification_completed' => true,
                 'work_path' => $work['work'],
             ];
         } catch (Throwable $exception) {
