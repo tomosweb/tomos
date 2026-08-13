@@ -216,6 +216,6 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </section>
 <?php endif; ?>
 
-<p><a class="button" href="<?= htmlspecialchars($publicPath('post/'), ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
+<p><a class="button" href="<?= htmlspecialchars($publicPath('post/?section=settings'), ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
 </body>
 </html>
