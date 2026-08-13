@@ -2122,7 +2122,7 @@ final class InstallerLifecycle
 final class InstallerApplication
 {
     public const VERSION = 'phase4.0.0';
-    public const FALLBACK_URL = 'https://tomoswords.org/docs/install/install.md';
+    public const FALLBACK_URL = 'https://tomoswords.org/start/install/';
 
     public function __construct(string $rootDir, array $config = [], ?InstallerCore $core = null, ?InstallerPlacement $placement = null, ?InstallerLifecycle $lifecycle = null)
     {

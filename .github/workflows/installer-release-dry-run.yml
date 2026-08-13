@@ -1,0 +1,52 @@
+name: Installer release dry-run
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: openssl, mbstring, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Prepare test signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/installer-test-private.pem" 2>/dev/null
+          openssl pkey -in "$RUNNER_TEMP/installer-test-private.pem" -pubout -out "$RUNNER_TEMP/installer-test-public.pem" 2>/dev/null
+
+      - name: Build and verify release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/build-installer-release-candidate.sh \
+            --private-key="$RUNNER_TEMP/installer-test-private.pem" \
+            --public-key="$RUNNER_TEMP/installer-test-public.pem" \
+            --output-dir=build/release-candidate
+
+      - name: Check candidate structure
+        env:
+          TOMOS_PHASE5_CANDIDATE_DIR: build/release-candidate
+          TOMOS_PHASE5_PUBLIC_KEY: ${{ runner.temp }}/installer-test-public.pem
+        run: php tests/installer_phase5_check.php
+
+      - name: Upload dry-run candidate for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-release-candidate-${{ github.sha }}
+          path: build/release-candidate/
+          if-no-files-found: error
