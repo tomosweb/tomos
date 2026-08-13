@@ -21,7 +21,7 @@ $configPath = $rootDir . '/config.php';
 $config = is_file($configPath) ? require $configPath : [];
 $config = is_array($config) ? $config : [];
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
-$postUrl = Tomos\Security::publicUrl('/post/?section=settings', $publicBasePath);
+$postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
 $errors = [];
 $criticalErrors = [];
 $messages = [];

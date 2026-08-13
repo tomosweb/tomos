@@ -29,7 +29,7 @@ if (strpos($source, "return 'published';") === false || strpos($source, "return 
     throw new RuntimeException('section compatibility routing is missing');
 }
 
-foreach (['/post/?section=settings', "publicUrl('/post/?section=settings'"] as $needle) {
+foreach (["'?section=settings'", "publicUrl('/post/'"] as $needle) {
     $sources = [
         file_get_contents(dirname(__DIR__) . '/post/theme/index.php'),
         file_get_contents(dirname(__DIR__) . '/post/theme/confirm/index.php'),
