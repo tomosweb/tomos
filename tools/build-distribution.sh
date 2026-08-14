@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="${ROOT_DIR}/VERSION"
 REQUIRED_FILES_FILE="${ROOT_DIR}/tools/required-distribution-files.txt"
+WEBAUTHN_DIR="${ROOT_DIR}/core/webauthn"
 
 if [[ ! -f "${VERSION_FILE}" ]]; then
   echo "Error: VERSION file is missing."
@@ -21,6 +22,18 @@ if [[ ! -f "${REQUIRED_FILES_FILE}" ]]; then
   echo "Error: tools/required-distribution-files.txt is missing."
   exit 1
 fi
+
+for webauthn_required in \
+  "${WEBAUTHN_DIR}/composer.json" \
+  "${WEBAUTHN_DIR}/composer.lock" \
+  "${WEBAUTHN_DIR}/vendor/autoload.php" \
+  "${WEBAUTHN_DIR}/vendor/lbuchs/webauthn/src/WebAuthn.php"; do
+  if [[ ! -f "${webauthn_required}" ]]; then
+    echo "Error: WebAuthn runtime is not prepared: ${webauthn_required#${ROOT_DIR}/}"
+    echo "Run: bash tools/prepare-distribution-dependencies.sh"
+    exit 1
+  fi
+done
 
 BUILD_ROOT="${ROOT_DIR}/build"
 BUILD_DIR="${BUILD_ROOT}/tomos"

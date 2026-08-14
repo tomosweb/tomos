@@ -11,12 +11,22 @@ final class ConfigWriter
         [$siteSettings, $errors] = self::validateSiteSettings($input);
         $name = $siteSettings['site_name'];
         $description = $siteSettings['site_description'];
-        $url = rtrim(self::cleanText((string) ($input['site_url'] ?? ''), 300), '/');
-        if ($url === '' || !self::isHttpUrl($url)) {
+        $urlResult = SetupUrlResolver::normalizeSiteUrl(self::cleanText((string) ($input['site_url'] ?? ''), 300));
+        if ($urlResult === null) {
             $errors[] = 'サイトURLは http:// または https:// で始まるURLを入力してください。';
+            $url = '';
+            $basePath = '';
+        } else {
+            $url = $urlResult['site_url'];
+            $basePath = $urlResult['base_path'];
         }
 
-        $basePath = self::normalizeSetupPath((string) ($input['base_path'] ?? ''), 'base_path', $errors);
+        $providedBasePath = trim((string) ($input['base_path'] ?? ''));
+        $normalizedProvidedBasePath = SetupUrlResolver::normalizeBasePath($providedBasePath);
+        if ($providedBasePath !== '' && ($normalizedProvidedBasePath === null || $normalizedProvidedBasePath !== $basePath)) {
+            $errors[] = 'base_path はサイトURLの設置パスと一致している必要があります。';
+        }
+
         $publicBasePath = self::normalizeSetupPath((string) ($input['public_base_path'] ?? ''), 'public_base_path', $errors);
         $rssPathPrefix = $siteSettings['rss_path_prefix'];
 
@@ -192,17 +202,6 @@ final class ConfigWriter
         }
 
         return strlen($value) > $limit ? substr($value, 0, $limit) : $value;
-    }
-
-    private static function isHttpUrl(string $url): bool
-    {
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        $host = parse_url($url, PHP_URL_HOST);
-
-        return is_string($scheme)
-            && in_array(strtolower($scheme), ['http', 'https'], true)
-            && is_string($host)
-            && $host !== '';
     }
 
     private static function normalizeSetupPath(string $value, string $label, array &$errors): string

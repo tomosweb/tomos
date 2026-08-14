@@ -13,14 +13,14 @@ Tomos Postの画像は1点10MBまでです。画像は1点ずつ送信するた�
 - `.htaccess` がアップロードされていない
 - `.htaccess` が不可視ファイルとして漏れている
 - サーバーで `mod_rewrite` が有効でない
-- `base_path` が間違っている
+- setupを開いたURLと、保存されたURL設定が一致していない
 
 対応:
 
 - Tomos設置ディレクトリ直下に `.htaccess` があるか確認する
 - FTPソフトで不可視ファイル表示を有効にする
 - `.htaccess` を再アップロードする
-- setupで入力した `base_path` を確認する
+- setupを設置ディレクトリ直下の `setup/` から開き、保存された `site.url` と `base_path` が設置URLと一致しているか確認する
 - サブディレクトリで動かない場合は `.htaccess` の `RewriteBase` を設置パスに合わせる
 
 ## setupで config.php が生成されない
@@ -252,12 +252,12 @@ Obsidian形式の `[[ページ名]]` リンクは、インデックス生成時�
 原因候補:
 
 - `site.url` が正しくない
-- setupでサイトURLを誤入力した
+- setupを設置ディレクトリ以外のURLから開いた、または既存 `config.php` のURL設定が古い
 
 対応:
 
-- setupまたは `config.php` で `site.url` をトップページの公開URLに合わせる
-- 末尾の `/` はあってもなくても構いません
+- 新規setupでは、設置ディレクトリの `setup/` を開き直してURLを自動取得させる
+- 既存環境では `config.php` の `site.url` と `base_path` を確認する
 
 ## Tomos Postで投稿できない
 
