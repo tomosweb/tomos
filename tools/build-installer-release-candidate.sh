@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(tr -d '[:space:]' < "${ROOT_DIR}/VERSION")"
 OUTPUT_DIR="${ROOT_DIR}/build/release-candidate"
-ASSET_BASE_URL="https://tomoswords.org/download/install"
+ASSET_BASE_URL="https://tomoswords.org/installer/releases"
 PRIVATE_KEY=""
 PUBLIC_KEY="${ROOT_DIR}/update/public-key.pem"
 SKIP_DEPENDENCIES=0
@@ -16,7 +16,7 @@ Usage: bash tools/build-installer-release-candidate.sh --private-key=/outside/pr
 Options:
   --private-key=PATH       Signing key outside the repository (required)
   --public-key=PATH        Verification key (default: update/public-key.pem)
-  --asset-base-url=URL     Official versioned asset base (default: https://tomoswords.org/download/install)
+  --asset-base-url=URL     Official release directory base (default: https://tomoswords.org/installer/releases)
   --output-dir=PATH        Candidate directory (default: build/release-candidate)
   --skip-dependencies      Use only for a local fixture rerun after preparation
 USAGE
@@ -72,7 +72,7 @@ done
 php "${ROOT_DIR}/tools/build-installer.php"
 php -l "${ROOT_DIR}/build/install.php" >/dev/null
 
-VERSIONED_URL="${ASSET_BASE_URL%/}/v${VERSION}"
+VERSIONED_URL="${ASSET_BASE_URL%/}/${VERSION}"
 mkdir -p "${OUTPUT_DIR}"
 rm -f \
   "${OUTPUT_DIR}/tomos-${VERSION}.zip" \
@@ -109,8 +109,12 @@ if grep -RInE -- '-----BEGIN (RSA )?PRIVATE KEY-----|fixture\.test|localhost|req
   echo "Error: release candidate contains a private key, fixture reference, local host, or external require." >&2
   exit 1
 fi
-if ! grep -Fq 'https://tomoswords.org/download/install/latest.json' "${OUTPUT_DIR}/install.php"; then
+if ! grep -Fq 'https://tomoswords.org/installer/latest.json' "${OUTPUT_DIR}/install.php"; then
   echo "Error: generated installer does not contain the production pointer URL." >&2
+  exit 1
+fi
+if grep -Fq 'https://tomoswords.org/download/install/latest.json' "${OUTPUT_DIR}/install.php"; then
+  echo "Error: generated installer still contains the legacy production pointer URL." >&2
   exit 1
 fi
 

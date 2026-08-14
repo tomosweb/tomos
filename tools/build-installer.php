@@ -5,7 +5,7 @@ declare(strict_types=1);
 $repo = dirname(__DIR__);
 $options = getopt('', ['output::', 'pointer-url::', 'public-key-file::']);
 $output = (string) ($options['output'] ?? $repo . '/build/install.php');
-$pointerUrl = (string) ($options['pointer-url'] ?? 'https://tomoswords.org/download/install/latest.json');
+$pointerUrl = (string) ($options['pointer-url'] ?? 'https://tomoswords.org/installer/latest.json');
 $publicKeyFile = (string) ($options['public-key-file'] ?? $repo . '/update/public-key.pem');
 $publicKeySource = $repo . '/tools/installer/InstallerPublicKey.php';
 $updateKey = $repo . '/update/public-key.pem';
@@ -53,17 +53,18 @@ foreach ($sources as $relative) {
     }
     if ($relative === 'tools/installer/InstallManifest.php') {
         $source = stripExternalRequiredFileLoader($source);
+        $source = addInstallerMirrorReleaseContract($source);
     }
     if ($relative === 'tools/installer/InstallerPublicKey.php' && !$defaultKey) {
         $source = replaceEmbeddedPublicKey($source, $publicKeyText);
     }
     if ($relative === 'tools/installer/InstallerCore.php' && !$defaultKey) {
-        $source = str_replace("public const DEFAULT_POINTER_URL = 'https://tomoswords.org/download/install/latest.json';", "public const DEFAULT_POINTER_URL = " . var_export($pointerUrl, true) . ";", $source);
+        $source = str_replace("public const DEFAULT_POINTER_URL = 'https://tomoswords.org/installer/latest.json';", "public const DEFAULT_POINTER_URL = " . var_export($pointerUrl, true) . ";", $source);
     }
     $bundle .= "\n/* BEGIN " . $relative . " */\n" . $source . "\n/* END " . $relative . " */\n";
 }
 
-if ($defaultKey && $pointerUrl === 'https://tomoswords.org/download/install/latest.json') {
+if ($defaultKey && $pointerUrl === 'https://tomoswords.org/installer/latest.json') {
     $bundle .= "\nInstallManifest::setRequiredFileLists(" . exportPhp($requiredFileLists) . ");\n";
     $bundle .= <<<'PHP'
 
@@ -91,6 +92,9 @@ PHP;
 $bundle .= "\n";
 if ($defaultKey && (strpos($bundle, 'require_once') !== false || strpos($bundle, 'require(') !== false || strpos($bundle, 'fixture.test') !== false || strpos($bundle, 'localhost') !== false || preg_match('/BEGIN.*test/i', $bundle))) {
     fail('Generated installer contains a forbidden external or test dependency.');
+}
+if ($defaultKey && strpos($bundle, 'https://tomoswords.org/download/install/latest.json') !== false) {
+    fail('Generated installer contains the legacy production pointer URL.');
 }
 if (preg_match('/-----BEGIN (?:RSA )?PRIVATE KEY-----/', $bundle)) {
     fail('Generated installer contains a private key.');
@@ -183,6 +187,27 @@ PHP;
     $updated = preg_replace('/    private static function readRequiredFileLists\(\): array\n    \{.*?\n    \}\n\n    private static function validateVersion/s', $replacement . "\n\n    private static function validateVersion", $source, 1, $count);
     if (!is_string($updated) || $count !== 1) {
         fail('Could not remove standalone external required file loader.');
+    }
+    return $updated;
+}
+
+function addInstallerMirrorReleaseContract(string $source): string
+{
+    $legacy = <<<'PHP'
+        if (strpos($manifestPath, '/v' . $version . '/') === false
+            || strpos($signaturePath, '/v' . $version . '/') === false
+PHP;
+    $replacement = <<<'PHP'
+        $manifestVersioned = strpos($manifestPath, '/installer/releases/' . $version . '/') !== false
+            || strpos($manifestPath, '/v' . $version . '/') !== false;
+        $signatureVersioned = strpos($signaturePath, '/installer/releases/' . $version . '/') !== false
+            || strpos($signaturePath, '/v' . $version . '/') !== false;
+        if (!$manifestVersioned
+            || !$signatureVersioned
+PHP;
+    $updated = str_replace($legacy, $replacement, $source, $count);
+    if ($count !== 1) {
+        fail('Could not add installer mirror release contract to bundled manifest validator.');
     }
     return $updated;
 }

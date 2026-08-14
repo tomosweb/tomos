@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class InstallerCore
 {
-    public const DEFAULT_POINTER_URL = 'https://tomoswords.org/download/install/latest.json';
+    public const DEFAULT_POINTER_URL = 'https://tomoswords.org/installer/latest.json';
     public const MIN_PHP_VERSION = '7.4.0';
 
     public function __construct(string $rootDir, array $config = [], ?InstallerDownloader $downloader = null)
