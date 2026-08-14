@@ -43,6 +43,8 @@ base_path: /tomos
 public_base_path:
 ```
 
+初回setupでは、`/tomos/setup/` を開くとこの値が自動設定されます。通常ユーザーが入力する必要はありません。
+
 多くの通常ホストでは `public_base_path` は空で構いません。
 
 ## C. 特殊なプロキシ構成
