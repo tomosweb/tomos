@@ -33,6 +33,7 @@ Tomos Postには、合言葉の連続失敗をIP単位で一時停止する軽�
 - `install/setup.md`: setup画面の説明
 - `install/troubleshooting.md`: よくあるトラブル
 - `install/hosting.md`: ホストサービスの注意
+- `install/custom-domain.md`: 既存Tomosを独自ドメイン直下で公開する方法
 
 ## 機能を知りたいとき
 
