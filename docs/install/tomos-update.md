@@ -16,6 +16,8 @@ Update ZIPの署名済み`manifest.json`には、適用できる唯一の現在�
 
 旧形式の`minimum_version`だけを持つUpdate ZIPは後方互換のfallbackを行わず拒否します。既存のalpha.17以前の環境で旧形式ZIPを使用していた場合は、旧形式ZIPをそのまま再利用せず、新形式の`from_version`を含む正式なUpdate ZIP、または管理者が案内する手動移行手順を使用してください。次のリリース以降のUpdate ZIPは必ず新manifest形式で生成します。
 
+alpha.17から新Updaterへ移行する最初のalpha.18だけは、旧Updater互換の`minimum_version`を`from_version`と同じ値で追加したlegacy bridge ZIPを使用できます。bridgeは1回限りの移行用途であり、段飛ばしを許可しません。alpha.18以降の通常Update ZIPには`minimum_version`を含めません。
+
 ## v0.1.0-alpha.13への更新
 
 すでにv0.1.0-alpha.12をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.zip` を適用できます。

@@ -72,6 +72,22 @@ function makeSignedZip(
             'version' => $version,
             'files' => ['VERSION' => hash('sha256', $versionBytes)],
         ];
+    } elseif ($manifestType === 'bridge') {
+        $manifest = [
+            'product' => 'Tomos',
+            'from_version' => $fromVersion,
+            'minimum_version' => $fromVersion,
+            'version' => $version,
+            'files' => ['VERSION' => hash('sha256', $versionBytes)],
+        ];
+    } elseif ($manifestType === 'minimum_mismatch') {
+        $manifest = [
+            'product' => 'Tomos',
+            'from_version' => $fromVersion,
+            'minimum_version' => '0.1.0-alpha.16',
+            'version' => $version,
+            'files' => ['VERSION' => hash('sha256', $versionBytes)],
+        ];
     } else {
         $manifest = ['product' => 'Not Tomos'];
     }
@@ -134,6 +150,15 @@ check(is_file($source), 'source remains after successful staging');
 $staged = stagingDirectories($root);
 check(count($staged) === 1 && is_file($staged[0] . '/package.zip'), 'downloaded ZIP uses formal package.zip staging');
 check(is_file($staged[0] . '/record.json'), 'inspectStaged wrote the staging record');
+removeTree($root);
+
+$root = makeRoot($tmp, $publicKey);
+$service = new UpdateService($root);
+$bridgeSource = $tmp . '/downloaded-bridge-update.zip';
+makeSignedZip($bridgeSource, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'bridge');
+$bridgeSummary = $service->stageDownloadedPackage($bridgeSource, 'owner', '0.1.0-alpha.17', '0.1.0-alpha.18');
+check($bridgeSummary['from_version'] === '0.1.0-alpha.17', 'bridge staging returns from_version');
+check($bridgeSummary['version'] === '0.1.0-alpha.18', 'bridge staging returns target version');
 removeTree($root);
 
 $cases = [
@@ -217,6 +242,15 @@ $invalidCases = [
     'invalid manifest' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'invalid'); },
     'legacy minimum manifest' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'legacy'); },
     'missing from manifest' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'missing_from'); },
+    'minimum from mismatch' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'minimum_mismatch'); },
+];
+$invalidCodes = [
+    'invalid ZIP' => 'zip_open',
+    'invalid signature' => 'signature',
+    'invalid manifest' => 'manifest',
+    'legacy minimum manifest' => 'manifest',
+    'missing from manifest' => 'manifest',
+    'minimum from mismatch' => 'update_sequence',
 ];
 foreach ($invalidCases as $label => $builder) {
     $root = makeRoot($tmp, $publicKey);
@@ -225,11 +259,21 @@ foreach ($invalidCases as $label => $builder) {
     $builder($invalidSource);
     expectUpdateError(static function () use ($service, $invalidSource): void {
         $service->stageDownloadedPackage($invalidSource, 'owner', '0.1.0-alpha.17', '0.1.0-alpha.18');
-    }, $label === 'invalid ZIP' ? 'zip_open' : ($label === 'invalid signature' ? 'signature' : 'manifest'), $label);
+    }, $invalidCodes[$label], $label);
     check(stagingDirectories($root) === [], $label . ' removes staging directory');
     check(is_file($invalidSource), $label . ' leaves source untouched');
     removeTree($root);
 }
+
+$root = makeRoot($tmp, $publicKey, '0.1.0-alpha.16');
+$service = new UpdateService($root);
+$bridgeMismatchSource = $tmp . '/bridge-current-mismatch.zip';
+makeSignedZip($bridgeMismatchSource, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'bridge');
+expectUpdateError(static function () use ($service, $bridgeMismatchSource): void {
+    $service->stageDownloadedPackage($bridgeMismatchSource, 'owner', '0.1.0-alpha.17', '0.1.0-alpha.18');
+}, 'update_sequence', 'bridge current VERSION mismatch');
+check(stagingDirectories($root) === [], 'bridge current VERSION mismatch removes staging directory');
+removeTree($root);
 
 $orderCases = [
     'manifest from equals version' => ['0.1.0-alpha.18', '0.1.0-alpha.18'],

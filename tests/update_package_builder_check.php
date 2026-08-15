@@ -23,7 +23,9 @@ function runBuilder(string $root, string $tmp, array $arguments): array
 {
     $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/tools/build-update-package.php');
     foreach ($arguments as $key => $value) {
-        $command .= ' ' . escapeshellarg('--' . $key . '=' . $value);
+        $command .= $value === true
+            ? ' ' . escapeshellarg('--' . $key)
+            : ' ' . escapeshellarg('--' . $key . '=' . $value);
     }
     $lines = [];
     $code = 0;
@@ -73,6 +75,35 @@ try {
     check(($manifest['version'] ?? null) === '0.1.0-alpha.17', 'manifest contains target version');
     check(!array_key_exists('minimum_version', $manifest), 'manifest does not contain legacy minimum_version');
     $zip->close();
+
+    $bridgeOutput = $tmp . '/tomos-update-0.1.0-alpha.17-bridge.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => '0.1.0-alpha.16',
+        'version' => '0.1.0-alpha.17',
+        'legacy-bridge' => true,
+        'private-key' => $privateKeyPath,
+        'output' => $bridgeOutput,
+        'file' => 'VERSION',
+    ]);
+    check($code === 0, 'builder accepts explicit legacy bridge: ' . $outputText);
+    $bridgeZip = new ZipArchive();
+    check($bridgeZip->open($bridgeOutput) === true, 'builder creates a readable bridge ZIP');
+    $bridgeManifest = json_decode((string) $bridgeZip->getFromName('manifest.json'), true);
+    check(is_array($bridgeManifest), 'bridge ZIP contains JSON manifest');
+    check(($bridgeManifest['from_version'] ?? null) === '0.1.0-alpha.16', 'bridge manifest contains from_version');
+    check(($bridgeManifest['minimum_version'] ?? null) === '0.1.0-alpha.16', 'bridge minimum_version equals from_version');
+    check(($bridgeManifest['version'] ?? null) === '0.1.0-alpha.17', 'bridge manifest contains target version');
+    check(is_array($bridgeManifest['files'] ?? null), 'bridge manifest contains files');
+    check(($bridgeManifest['product'] ?? null) === 'Tomos', 'bridge manifest has Tomos product');
+    $bridgeZip->close();
+
+    check(
+        ($bridgeManifest['product'] ?? null) === 'Tomos'
+            && is_string($bridgeManifest['version'] ?? null)
+            && is_string($bridgeManifest['minimum_version'] ?? null)
+            && is_array($bridgeManifest['files'] ?? null),
+        'bridge manifest retains the alpha.17 legacy-required fields'
+    );
 
     foreach ([
         'missing from' => ['minimum' => '0.1.0-alpha.16'],

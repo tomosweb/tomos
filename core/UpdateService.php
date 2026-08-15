@@ -469,6 +469,16 @@ final class UpdateService
         ) {
             throw new UpdateException('manifestのバージョン情報が正しくありません。', 'version');
         }
+        if (array_key_exists('minimum_version', $manifest)) {
+            if (!is_string($manifest['minimum_version'])
+                || preg_match($versionPattern, $manifest['minimum_version']) !== 1
+            ) {
+                throw new UpdateException('manifestのminimum_versionが正しくありません。', 'version');
+            }
+            if ($manifest['minimum_version'] !== $manifest['from_version']) {
+                throw new UpdateException('manifestのminimum_versionはfrom_versionと一致しません。', 'update_sequence');
+            }
+        }
         $current = $this->currentVersion();
         if ($current === '') {
             throw new UpdateException('現在のTomosバージョンを確認できません。', 'version');

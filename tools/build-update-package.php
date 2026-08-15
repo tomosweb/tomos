@@ -11,9 +11,10 @@ if (!class_exists(ZipArchive::class) || !function_exists('openssl_sign')) {
     exit(1);
 }
 
-$options = getopt('', ['from:', 'version:', 'private-key:', 'output:', 'file:']);
+$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'private-key:', 'output:', 'file:']);
 $from = trim((string) ($options['from'] ?? ''));
 $version = trim((string) ($options['version'] ?? ''));
+$legacyBridge = array_key_exists('legacy-bridge', $options);
 $privateKeyPath = (string) ($options['private-key'] ?? '');
 $outputPath = (string) ($options['output'] ?? '');
 $files = $options['file'] ?? [];
@@ -22,7 +23,7 @@ $rootDir = dirname(__DIR__);
 $requiredFilesPath = __DIR__ . DIRECTORY_SEPARATOR . 'required-source-files.txt';
 
 if ($from === '' || $version === '' || $privateKeyPath === '' || $outputPath === '' || $files === []) {
-    fwrite(STDERR, "Usage: php tools/build-update-package.php --from=0.1.0-alpha.17 --version=0.1.0-alpha.18 --private-key=/safe/private.pem --output=/path/update.zip --file=core/File.php --file=VERSION\n");
+    fwrite(STDERR, "Usage: php tools/build-update-package.php --from=0.1.0-alpha.17 --version=0.1.0-alpha.18 [--legacy-bridge] --private-key=/safe/private.pem --output=/path/update.zip --file=core/File.php --file=VERSION\n");
     exit(1);
 }
 if (!isValidTomosVersion($from) || !isValidTomosVersion($version)) {
@@ -114,12 +115,16 @@ if (trim((string) file_get_contents($rootDir . '/VERSION')) !== $version) {
     exit(1);
 }
 ksort($manifestFiles);
-$manifest = json_encode([
+$manifestData = [
     'product' => 'Tomos',
     'from_version' => $from,
-    'version' => $version,
-    'files' => $manifestFiles,
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+];
+if ($legacyBridge) {
+    $manifestData['minimum_version'] = $from;
+}
+$manifestData['version'] = $version;
+$manifestData['files'] = $manifestFiles;
+$manifest = json_encode($manifestData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 if (!is_string($manifest)) {
     fwrite(STDERR, "Could not encode manifest.\n");
     exit(1);
