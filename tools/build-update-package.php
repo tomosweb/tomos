@@ -11,9 +11,10 @@ if (!class_exists(ZipArchive::class) || !function_exists('openssl_sign')) {
     exit(1);
 }
 
-$options = getopt('', ['version:', 'minimum:', 'private-key:', 'output:', 'file:']);
+$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'private-key:', 'output:', 'file:']);
+$from = trim((string) ($options['from'] ?? ''));
 $version = trim((string) ($options['version'] ?? ''));
-$minimum = trim((string) ($options['minimum'] ?? ''));
+$legacyBridge = array_key_exists('legacy-bridge', $options);
 $privateKeyPath = (string) ($options['private-key'] ?? '');
 $outputPath = (string) ($options['output'] ?? '');
 $files = $options['file'] ?? [];
@@ -21,8 +22,16 @@ $files = is_array($files) ? $files : [$files];
 $rootDir = dirname(__DIR__);
 $requiredFilesPath = __DIR__ . DIRECTORY_SEPARATOR . 'required-source-files.txt';
 
-if ($version === '' || $minimum === '' || $privateKeyPath === '' || $outputPath === '' || $files === []) {
-    fwrite(STDERR, "Usage: php tools/build-update-package.php --version=0.1.1-alpha --minimum=0.1.0-alpha --private-key=/safe/private.pem --output=/path/update.zip --file=core/File.php --file=VERSION\n");
+if ($from === '' || $version === '' || $privateKeyPath === '' || $outputPath === '' || $files === []) {
+    fwrite(STDERR, "Usage: php tools/build-update-package.php --from=0.1.0-alpha.17 --version=0.1.0-alpha.18 [--legacy-bridge] --private-key=/safe/private.pem --output=/path/update.zip --file=core/File.php --file=VERSION\n");
+    exit(1);
+}
+if (!isValidTomosVersion($from) || !isValidTomosVersion($version)) {
+    fwrite(STDERR, "Both --from and --version must use a valid Tomos version.\n");
+    exit(1);
+}
+if (version_compare($from, $version, '>=')) {
+    fwrite(STDERR, "--from must be lower than --version.\n");
     exit(1);
 }
 if (!is_file($privateKeyPath) || realpath($privateKeyPath) !== false && strpos((string) realpath($privateKeyPath), $rootDir . DIRECTORY_SEPARATOR) === 0) {
@@ -106,12 +115,16 @@ if (trim((string) file_get_contents($rootDir . '/VERSION')) !== $version) {
     exit(1);
 }
 ksort($manifestFiles);
-$manifest = json_encode([
+$manifestData = [
     'product' => 'Tomos',
-    'version' => $version,
-    'minimum_version' => $minimum,
-    'files' => $manifestFiles,
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    'from_version' => $from,
+];
+if ($legacyBridge) {
+    $manifestData['minimum_version'] = $from;
+}
+$manifestData['version'] = $version;
+$manifestData['files'] = $manifestFiles;
+$manifest = json_encode($manifestData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 if (!is_string($manifest)) {
     fwrite(STDERR, "Could not encode manifest.\n");
     exit(1);
@@ -216,4 +229,9 @@ function isAllowedUpdatePath(string $path): bool
         return preg_match('#\Athemes/(tomos-90s|tomos-blog|tomos-dark|tomos-journal|tomos-minimal|tomos-note)/[A-Za-z0-9._/-]+\z#', $path) === 1;
     }
     return $path === 'VERSION' || $path === 'index.php' || preg_match('#\A(core|post|setup|assets)/[A-Za-z0-9._/-]+\z#', $path) === 1;
+}
+
+function isValidTomosVersion(string $version): bool
+{
+    return preg_match('/\A[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?\z/', $version) === 1;
 }

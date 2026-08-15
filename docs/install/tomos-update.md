@@ -1,12 +1,28 @@
 # Tomos Update
 
-Tomos Updateは、管理画面から署名済み更新ZIPを確認し、Tomos本体を更新する機能です。GitHub接続、自動取得、自動更新には対応しません。
+Tomos Updateは、公式オンライン更新と手動の署名済みUpdate ZIP更新を提供します。どちらも確認画面を経て既存の署名検証・backup・rollback処理へ合流します。手動ZIP更新は恒久的な正式ルートとして残ります。
+
+## ブラウザ更新と手動ZIP更新
+
+`/update/`を開いただけではUpdate ZIPを取得・適用しません。画面を開いたときは公式カタログの次の1ステップだけを確認し、オンライン更新の「更新内容を確認」を押した後に、認証済みのPOSTでZIPを取得・検証します。取得後も確認画面で停止し、「更新する」を押した場合だけ適用します。
+
+オンライン更新は常に1バージョンずつ進みます。オンライン更新情報を取得できない場合も、手動の署名済みUpdate ZIPは利用できます。現在利用できるオンライン更新がない場合の表示は、カタログの掲載状況だけでは最新版と断定できないため、「現在利用できるオンライン更新はありません」とします。
+
+オンライン更新と手動ZIP更新のどちらも、最終的には`manifest.sig`と`update/public-key.pem`による既存の署名検証を通過する必要があります。自動更新、バックグラウンド更新、一括多段更新は行いません。
+
+## 更新元バージョンの必須一致
+
+Update ZIPの署名済み`manifest.json`には、適用できる唯一の現在版を示す`from_version`と、更新後の`version`が含まれます。オンライン更新・手動ZIP更新を問わず、`from_version`が現在の`VERSION`と完全一致しないZIPは、署名が正しくても確認・適用できません。Tomos Updateは常に次の1バージョンへの逐次更新だけを受け付けます。
+
+旧形式の`minimum_version`だけを持つUpdate ZIPは後方互換のfallbackを行わず拒否します。既存のalpha.17以前の環境で旧形式ZIPを使用していた場合は、旧形式ZIPをそのまま再利用せず、新形式の`from_version`を含む正式なUpdate ZIP、または管理者が案内する手動移行手順を使用してください。次のリリース以降のUpdate ZIPは必ず新manifest形式で生成します。
+
+alpha.17から新Updaterへ移行する最初のalpha.18だけは、旧Updater互換の`minimum_version`を`from_version`と同じ値で追加したlegacy bridge ZIPを使用できます。bridgeは1回限りの移行用途であり、段飛ばしを許可しません。alpha.18以降の通常Update ZIPには`minimum_version`を含めません。
 
 ## v0.1.0-alpha.13への更新
 
 すでにv0.1.0-alpha.12をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.zip` を適用できます。
 
-alpha.13のUpdate ZIPのminimum versionは `0.1.0-alpha.12` です。
+旧alpha.13 Update ZIPの説明にあるminimum versionは旧manifest形式の情報です。現在のTomos Updateでは、`0.1.0-alpha.12`から`0.1.0-alpha.13`へ更新する場合も、新形式の`from_version`を持つ署名済みZIPを使用してください。
 
 ### v0.1.0-alpha.12からv0.1.0-alpha.13への更新
 
