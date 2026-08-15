@@ -105,6 +105,48 @@ final class UpdateService
         }
     }
 
+    public function stageDownloadedPackage(
+        string $sourcePath,
+        string $owner,
+        string $expectedFromVersion,
+        string $expectedVersion
+    ): array {
+        $sourceSize = @filesize($sourcePath);
+        if (!is_file($sourcePath) || is_link($sourcePath) || !is_readable($sourcePath)
+            || $sourceSize === false || $sourceSize < 1 || $sourceSize > self::MAX_ZIP_BYTES
+        ) {
+            throw new UpdateException('ダウンロード済み更新ZIPを安全に確認できません。', 'source');
+        }
+        $environmentErrors = $this->diagnostics();
+        if ($environmentErrors !== []) {
+            throw new UpdateException($environmentErrors[0], 'diagnostics');
+        }
+
+        $id = bin2hex(random_bytes(16));
+        $workDir = $this->storageDir . DIRECTORY_SEPARATOR . 'update-tmp' . DIRECTORY_SEPARATOR . $id;
+        if (!@mkdir($workDir, 0700, true)) {
+            throw new UpdateException('更新ZIPの確認を開始できませんでした。', 'staging');
+        }
+        $temporaryPath = $workDir . DIRECTORY_SEPARATOR . 'package.download';
+        $zipPath = $workDir . DIRECTORY_SEPARATOR . 'package.zip';
+        try {
+            $this->copyDownloadedPackage($sourcePath, $temporaryPath);
+            if (is_file($zipPath) || is_link($zipPath) || !@rename($temporaryPath, $zipPath)) {
+                throw new UpdateException('更新ZIPを正式な一時保存先へ移動できませんでした。', 'staging');
+            }
+            $summary = $this->inspectStaged($id, $owner, true);
+            if (($summary['current_version'] ?? null) !== $expectedFromVersion
+                || ($summary['version'] ?? null) !== $expectedVersion
+            ) {
+                throw new UpdateException('カタログと署名済み更新ZIPのバージョン経路が一致しません。', 'update_sequence');
+            }
+            return $summary;
+        } catch (Throwable $exception) {
+            $this->removeTree($workDir);
+            throw $exception;
+        }
+    }
+
     public function inspectStaged(string $id, string $owner, bool $writeRecord = false): array
     {
         if (preg_match('/\A[a-f0-9]{32}\z/', $id) !== 1) {
@@ -370,6 +412,42 @@ final class UpdateService
             $entries[$name] = true;
         }
         return $entries;
+    }
+
+    private function copyDownloadedPackage(string $sourcePath, string $destination): void
+    {
+        $input = @fopen($sourcePath, 'rb');
+        if (!is_resource($input)) {
+            throw new UpdateException('ダウンロード済み更新ZIPを読み取れません。', 'source');
+        }
+        $output = @fopen($destination, 'xb');
+        if (!is_resource($output)) {
+            fclose($input);
+            throw new UpdateException('更新ZIPの正式な一時保存先を作成できません。', 'staging');
+        }
+        $bytes = 0;
+        try {
+            while (!feof($input)) {
+                $chunk = fread($input, 65536);
+                if (!is_string($chunk)) {
+                    throw new UpdateException('ダウンロード済み更新ZIPを読み取れません。', 'source');
+                }
+                $bytes += strlen($chunk);
+                if ($bytes > self::MAX_ZIP_BYTES) {
+                    throw new UpdateException('ダウンロード済み更新ZIPのサイズが上限を超えています。', 'source');
+                }
+                if ($chunk !== '' && fwrite($output, $chunk) !== strlen($chunk)) {
+                    throw new UpdateException('更新ZIPを一時保存できません。', 'staging');
+                }
+            }
+        } finally {
+            fclose($input);
+            fclose($output);
+        }
+        $size = @filesize($destination);
+        if ($size === false || $size < 1 || $size > self::MAX_ZIP_BYTES || (int) $size !== $bytes) {
+            throw new UpdateException('一時保存した更新ZIPのサイズを確認できません。', 'source');
+        }
     }
 
     private function validateManifest($manifest): void
