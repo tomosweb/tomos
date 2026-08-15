@@ -71,6 +71,29 @@ check($result['update_available'] === true, 'normal catalog reports an update');
 check($result['next_version'] === '0.1.0-alpha.18', 'alpha.17 advances only to alpha.18');
 check($result['sha256'] === str_repeat('a', 64), 'next package hash is returned');
 
+$sequenceCatalog = validCatalog();
+$sequenceCatalog['updates'][0]['to'] = '0.1.0-alpha.20';
+$sequenceCatalog['updates'][0]['package_url'] = 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.20/tomos-update-0.1.0-alpha.20.zip';
+$sequenceCatalog['updates'][] = [
+    'from' => '0.1.0-alpha.19',
+    'to' => '0.1.0-alpha.20',
+    'package_url' => 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.20/tomos-update-0.1.0-alpha.20.zip',
+    'sha256' => str_repeat('c', 64),
+];
+expectError(static function () use ($sequenceCatalog): void {
+    providerFor(jsonResponse($sequenceCatalog))->getNextUpdate('0.1.0-alpha.17');
+}, 'update_sequence', 'catalog rejects a skipped intermediate from-version');
+
+$completeSequence = validCatalog();
+$completeSequence['updates'][] = [
+    'from' => '0.1.0-alpha.19',
+    'to' => '0.1.0-alpha.20',
+    'package_url' => 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.20/tomos-update-0.1.0-alpha.20.zip',
+    'sha256' => str_repeat('c', 64),
+];
+$completeResult = providerFor(jsonResponse($completeSequence))->getNextUpdate('0.1.0-alpha.17');
+check($completeResult['next_version'] === '0.1.0-alpha.18', 'complete sequential catalog remains valid');
+
 $noUpdate = providerFor(jsonResponse($catalog))->getNextUpdate('0.1.0-alpha.19');
 check($noUpdate === [
     'current_version' => '0.1.0-alpha.19',

@@ -216,6 +216,15 @@ final class UpdateReleaseProvider
                 $this->fail('sha256', '更新カタログのSHA-256が不正です。');
             }
         }
+        foreach ($catalog['updates'] as $update) {
+            foreach (array_keys($seenFrom) as $intermediateFrom) {
+                if (version_compare($update['from'], $intermediateFrom, '<')
+                    && version_compare($intermediateFrom, $update['to'], '<')
+                ) {
+                    $this->fail('update_sequence', '更新カタログに中間バージョンを飛び越す更新経路があります。');
+                }
+            }
+        }
         return $catalog;
     }
 

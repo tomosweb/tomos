@@ -10,7 +10,7 @@ Phase 1A は、Tomos 本体の `/update/` から公式の更新カタログを�
 
 ## カタログ
 
-取得元は固定の `https://tomoswords.org/assets/updates/catalog.json` です。`schema: 1`、`product: Tomos`、`updates` 配列を要求します。各レコードは `from`、`to`、`package_url`、64 桁の `sha256` を持ち、`from < to`、`from` の重複なし、公式 HTTPS URL であることを検証します。
+取得元は固定の `https://tomoswords.org/assets/updates/catalog.json` です。`schema: 1`、`product: Tomos`、`updates` 配列を要求します。各レコードは `from`、`to`、`package_url`、64 桁の `sha256` を持ち、`from < to`、`from` の重複なし、公式 HTTPS URL であることを検証します。さらに、あるレコードの `from` と `to` の間に別レコードの `from` が存在する場合、そのレコードを中間版の飛び越しとして拒否します。これはcatalog内部の整合性チェックであり、catalogに掲載されていない世の中のリリースまでは推測しません。
 
 カタログの SHA-256 は、将来取得する ZIP の輸送・配布物確認用であり、カタログ自体は ZIP の真正性の root of trust ではありません。最終的な信頼判定は、従来どおり `update/public-key.pem` と ZIP 内の `manifest.json` / `manifest.sig` による署名検証です。
 
