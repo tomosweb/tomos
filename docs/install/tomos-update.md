@@ -106,14 +106,14 @@ SHA-256: 228636b1c3d2c93cf320063c478c2604b892a287bb346e1f6a3adf98047247cf
 4. 現在と更新後のバージョン、対象ファイル、テーマ変更の有無を確認します。
 5. 「更新する」を押します。
 
-alpha.10以降では、通常Update完了後にUpdater本体の明示反映が必要です。
+alpha.10以降では、通常Update完了後にUpdater本体の明示反映が必要です。alpha.18では、`update/index.php`と`core/UpdateService.php`を同じUpdater bundleとして反映します。
 
 1. Tomos PostのUpdater更新反映画面（`/post/update-finalize/`）を開きます。
 2. 反映待ち状態を確認します。GETで画面を開いただけでは反映されません。
 3. 管理用合言葉を入力し、「Updater更新を反映する」を押します。
 4. 「Updater本体を更新しました。」と表示され、反映待ちの更新がなくなったことを確認します。
 
-現在の`update/index.php`は置換前に専用バックアップへ保存されます。反映に失敗した場合は旧版の復元を試み、待機ファイルを残して再実行できる状態を維持します。
+`update/index.php`と`core/UpdateService.php`は置換前に同じbundle backupへ保存されます。反映に失敗した場合は両ファイルの旧版復元を試み、待機ファイルを残して再実行できる状態を維持します。通常Update中にこの2ファイルが直接置換されることはありません。
 
 更新対象ファイルだけが `storage/update-backups/` へバックアップされます。`config.php`、`content/`、`cache/`、`storage/`、`trash/`、独自テーマは更新対象になりません。途中で失敗した場合は更新済みファイルを自動復元し、新規追加ファイルを削除します。
 
