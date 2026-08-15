@@ -64,6 +64,16 @@ $manifestFiles = [];
 $packageFiles = [];
 $generatedFiles = [];
 $requestedFiles = [];
+$pendingTargets = [
+    'update/index.php' => [
+        'pending' => 'core/updater-pending/update-index.php',
+        'metadata' => 'core/updater-pending/update-index.json',
+    ],
+    'core/UpdateService.php' => [
+        'pending' => 'core/updater-pending/update-service.php',
+        'metadata' => 'core/updater-pending/update-service.json',
+    ],
+];
 foreach ($files as $relative) {
     $relative = (string) $relative;
     if (isset($requestedFiles[$relative])) {
@@ -71,17 +81,17 @@ foreach ($files as $relative) {
         exit(1);
     }
     $requestedFiles[$relative] = true;
-    if ($relative === 'update/index.php') {
-        $source = $rootDir . DIRECTORY_SEPARATOR . 'update' . DIRECTORY_SEPARATOR . 'index.php';
+    if (isset($pendingTargets[$relative])) {
+        $source = $rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
         if (!is_file($source) || is_link($source)) {
             fwrite(STDERR, "Missing or unsafe source file: {$relative}\n");
             exit(1);
         }
-        $pendingPath = 'core/updater-pending/update-index.php';
-        $metadataPath = 'core/updater-pending/update-index.json';
+        $pendingPath = $pendingTargets[$relative]['pending'];
+        $metadataPath = $pendingTargets[$relative]['metadata'];
         $hash = (string) hash_file('sha256', $source);
         $metadata = json_encode([
-            'target' => 'update/index.php',
+            'target' => $relative,
             'sha256' => $hash,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         if (!is_string($metadata)) {
@@ -196,11 +206,13 @@ try {
             exit(1);
         }
     }
-    if (isset($requestedFiles['update/index.php'])
-        && $verifyZip->locateName('files/update/index.php') !== false
-    ) {
-        fwrite(STDERR, "update/index.php must not be stored directly in the Update ZIP.\n");
-        exit(1);
+    foreach (array_keys($pendingTargets) as $pendingTarget) {
+        if (isset($requestedFiles[$pendingTarget])
+            && $verifyZip->locateName('files/' . $pendingTarget) !== false
+        ) {
+            fwrite(STDERR, $pendingTarget . " must not be stored directly in the Update ZIP.\n");
+            exit(1);
+        }
     }
 } finally {
     $verifyZip->close();
