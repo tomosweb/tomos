@@ -31,28 +31,50 @@ function expectUpdateError(callable $callable, string $code, string $label): voi
     throw new RuntimeException($label . ' did not fail');
 }
 
-function makeRoot(string $tmp, string $publicKey): string
+function makeRoot(string $tmp, string $publicKey, string $currentVersion = '0.1.0-alpha.17'): string
 {
     $root = $tmp . '/root-' . bin2hex(random_bytes(4));
     foreach (['storage/update-tmp', 'storage/update-backups', 'storage/update-logs', 'update'] as $directory) {
         mkdir($root . '/' . $directory, 0700, true);
     }
-    file_put_contents($root . '/VERSION', "0.1.0-alpha.17\n");
+    file_put_contents($root . '/VERSION', $currentVersion . "\n");
     file_put_contents($root . '/update/public-key.pem', $publicKey);
     return $root;
 }
 
-function makeSignedZip(string $path, string $version, string $privateKey, bool $validSignature = true, bool $validManifest = true): void
+function makeSignedZip(
+    string $path,
+    string $fromVersion,
+    string $version,
+    string $privateKey,
+    bool $validSignature = true,
+    string $manifestType = 'valid'
+): void
 {
     $versionBytes = $version . "\n";
-    $manifest = $validManifest
-        ? [
+    if ($manifestType === 'valid') {
+        $manifest = [
+            'product' => 'Tomos',
+            'from_version' => $fromVersion,
+            'version' => $version,
+            'files' => ['VERSION' => hash('sha256', $versionBytes)],
+        ];
+    } elseif ($manifestType === 'legacy') {
+        $manifest = [
             'product' => 'Tomos',
             'version' => $version,
-            'minimum_version' => '0.1.0-alpha.17',
+            'minimum_version' => $fromVersion,
             'files' => ['VERSION' => hash('sha256', $versionBytes)],
-        ]
-        : ['product' => 'Not Tomos'];
+        ];
+    } elseif ($manifestType === 'missing_from') {
+        $manifest = [
+            'product' => 'Tomos',
+            'version' => $version,
+            'files' => ['VERSION' => hash('sha256', $versionBytes)],
+        ];
+    } else {
+        $manifest = ['product' => 'Not Tomos'];
+    }
     $manifestRaw = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     $signature = '';
     openssl_sign((string) $manifestRaw, $signature, $privateKey, OPENSSL_ALGO_SHA256);
@@ -103,9 +125,10 @@ if ($publicKey === '') {
 $root = makeRoot($tmp, $publicKey);
 $service = new UpdateService($root);
 $source = $tmp . '/downloaded-update.zip';
-makeSignedZip($source, '0.1.0-alpha.18', $privateKey);
+makeSignedZip($source, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey);
 $summary = $service->stageDownloadedPackage($source, 'owner', '0.1.0-alpha.17', '0.1.0-alpha.18');
 check($summary['current_version'] === '0.1.0-alpha.17', 'successful staging returns current version');
+check($summary['from_version'] === '0.1.0-alpha.17', 'successful staging returns signed manifest from version');
 check($summary['version'] === '0.1.0-alpha.18', 'successful staging returns signed manifest version');
 check(is_file($source), 'source remains after successful staging');
 $staged = stagingDirectories($root);
@@ -114,17 +137,19 @@ check(is_file($staged[0] . '/record.json'), 'inspectStaged wrote the staging rec
 removeTree($root);
 
 $cases = [
-    'expected from mismatch' => ['0.1.0-alpha.16', '0.1.0-alpha.18', '0.1.0-alpha.18', 'update_sequence'],
-    'expected version mismatch' => ['0.1.0-alpha.17', '0.1.0-alpha.18', '0.1.0-alpha.19', 'update_sequence'],
+    'expected from mismatch' => ['0.1.0-alpha.16', '0.1.0-alpha.18', '0.1.0-alpha.17', '0.1.0-alpha.18', 'update_sequence'],
+    'expected version mismatch' => ['0.1.0-alpha.17', '0.1.0-alpha.19', '0.1.0-alpha.17', '0.1.0-alpha.18', 'update_sequence'],
+    'manifest from skips current' => ['0.1.0-alpha.17', '0.1.0-alpha.19', '0.1.0-alpha.18', '0.1.0-alpha.19', 'update_sequence'],
+    'manifest from is older than current' => ['0.1.0-alpha.18', '0.1.0-alpha.18', '0.1.0-alpha.17', '0.1.0-alpha.18', 'update_sequence'],
 ];
 foreach ($cases as $label => $case) {
-    $root = makeRoot($tmp, $publicKey);
+    $root = makeRoot($tmp, $publicKey, $case[0] === '0.1.0-alpha.18' ? '0.1.0-alpha.18' : '0.1.0-alpha.17');
     $service = new UpdateService($root);
     $caseSource = $tmp . '/' . bin2hex(random_bytes(4)) . '.zip';
-    makeSignedZip($caseSource, $case[2], $privateKey);
+    makeSignedZip($caseSource, $case[2], $case[3], $privateKey);
     expectUpdateError(static function () use ($service, $caseSource, $case): void {
         $service->stageDownloadedPackage($caseSource, 'owner', $case[0], $case[1]);
-    }, $case[3], $label);
+    }, $case[4], $label);
     check(stagingDirectories($root) === [], $label . ' removes staging directory');
     check(is_file($caseSource), $label . ' leaves source untouched');
     removeTree($root);
@@ -188,8 +213,10 @@ removeTree($root);
 
 $invalidCases = [
     'invalid ZIP' => static function (string $path) use ($source): void { file_put_contents($path, 'not a ZIP'); },
-    'invalid signature' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.18', $privateKey, false); },
-    'invalid manifest' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.18', $privateKey, true, false); },
+    'invalid signature' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, false); },
+    'invalid manifest' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'invalid'); },
+    'legacy minimum manifest' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'legacy'); },
+    'missing from manifest' => static function (string $path) use ($privateKey): void { makeSignedZip($path, '0.1.0-alpha.17', '0.1.0-alpha.18', $privateKey, true, 'missing_from'); },
 ];
 foreach ($invalidCases as $label => $builder) {
     $root = makeRoot($tmp, $publicKey);
@@ -199,6 +226,23 @@ foreach ($invalidCases as $label => $builder) {
     expectUpdateError(static function () use ($service, $invalidSource): void {
         $service->stageDownloadedPackage($invalidSource, 'owner', '0.1.0-alpha.17', '0.1.0-alpha.18');
     }, $label === 'invalid ZIP' ? 'zip_open' : ($label === 'invalid signature' ? 'signature' : 'manifest'), $label);
+    check(stagingDirectories($root) === [], $label . ' removes staging directory');
+    check(is_file($invalidSource), $label . ' leaves source untouched');
+    removeTree($root);
+}
+
+$orderCases = [
+    'manifest from equals version' => ['0.1.0-alpha.18', '0.1.0-alpha.18'],
+    'manifest from is newer than version' => ['0.1.0-alpha.19', '0.1.0-alpha.18'],
+];
+foreach ($orderCases as $label => $versions) {
+    $root = makeRoot($tmp, $publicKey, $versions[0]);
+    $service = new UpdateService($root);
+    $invalidSource = $tmp . '/' . bin2hex(random_bytes(4)) . '.zip';
+    makeSignedZip($invalidSource, $versions[0], $versions[1], $privateKey);
+    expectUpdateError(static function () use ($service, $invalidSource, $versions): void {
+        $service->stageDownloadedPackage($invalidSource, 'owner', $versions[0], $versions[1]);
+    }, 'version', $label);
     check(stagingDirectories($root) === [], $label . ' removes staging directory');
     check(is_file($invalidSource), $label . ' leaves source untouched');
     removeTree($root);

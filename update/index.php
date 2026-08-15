@@ -231,7 +231,8 @@ function renderUpdatePage(
         }
         echo '</ul></div>';
     } elseif ($summary !== null) {
-        echo '<div class="summary"><p><strong>現在のバージョン：</strong> ' . e((string) $summary['current_version']) . '<br>';
+        echo '<div class="summary"><p><strong>更新経路：</strong> ' . e((string) ($summary['from_version'] ?? $summary['current_version'])) . ' → ' . e((string) $summary['version']) . '<br>';
+        echo '<strong>現在のバージョン：</strong> ' . e((string) $summary['current_version']) . '<br>';
         echo '<strong>更新後のバージョン：</strong> ' . e((string) $summary['version']) . '</p>';
         echo '<h2>更新対象（' . count($summary['files']) . '件）</h2><ul class="files">';
         foreach ($summary['files'] as $file) {

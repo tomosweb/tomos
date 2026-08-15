@@ -7,3 +7,5 @@ GETでは現在のTomos VERSIONに対するcatalog確認だけを行います。
 オンライン取得用の一時ファイルはWeb公開されない `storage/update-tmp/online-download-<random>.zip` に置き、成功・失敗を問わず`finally`で削除します。UpdateServiceの正式stagingは同じ `storage/update-tmp/<32hex>/package.zip` です。catalog取得、通信、SHA-256、署名・manifest検証のどこで失敗してもapplyへ進まず、オンラインエラーは手動ZIPフォームを妨げません。
 
 catalogは次に取得すべき更新の案内であり、ZIPの真正性のrootではありません。catalogのfrom/toと、署名検証済みmanifestのcurrent/versionが一致して初めてオンライン更新候補として受理します。最終的な信頼判定は既存の `update/public-key.pem` と `manifest.sig` による署名検証です。CSRF、Post認証、rate limit、session owner、backup、rollbackは既存経路を再利用します。installerとは独立した機能です。
+
+オンライン・手動の両経路で、署名済みmanifestの`from_version`が現在の`VERSION`と完全一致することを必須にします。`from_version`と`version`が1ステップの順序でないZIP、または旧`minimum_version`だけを持つZIPは拒否します。catalogのfrom/toとmanifestのfrom_version/versionも一致して初めてオンライン更新候補を受理します。

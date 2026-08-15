@@ -10,11 +10,17 @@ Tomos Updateは、公式オンライン更新と手動の署名済みUpdate ZIP�
 
 オンライン更新と手動ZIP更新のどちらも、最終的には`manifest.sig`と`update/public-key.pem`による既存の署名検証を通過する必要があります。自動更新、バックグラウンド更新、一括多段更新は行いません。
 
+## 更新元バージョンの必須一致
+
+Update ZIPの署名済み`manifest.json`には、適用できる唯一の現在版を示す`from_version`と、更新後の`version`が含まれます。オンライン更新・手動ZIP更新を問わず、`from_version`が現在の`VERSION`と完全一致しないZIPは、署名が正しくても確認・適用できません。Tomos Updateは常に次の1バージョンへの逐次更新だけを受け付けます。
+
+旧形式の`minimum_version`だけを持つUpdate ZIPは後方互換のfallbackを行わず拒否します。既存のalpha.17以前の環境で旧形式ZIPを使用していた場合は、旧形式ZIPをそのまま再利用せず、新形式の`from_version`を含む正式なUpdate ZIP、または管理者が案内する手動移行手順を使用してください。次のリリース以降のUpdate ZIPは必ず新manifest形式で生成します。
+
 ## v0.1.0-alpha.13への更新
 
 すでにv0.1.0-alpha.12をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.zip` を適用できます。
 
-alpha.13のUpdate ZIPのminimum versionは `0.1.0-alpha.12` です。
+旧alpha.13 Update ZIPの説明にあるminimum versionは旧manifest形式の情報です。現在のTomos Updateでは、`0.1.0-alpha.12`から`0.1.0-alpha.13`へ更新する場合も、新形式の`from_version`を持つ署名済みZIPを使用してください。
 
 ### v0.1.0-alpha.12からv0.1.0-alpha.13への更新
 

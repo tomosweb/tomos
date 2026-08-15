@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $page = (string) file_get_contents($root . '/update/index.php');
+$service = (string) file_get_contents($root . '/core/UpdateService.php');
 $docs = (string) file_get_contents($root . '/docs/install/tomos-update.md');
 $passes = 0;
 
@@ -40,5 +41,9 @@ checkPhase1d($catalogUses >= 2, 'catalog is checked on GET and re-fetched on POS
 checkPhase1d(strpos($page, '(string) $releaseInfo[\'package_url\']') !== false, 'POST uses the freshly fetched package URL');
 checkPhase1d(strpos($docs, '手動ZIP更新は恒久的な正式ルートとして残ります') !== false, 'user documentation preserves manual updates');
 checkPhase1d(strpos($docs, '自動更新、バックグラウンド更新、一括多段更新は行いません') !== false, 'user documentation describes explicit confirmation');
+checkPhase1d(strpos($service, "'from_version' => \$manifest['from_version']") !== false, 'summary exposes signed manifest from_version');
+checkPhase1d(strpos($service, "\$manifest['from_version'] !== \$current") !== false, 'UpdateService requires manifest from_version to match current VERSION');
+checkPhase1d(strpos($service, "'update_sequence'") !== false, 'version path mismatch uses the dedicated update_sequence stage');
+checkPhase1d(strpos($docs, 'from_version') !== false && strpos($docs, '完全一致') !== false, 'user documentation describes mandatory source-version matching');
 
 echo "update_phase1d_check: {$passes} checks passed\n";

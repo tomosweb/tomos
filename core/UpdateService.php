@@ -136,6 +136,7 @@ final class UpdateService
             }
             $summary = $this->inspectStaged($id, $owner, true);
             if (($summary['current_version'] ?? null) !== $expectedFromVersion
+                || ($summary['from_version'] ?? null) !== $expectedFromVersion
                 || ($summary['version'] ?? null) !== $expectedVersion
             ) {
                 throw new UpdateException('カタログと署名済み更新ZIPのバージョン経路が一致しません。', 'update_sequence');
@@ -248,8 +249,8 @@ final class UpdateService
                 'id' => $id,
                 'owner' => hash('sha256', $owner),
                 'current_version' => $this->currentVersion(),
+                'from_version' => $manifest['from_version'],
                 'version' => $manifest['version'],
-                'minimum_version' => $manifest['minimum_version'],
                 'files' => array_keys($files),
                 'theme_files' => $themeFiles,
                 'created_at' => gmdate('c'),
@@ -454,26 +455,33 @@ final class UpdateService
     {
         if (!is_array($manifest)
             || ($manifest['product'] ?? null) !== 'Tomos'
+            || !is_string($manifest['from_version'] ?? null)
             || !is_string($manifest['version'] ?? null)
-            || !is_string($manifest['minimum_version'] ?? null)
             || !is_array($manifest['files'] ?? null)
             || $manifest['files'] === []
         ) {
             throw new UpdateException('manifestの形式が正しくありません。', 'manifest');
         }
         $versionPattern = '/\A[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?\z/';
-        if (preg_match($versionPattern, $manifest['version']) !== 1
-            || preg_match($versionPattern, $manifest['minimum_version']) !== 1
-            || version_compare($manifest['minimum_version'], $manifest['version'], '>')
+        if (preg_match($versionPattern, $manifest['from_version']) !== 1
+            || preg_match($versionPattern, $manifest['version']) !== 1
+            || version_compare($manifest['from_version'], $manifest['version'], '>=')
         ) {
             throw new UpdateException('manifestのバージョン情報が正しくありません。', 'version');
         }
         $current = $this->currentVersion();
-        if ($current === '' || version_compare($manifest['version'], $current, '<=')) {
-            throw new UpdateException('同じバージョン、または現在より古いバージョンは適用できません。', 'version');
+        if ($current === '') {
+            throw new UpdateException('現在のTomosバージョンを確認できません。', 'version');
         }
-        if (version_compare($current, $manifest['minimum_version'], '<')) {
-            throw new UpdateException('現在のTomosバージョンには、この更新を適用できません。先に必要なバージョンへ更新してください。', 'version');
+        if ($manifest['from_version'] !== $current) {
+            throw new UpdateException(
+                'この更新ZIPは ' . $manifest['from_version'] . ' → ' . $manifest['version']
+                    . ' 用です。現在のTomosは ' . $current . ' のため使用できません。',
+                'update_sequence'
+            );
+        }
+        if (version_compare($manifest['version'], $current, '<=')) {
+            throw new UpdateException('同じバージョン、または現在より古いバージョンは適用できません。', 'version');
         }
         if (!array_key_exists('VERSION', $manifest['files'])) {
             throw new UpdateException('更新ZIPにVERSIONの更新情報がありません。', 'manifest');
