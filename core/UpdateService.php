@@ -105,6 +105,49 @@ final class UpdateService
         }
     }
 
+    public function stageDownloadedPackage(
+        string $sourcePath,
+        string $owner,
+        string $expectedFromVersion,
+        string $expectedVersion
+    ): array {
+        $sourceSize = @filesize($sourcePath);
+        if (!is_file($sourcePath) || is_link($sourcePath) || !is_readable($sourcePath)
+            || $sourceSize === false || $sourceSize < 1 || $sourceSize > self::MAX_ZIP_BYTES
+        ) {
+            throw new UpdateException('ダウンロード済み更新ZIPを安全に確認できません。', 'source');
+        }
+        $environmentErrors = $this->diagnostics();
+        if ($environmentErrors !== []) {
+            throw new UpdateException($environmentErrors[0], 'diagnostics');
+        }
+
+        $id = bin2hex(random_bytes(16));
+        $workDir = $this->storageDir . DIRECTORY_SEPARATOR . 'update-tmp' . DIRECTORY_SEPARATOR . $id;
+        if (!@mkdir($workDir, 0700, true)) {
+            throw new UpdateException('更新ZIPの確認を開始できませんでした。', 'staging');
+        }
+        $temporaryPath = $workDir . DIRECTORY_SEPARATOR . 'package.download';
+        $zipPath = $workDir . DIRECTORY_SEPARATOR . 'package.zip';
+        try {
+            $this->copyDownloadedPackage($sourcePath, $temporaryPath);
+            if (is_file($zipPath) || is_link($zipPath) || !@rename($temporaryPath, $zipPath)) {
+                throw new UpdateException('更新ZIPを正式な一時保存先へ移動できませんでした。', 'staging');
+            }
+            $summary = $this->inspectStaged($id, $owner, true);
+            if (($summary['current_version'] ?? null) !== $expectedFromVersion
+                || ($summary['from_version'] ?? null) !== $expectedFromVersion
+                || ($summary['version'] ?? null) !== $expectedVersion
+            ) {
+                throw new UpdateException('カタログと署名済み更新ZIPのバージョン経路が一致しません。', 'update_sequence');
+            }
+            return $summary;
+        } catch (Throwable $exception) {
+            $this->removeTree($workDir);
+            throw $exception;
+        }
+    }
+
     public function inspectStaged(string $id, string $owner, bool $writeRecord = false): array
     {
         if (preg_match('/\A[a-f0-9]{32}\z/', $id) !== 1) {
@@ -206,8 +249,8 @@ final class UpdateService
                 'id' => $id,
                 'owner' => hash('sha256', $owner),
                 'current_version' => $this->currentVersion(),
+                'from_version' => $manifest['from_version'],
                 'version' => $manifest['version'],
-                'minimum_version' => $manifest['minimum_version'],
                 'files' => array_keys($files),
                 'theme_files' => $themeFiles,
                 'created_at' => gmdate('c'),
@@ -372,30 +415,83 @@ final class UpdateService
         return $entries;
     }
 
+    private function copyDownloadedPackage(string $sourcePath, string $destination): void
+    {
+        $input = @fopen($sourcePath, 'rb');
+        if (!is_resource($input)) {
+            throw new UpdateException('ダウンロード済み更新ZIPを読み取れません。', 'source');
+        }
+        $output = @fopen($destination, 'xb');
+        if (!is_resource($output)) {
+            fclose($input);
+            throw new UpdateException('更新ZIPの正式な一時保存先を作成できません。', 'staging');
+        }
+        $bytes = 0;
+        try {
+            while (!feof($input)) {
+                $chunk = fread($input, 65536);
+                if (!is_string($chunk)) {
+                    throw new UpdateException('ダウンロード済み更新ZIPを読み取れません。', 'source');
+                }
+                $bytes += strlen($chunk);
+                if ($bytes > self::MAX_ZIP_BYTES) {
+                    throw new UpdateException('ダウンロード済み更新ZIPのサイズが上限を超えています。', 'source');
+                }
+                if ($chunk !== '' && fwrite($output, $chunk) !== strlen($chunk)) {
+                    throw new UpdateException('更新ZIPを一時保存できません。', 'staging');
+                }
+            }
+        } finally {
+            fclose($input);
+            fclose($output);
+        }
+        $size = @filesize($destination);
+        if ($size === false || $size < 1 || $size > self::MAX_ZIP_BYTES || (int) $size !== $bytes) {
+            throw new UpdateException('一時保存した更新ZIPのサイズを確認できません。', 'source');
+        }
+    }
+
     private function validateManifest($manifest): void
     {
         if (!is_array($manifest)
             || ($manifest['product'] ?? null) !== 'Tomos'
+            || !is_string($manifest['from_version'] ?? null)
             || !is_string($manifest['version'] ?? null)
-            || !is_string($manifest['minimum_version'] ?? null)
             || !is_array($manifest['files'] ?? null)
             || $manifest['files'] === []
         ) {
             throw new UpdateException('manifestの形式が正しくありません。', 'manifest');
         }
         $versionPattern = '/\A[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?\z/';
-        if (preg_match($versionPattern, $manifest['version']) !== 1
-            || preg_match($versionPattern, $manifest['minimum_version']) !== 1
-            || version_compare($manifest['minimum_version'], $manifest['version'], '>')
+        if (preg_match($versionPattern, $manifest['from_version']) !== 1
+            || preg_match($versionPattern, $manifest['version']) !== 1
+            || version_compare($manifest['from_version'], $manifest['version'], '>=')
         ) {
             throw new UpdateException('manifestのバージョン情報が正しくありません。', 'version');
         }
-        $current = $this->currentVersion();
-        if ($current === '' || version_compare($manifest['version'], $current, '<=')) {
-            throw new UpdateException('同じバージョン、または現在より古いバージョンは適用できません。', 'version');
+        if (array_key_exists('minimum_version', $manifest)) {
+            if (!is_string($manifest['minimum_version'])
+                || preg_match($versionPattern, $manifest['minimum_version']) !== 1
+            ) {
+                throw new UpdateException('manifestのminimum_versionが正しくありません。', 'version');
+            }
+            if ($manifest['minimum_version'] !== $manifest['from_version']) {
+                throw new UpdateException('manifestのminimum_versionはfrom_versionと一致しません。', 'update_sequence');
+            }
         }
-        if (version_compare($current, $manifest['minimum_version'], '<')) {
-            throw new UpdateException('現在のTomosバージョンには、この更新を適用できません。先に必要なバージョンへ更新してください。', 'version');
+        $current = $this->currentVersion();
+        if ($current === '') {
+            throw new UpdateException('現在のTomosバージョンを確認できません。', 'version');
+        }
+        if ($manifest['from_version'] !== $current) {
+            throw new UpdateException(
+                'この更新ZIPは ' . $manifest['from_version'] . ' → ' . $manifest['version']
+                    . ' 用です。現在のTomosは ' . $current . ' のため使用できません。',
+                'update_sequence'
+            );
+        }
+        if (version_compare($manifest['version'], $current, '<=')) {
+            throw new UpdateException('同じバージョン、または現在より古いバージョンは適用できません。', 'version');
         }
         if (!array_key_exists('VERSION', $manifest['files'])) {
             throw new UpdateException('更新ZIPにVERSIONの更新情報がありません。', 'manifest');

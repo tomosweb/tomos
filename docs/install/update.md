@@ -120,7 +120,7 @@ alpha.10の環境では、署名済みの`tomos-update-0.1.0-alpha.11.zip`をTom
 8. 管理用合言葉を入力し、「Updater更新を反映する」を押します。
 9. 「Updater本体を更新しました。」と表示され、反映待ちの更新がなくなったことを確認します。
 
-通常Updateが完了した時点では、`update/index.php`はまだ旧版です。Updater更新反映画面から明示的に反映した場合だけ、新版へ置き換わります。
+通常Updateが完了した時点では、`update/index.php`と`core/UpdateService.php`はまだ旧版です。Updater更新反映画面から明示的にbundleを反映した場合だけ、2ファイルがまとめて置き換わります。
 
 ## v0.1.0-alpha.9からv0.1.0-alpha.10への更新
 
@@ -136,7 +136,7 @@ alpha.9の環境では、署名済みの`tomos-update-0.1.0-alpha.10.zip`をTomo
 8. 管理用合言葉を入力し、「Updater更新を反映する」を押します。
 9. 「Updater本体を更新しました。」と表示され、反映待ちの更新がなくなったことを確認します。
 
-通常Updateが完了した時点では、`update/index.php`はまだ旧版です。Updater更新反映画面から明示的に反映した場合だけ、新版へ置き換わります。置換前のファイルは`storage/update-backups/`へ保存され、結果は`storage/update-logs/`へ記録されます。
+通常Updateが完了した時点では、`update/index.php`と`core/UpdateService.php`はまだ旧版です。Updater更新反映画面から明示的にbundleを反映した場合だけ、2ファイルがまとめて置き換わります。置換前のファイルは`storage/update-backups/`へ保存され、結果は`storage/update-logs/`へ記録されます。
 
 更新前に`config.php`、`content/`、利用中テーマをバックアップしてください。Tomos Updateは更新対象ファイルだけをバックアップし、`config.php`、`content/`、独自テーマを更新しません。
 

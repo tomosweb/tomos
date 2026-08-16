@@ -9,29 +9,51 @@ use Throwable;
 
 final class UpdaterSelfUpdate
 {
-    private const TARGET = 'update/index.php';
-    private const PENDING_FILE = 'update-index.php';
-    private const METADATA_FILE = 'update-index.json';
+    private const TARGETS = [
+        'update/index.php' => [
+            'pending_file' => 'update-index.php',
+            'metadata_file' => 'update-index.json',
+            'directory' => 'update',
+        ],
+        'core/UpdateService.php' => [
+            'pending_file' => 'update-service.php',
+            'metadata_file' => 'update-service.json',
+            'directory' => 'core',
+        ],
+    ];
 
     private $rootDir;
     private $storageDir;
     private $pendingDir;
-    private $targetPath;
+    private $replaceHook;
 
-    public function __construct(string $rootDir)
+    /** The optional hook is only used by local failure-injection tests. */
+    public function __construct(string $rootDir, ?callable $replaceHook = null)
     {
         $this->rootDir = rtrim($rootDir, DIRECTORY_SEPARATOR);
         $this->storageDir = $this->rootDir . DIRECTORY_SEPARATOR . 'storage';
         $this->pendingDir = $this->rootDir . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . 'updater-pending';
-        $this->targetPath = $this->rootDir . DIRECTORY_SEPARATOR . 'update' . DIRECTORY_SEPARATOR . 'index.php';
+        $this->replaceHook = $replaceHook;
     }
 
     public function hasPendingUpdate(): bool
     {
-        return file_exists($this->pendingFilePath())
-            || is_link($this->pendingFilePath())
-            || file_exists($this->metadataPath())
-            || is_link($this->metadataPath());
+        if (is_link($this->pendingDir)) {
+            return true;
+        }
+        if (!is_dir($this->pendingDir)) {
+            return false;
+        }
+        $items = @scandir($this->pendingDir);
+        if (!is_array($items)) {
+            return true;
+        }
+        foreach ($items as $item) {
+            if ($item !== '.' && $item !== '..') {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function apply(): array
@@ -39,18 +61,13 @@ final class UpdaterSelfUpdate
         $startedAt = gmdate('c');
         $backupId = 'updater-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(16));
         $backupDir = $this->storageDir . DIRECTORY_SEPARATOR . 'update-backups' . DIRECTORY_SEPARATOR . $backupId;
-        $backupPath = $backupDir . DIRECTORY_SEPARATOR . 'files' . DIRECTORY_SEPARATOR . 'update' . DIRECTORY_SEPARATOR . 'index.php';
-        $oldHash = '';
-        $expectedHash = '';
-        $replacementHash = '';
-        $installedHash = '';
-        $permissions = 0;
         $stage = 'preflight';
         $backupCreated = false;
         $replacementStarted = false;
         $rollbackAttempted = false;
         $rollbackSucceeded = false;
-        $temporary = '';
+        $bundle = [];
+        $temporaryPaths = [];
         $lockHandle = null;
 
         try {
@@ -60,121 +77,99 @@ final class UpdaterSelfUpdate
                 throw new RuntimeException('tomos_update_locked');
             }
 
-            $stage = 'current_file';
-            $this->assertSafeTarget();
-            $oldHash = $this->hashFile($this->targetPath);
-            $installedHash = $oldHash;
-            $permissions = fileperms($this->targetPath) & 0777;
+            // Validate every pending/current target before backup or replacement.
+            $stage = 'pending_validation';
+            $bundle = $this->collectPendingBundle();
+            $stage = 'current_files';
+            $bundle = $this->collectCurrentTargets($bundle);
 
             $stage = 'backup';
-            $this->createBackup($backupDir, $backupPath, $oldHash, $permissions);
+            $this->createBackup($backupDir, $bundle);
             $backupCreated = true;
 
-            $stage = 'pending_validation';
-            $metadata = $this->readMetadata();
-            $expectedHash = strtolower((string) $metadata['sha256']);
-            $sourcePath = $this->pendingFilePath();
-            $this->assertSafePendingFile($sourcePath, $expectedHash);
-
-            if (hash_equals($oldHash, $expectedHash)) {
-                $meta = $this->resultMeta(
-                    $startedAt,
-                    $backupId,
-                    $oldHash,
-                    $expectedHash,
-                    $oldHash,
-                    true,
-                    'no_change',
-                    false,
-                    false,
-                    $permissions
-                );
-                $recordingOk = $this->recordOutcome($backupDir, $meta);
-                $cleanupOk = $recordingOk ? $this->removePendingFiles($backupId) : false;
-
-                return [
-                    'ok' => true,
-                    'applied' => false,
-                    'backup_id' => $backupId,
-                    'previous_sha256' => $oldHash,
-                    'sha256' => $oldHash,
-                    'recording_ok' => $recordingOk,
-                    'cleanup_ok' => $cleanupOk,
-                ];
-            }
-
             $stage = 'temporary_copy';
-            $temporary = $this->temporaryPath('.tomos-updater-');
-            $this->copyToExclusiveTemporary($sourcePath, $temporary);
+            foreach ($bundle as $target => $entry) {
+                if (!$entry['changed']) {
+                    continue;
+                }
+                $temporary = $this->temporaryPath($target, '.tomos-updater-bundle-');
+                $this->copyToExclusiveTemporary($entry['source'], $temporary);
+                $temporaryPaths[$target] = $temporary;
+            }
 
             $stage = 'temporary_validation';
-            $this->assertPhpAndHash($temporary, $expectedHash);
-            if (!@chmod($temporary, $permissions)
-                || (fileperms($temporary) & 0777) !== $permissions
-            ) {
-                throw new RuntimeException('temporary_permissions');
+            foreach ($bundle as $target => $entry) {
+                if (!$entry['changed']) {
+                    continue;
+                }
+                $temporary = $temporaryPaths[$target];
+                $this->assertPhpAndHash($temporary, $entry['expected_sha256']);
+                if (!@chmod($temporary, $entry['permissions'])
+                    || (fileperms($temporary) & 0777) !== $entry['permissions']
+                ) {
+                    throw new RuntimeException('temporary_permissions');
+                }
+                $this->assertPhpAndHash($temporary, $entry['expected_sha256']);
             }
-            $this->assertPhpAndHash($temporary, $expectedHash);
 
+            // All temporary files are ready before the first target is replaced.
             $stage = 'replace';
-            if (!@rename($temporary, $this->targetPath)) {
-                throw new RuntimeException('replace_rename');
+            foreach ($bundle as $target => &$entry) {
+                if (!$entry['changed']) {
+                    continue;
+                }
+                if (is_callable($this->replaceHook)) {
+                    call_user_func($this->replaceHook, $target);
+                }
+                if (!@rename($temporaryPaths[$target], $entry['target_path'])) {
+                    throw new RuntimeException('replace_rename');
+                }
+                unset($temporaryPaths[$target]);
+                $replacementStarted = true;
+                $entry['installed_sha256'] = $entry['expected_sha256'];
             }
-            $temporary = '';
-            $replacementStarted = true;
+            unset($entry);
 
             $stage = 'post_replace_validation';
-            $replacementHash = $this->hashFile($this->targetPath);
-            $this->assertPhpAndHash($this->targetPath, $expectedHash);
-            if ((fileperms($this->targetPath) & 0777) !== $permissions) {
-                throw new RuntimeException('post_replace_permissions');
+            foreach ($bundle as $target => &$entry) {
+                $installedHash = $entry['changed']
+                    ? $entry['expected_sha256']
+                    : $entry['old_sha256'];
+                $this->assertPhpAndHash($entry['target_path'], $installedHash);
+                if ((fileperms($entry['target_path']) & 0777) !== $entry['permissions']) {
+                    throw new RuntimeException('post_replace_permissions');
+                }
+                $entry['installed_sha256'] = $this->hashFile($entry['target_path']);
             }
-            $installedHash = $replacementHash;
+            unset($entry);
 
-            $meta = $this->resultMeta(
-                $startedAt,
-                $backupId,
-                $oldHash,
-                $expectedHash,
-                $installedHash,
-                true,
-                'complete',
-                false,
-                false,
-                $permissions
-            );
+            $targetMeta = $this->targetMeta($bundle);
+            $meta = $this->resultMeta($startedAt, $backupId, $targetMeta, true, 'complete', false, false);
             $recordingOk = $this->recordOutcome($backupDir, $meta);
-            $cleanupOk = $recordingOk ? $this->removePendingFiles($backupId) : false;
+            $cleanupOk = $recordingOk ? $this->removePendingFiles($backupId, $bundle) : false;
 
-            return [
-                'ok' => true,
-                'applied' => true,
-                'backup_id' => $backupId,
-                'previous_sha256' => $oldHash,
-                'sha256' => $installedHash,
-                'recording_ok' => $recordingOk,
-                'cleanup_ok' => $cleanupOk,
-            ];
+            return $this->publicResult($backupId, $targetMeta, $recordingOk, $cleanupOk);
         } catch (Throwable $exception) {
             if ($replacementStarted) {
                 $rollbackAttempted = true;
-                $rollbackSucceeded = $this->restore($backupPath, $oldHash, $permissions);
+                $rollbackSucceeded = $this->restoreBundle($backupDir, $bundle);
                 if ($rollbackSucceeded) {
-                    $installedHash = $oldHash;
+                    foreach ($bundle as &$entry) {
+                        $entry['installed_sha256'] = $entry['old_sha256'];
+                    }
+                    unset($entry);
                 }
             }
 
+            $targetMeta = $this->targetMeta($bundle);
             $meta = $this->resultMeta(
                 $startedAt,
                 $backupId,
-                $oldHash,
-                $expectedHash,
-                $replacementHash,
+                $targetMeta,
                 false,
                 $stage,
                 $rollbackAttempted,
-                $rollbackSucceeded,
-                $permissions
+                $rollbackSucceeded
             );
             $recordingOk = $this->recordOutcome(
                 ($backupCreated || (is_dir($backupDir) && !is_link($backupDir))) ? $backupDir : '',
@@ -183,36 +178,104 @@ final class UpdaterSelfUpdate
 
             if ($rollbackAttempted && !$rollbackSucceeded) {
                 throw new UpdaterSelfUpdateException(
-                    'Updater更新に失敗し、自動復元も完了できませんでした。バックアップを確認してください。',
+                    'Updater bundleの更新に失敗し、自動復元も完了できませんでした。バックアップを確認してください。',
                     $stage,
                     true,
                     !$recordingOk
                 );
             }
             throw new UpdaterSelfUpdateException(
-                'Updater更新を完了できませんでした。現在のUpdaterは変更されていません。',
+                'Updater bundleの更新を完了できませんでした。現在のUpdaterは変更されていません。',
                 $stage,
                 false,
                 !$recordingOk
             );
         } finally {
-            if ($temporary !== '') {
+            foreach ($temporaryPaths as $temporary) {
                 @unlink($temporary);
             }
             $this->releaseOperationLock($lockHandle);
         }
     }
 
-    private function readMetadata(): array
+    private function collectPendingBundle(): array
     {
-        $path = $this->metadataPath();
+        $this->assertPendingDirectory();
+        $bundle = [];
+        foreach (self::TARGETS as $target => $definition) {
+            $metadataPath = $this->pendingDir . DIRECTORY_SEPARATOR . $definition['metadata_file'];
+            $sourcePath = $this->pendingDir . DIRECTORY_SEPARATOR . $definition['pending_file'];
+            $hasMetadata = is_file($metadataPath) || is_link($metadataPath);
+            $hasSource = is_file($sourcePath) || is_link($sourcePath);
+            if (!$hasMetadata && !$hasSource) {
+                continue;
+            }
+            if (!$hasMetadata || !$hasSource) {
+                throw new RuntimeException('pending_pair');
+            }
+            $metadata = $this->readMetadata($metadataPath, $target);
+            $expectedHash = strtolower((string) $metadata['sha256']);
+            if (!is_file($sourcePath) || is_link($sourcePath) || !is_readable($sourcePath)) {
+                throw new RuntimeException('pending_file');
+            }
+            $this->assertPhpAndHash($sourcePath, $expectedHash);
+            $bundle[$target] = [
+                'target' => $target,
+                'source' => $sourcePath,
+                'expected_sha256' => $expectedHash,
+                'directory' => $definition['directory'],
+            ];
+        }
+        return $bundle;
+    }
+
+    private function collectCurrentTargets(array $bundle): array
+    {
+        foreach ($bundle as $target => $entry) {
+            $definition = self::TARGETS[$target];
+            $targetPath = $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $target);
+            $targetDir = dirname($targetPath);
+            $this->assertSafeTarget($target, $targetPath, $targetDir, $definition['directory']);
+            $oldHash = $this->hashFile($targetPath);
+            $permissions = fileperms($targetPath) & 0777;
+            $bundle[$target]['target_path'] = $targetPath;
+            $bundle[$target]['old_sha256'] = $oldHash;
+            $bundle[$target]['permissions'] = $permissions;
+            $bundle[$target]['changed'] = !hash_equals($oldHash, $bundle[$target]['expected_sha256']);
+            $bundle[$target]['installed_sha256'] = $oldHash;
+        }
+        return $bundle;
+    }
+
+    private function assertPendingDirectory(): void
+    {
         $rootReal = realpath($this->rootDir);
         $pendingReal = realpath($this->pendingDir);
         if (!is_dir($this->pendingDir) || is_link($this->pendingDir)
-            || !is_file($path) || is_link($path) || !is_readable($path)
             || $rootReal === false || $pendingReal === false
             || $pendingReal !== $rootReal . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . 'updater-pending'
         ) {
+            throw new RuntimeException('pending_directory');
+        }
+        $items = @scandir($this->pendingDir);
+        $allowed = ['.', '..'];
+        foreach (self::TARGETS as $definition) {
+            $allowed[] = $definition['metadata_file'];
+            $allowed[] = $definition['pending_file'];
+        }
+        if (!is_array($items)) {
+            throw new RuntimeException('pending_directory');
+        }
+        sort($items);
+        sort($allowed);
+        if ($items === ['.', '..'] || array_diff($items, $allowed) !== []) {
+            throw new RuntimeException('pending_directory_contents');
+        }
+    }
+
+    private function readMetadata(string $path, string $expectedTarget): array
+    {
+        if (!is_file($path) || is_link($path) || !is_readable($path)) {
             throw new RuntimeException('metadata_file');
         }
         $size = filesize($path);
@@ -227,7 +290,8 @@ final class UpdaterSelfUpdate
         $keys = array_keys($metadata);
         sort($keys);
         if ($keys !== ['sha256', 'target']
-            || ($metadata['target'] ?? null) !== self::TARGET
+            || ($metadata['target'] ?? null) !== $expectedTarget
+            || !isset(self::TARGETS[$metadata['target'] ?? ''])
             || !is_string($metadata['sha256'] ?? null)
             || preg_match('/\A[a-f0-9]{64}\z/i', $metadata['sha256']) !== 1
         ) {
@@ -236,85 +300,85 @@ final class UpdaterSelfUpdate
         return $metadata;
     }
 
-    private function assertSafePendingFile(string $path, string $expectedHash): void
+    private function assertSafeTarget(string $target, string $targetPath, string $targetDir, string $expectedDirectory): void
     {
-        $items = @scandir($this->pendingDir);
-        if (!is_array($items)) {
-            throw new RuntimeException('pending_directory');
-        }
-        sort($items);
-        if ($items !== ['.', '..', self::METADATA_FILE, self::PENDING_FILE]) {
-            throw new RuntimeException('pending_directory_contents');
-        }
-        if (!is_file($path) || is_link($path) || !is_readable($path)) {
-            throw new RuntimeException('pending_file');
-        }
-        $this->assertPhpAndHash($path, $expectedHash);
-    }
-
-    private function assertSafeTarget(): void
-    {
-        $targetDir = dirname($this->targetPath);
-        if (!is_dir($targetDir) || is_link($targetDir)
-            || !is_file($this->targetPath) || is_link($this->targetPath)
-            || !is_readable($this->targetPath) || !is_writable($targetDir)
+        $rootReal = realpath($this->rootDir);
+        $targetDirReal = realpath($targetDir);
+        if (!isset(self::TARGETS[$target])
+            || !is_dir($targetDir) || is_link($targetDir)
+            || !is_file($targetPath) || is_link($targetPath)
+            || !is_readable($targetPath) || !is_writable($targetDir)
+            || $rootReal === false || $targetDirReal === false
+            || $targetDirReal !== $rootReal . DIRECTORY_SEPARATOR . $expectedDirectory
         ) {
             throw new RuntimeException('current_target');
         }
-        $rootReal = realpath($this->rootDir);
-        $targetDirReal = realpath($targetDir);
-        if ($rootReal === false || $targetDirReal === false
-            || $targetDirReal !== $rootReal . DIRECTORY_SEPARATOR . 'update'
-        ) {
-            throw new RuntimeException('target_directory');
-        }
     }
 
-    private function createBackup(string $backupDir, string $backupPath, string $oldHash, int $permissions): void
+    private function createBackup(string $backupDir, array $bundle): void
     {
         $backupBase = dirname($backupDir);
         if (!is_dir($this->storageDir) || is_link($this->storageDir)
             || !is_dir($backupBase) || is_link($backupBase) || !is_writable($backupBase)
             || !@mkdir($backupDir, 0700)
-            || !@mkdir(dirname($backupPath), 0700, true)
         ) {
             throw new RuntimeException('backup_directory');
         }
-        if (!@copy($this->targetPath, $backupPath)
-            || !@chmod($backupPath, $permissions)
-            || !hash_equals($oldHash, $this->hashFile($backupPath))
-            || (fileperms($backupPath) & 0777) !== $permissions
-        ) {
-            throw new RuntimeException('backup_file');
+        foreach ($bundle as $target => $entry) {
+            $backupPath = $this->backupPath($backupDir, $target);
+            if (!@mkdir(dirname($backupPath), 0700, true)
+                || !@copy($entry['target_path'], $backupPath)
+                || !@chmod($backupPath, $entry['permissions'])
+                || !hash_equals($entry['old_sha256'], $this->hashFile($backupPath))
+                || (fileperms($backupPath) & 0777) !== $entry['permissions']
+            ) {
+                throw new RuntimeException('backup_file');
+            }
         }
     }
 
-    private function restore(string $backupPath, string $oldHash, int $permissions): bool
+    private function restoreBundle(string $backupDir, array $bundle): bool
     {
-        $temporary = '';
+        $temporary = [];
         try {
-            if ($oldHash === '' || !is_file($backupPath) || is_link($backupPath)
-                || !hash_equals($oldHash, $this->hashFile($backupPath))
-            ) {
-                return false;
+            foreach ($bundle as $target => $entry) {
+                if (!isset($entry['target_path'], $entry['old_sha256'], $entry['permissions'])) {
+                    return false;
+                }
+                $backupPath = $this->backupPath($backupDir, $target);
+                if (!is_file($backupPath) || is_link($backupPath)
+                    || !hash_equals($entry['old_sha256'], $this->hashFile($backupPath))
+                ) {
+                    return false;
+                }
+                $restorePath = $this->temporaryPath($target, '.tomos-updater-restore-');
+                $this->copyToExclusiveTemporary($backupPath, $restorePath);
+                $this->assertPhpAndHash($restorePath, $entry['old_sha256']);
+                if (!@chmod($restorePath, $entry['permissions'])
+                    || (fileperms($restorePath) & 0777) !== $entry['permissions']
+                ) {
+                    return false;
+                }
+                $temporary[$target] = $restorePath;
             }
-            $temporary = $this->temporaryPath('.tomos-updater-restore-');
-            $this->copyToExclusiveTemporary($backupPath, $temporary);
-            $this->assertPhpAndHash($temporary, $oldHash);
-            if (!@chmod($temporary, $permissions)
-                || (fileperms($temporary) & 0777) !== $permissions
-                || !@rename($temporary, $this->targetPath)
-            ) {
-                return false;
+            foreach ($bundle as $target => $entry) {
+                if (!@rename($temporary[$target], $entry['target_path'])) {
+                    return false;
+                }
+                unset($temporary[$target]);
             }
-            $temporary = '';
-            $this->assertPhpAndHash($this->targetPath, $oldHash);
-            return (fileperms($this->targetPath) & 0777) === $permissions;
+            foreach ($bundle as $entry) {
+                $this->assertPhpAndHash($entry['target_path'], $entry['old_sha256']);
+                if ((fileperms($entry['target_path']) & 0777) !== $entry['permissions']) {
+                    return false;
+                }
+            }
+            return true;
         } catch (Throwable $exception) {
             return false;
         } finally {
-            if ($temporary !== '') {
-                @unlink($temporary);
+            foreach ($temporary as $path) {
+                @unlink($path);
             }
         }
     }
@@ -347,9 +411,37 @@ final class UpdaterSelfUpdate
     {
         if (!is_file($path) || is_link($path) || !is_readable($path)
             || @file_get_contents($path, false, null, 0, 5) !== '<?php'
-            || !hash_equals(strtolower($expectedHash), $this->hashFile($path))
         ) {
+            throw new RuntimeException('php_file');
+        }
+        $this->assertPhpSyntax($path);
+        if (!hash_equals(strtolower($expectedHash), $this->hashFile($path))) {
             throw new RuntimeException('php_or_hash');
+        }
+    }
+
+    private function assertPhpSyntax(string $path): void
+    {
+        if (!function_exists('proc_open')) {
+            throw new RuntimeException('php_syntax_environment');
+        }
+        $binary = PHP_BINARY !== '' ? PHP_BINARY : 'php';
+        $process = @proc_open(
+            escapeshellarg($binary) . ' -l ' . escapeshellarg($path),
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('php_syntax_environment');
+        }
+        foreach ([1, 2] as $pipe) {
+            if (isset($pipes[$pipe]) && is_resource($pipes[$pipe])) {
+                stream_get_contents($pipes[$pipe]);
+                fclose($pipes[$pipe]);
+            }
+        }
+        if (proc_close($process) !== 0) {
+            throw new RuntimeException('php_syntax');
         }
     }
 
@@ -362,9 +454,22 @@ final class UpdaterSelfUpdate
         return strtolower($hash);
     }
 
-    private function temporaryPath(string $prefix): string
+    private function backupPath(string $backupDir, string $target): string
     {
-        return dirname($this->targetPath) . DIRECTORY_SEPARATOR . $prefix . bin2hex(random_bytes(16)) . '.tmp';
+        if (!isset(self::TARGETS[$target])) {
+            throw new RuntimeException('target_whitelist');
+        }
+        return $backupDir . DIRECTORY_SEPARATOR . 'files' . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $target);
+    }
+
+    private function temporaryPath(string $target, string $prefix): string
+    {
+        if (!isset(self::TARGETS[$target])) {
+            throw new RuntimeException('target_whitelist');
+        }
+        $path = $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $target);
+        return dirname($path) . DIRECTORY_SEPARATOR . $prefix . bin2hex(random_bytes(16)) . '.tmp';
     }
 
     private function acquireOperationLock()
@@ -396,28 +501,40 @@ final class UpdaterSelfUpdate
         fclose($handle);
     }
 
+    private function targetMeta(array $bundle): array
+    {
+        $result = [];
+        foreach ($bundle as $target => $entry) {
+            $result[$target] = [
+                'previous_sha256' => (string) ($entry['old_sha256'] ?? ''),
+                'target_sha256' => (string) ($entry['expected_sha256'] ?? ''),
+                'installed_sha256' => (string) ($entry['installed_sha256'] ?? ''),
+                'previous_permissions' => isset($entry['permissions']) && $entry['permissions'] > 0
+                    ? sprintf('%04o', $entry['permissions'])
+                    : '',
+                'applied' => (bool) ($entry['changed'] ?? false),
+                'no_change' => !(bool) ($entry['changed'] ?? false),
+            ];
+        }
+        return $result;
+    }
+
     private function resultMeta(
         string $startedAt,
         string $backupId,
-        string $oldHash,
-        string $expectedHash,
-        string $installedHash,
+        array $targets,
         bool $ok,
         string $stage,
         bool $rollbackAttempted,
-        bool $rollbackSucceeded,
-        int $permissions
+        bool $rollbackSucceeded
     ): array {
         return [
             'type' => 'updater_self_update',
             'started_at' => $startedAt,
             'finished_at' => gmdate('c'),
             'backup_id' => $backupId,
-            'target' => self::TARGET,
-            'previous_sha256' => $oldHash,
-            'target_sha256' => $expectedHash,
-            'installed_sha256' => $installedHash,
-            'previous_permissions' => $permissions > 0 ? sprintf('%04o', $permissions) : '',
+            'target' => 'bundle',
+            'targets' => $targets,
             'result' => $ok ? 'success' : 'failure',
             'stage' => $stage,
             'rollback_attempted' => $rollbackAttempted,
@@ -425,12 +542,32 @@ final class UpdaterSelfUpdate
         ];
     }
 
+    private function publicResult(string $backupId, array $targets, bool $recordingOk, bool $cleanupOk): array
+    {
+        $primary = $targets['update/index.php'] ?? reset($targets);
+        $applied = false;
+        foreach ($targets as $target) {
+            if (!empty($target['applied'])) {
+                $applied = true;
+                break;
+            }
+        }
+        return [
+            'ok' => true,
+            'applied' => $applied,
+            'backup_id' => $backupId,
+            'previous_sha256' => (string) ($primary['previous_sha256'] ?? ''),
+            'sha256' => (string) ($primary['installed_sha256'] ?? ''),
+            'recording_ok' => $recordingOk,
+            'cleanup_ok' => $cleanupOk,
+            'targets' => $targets,
+        ];
+    }
+
     private function recordOutcome(string $backupDir, array $meta): bool
     {
         $backupMetaOk = $backupDir === '' || $this->writeMeta($backupDir, $meta);
-        $resultMetaOk = $this->writeResultMeta($meta);
-        $logOk = $this->writeLog($meta);
-        return $backupMetaOk && $resultMetaOk && $logOk;
+        return $backupMetaOk && $this->writeResultMeta($meta) && $this->writeLog($meta);
     }
 
     private function writeMeta(string $backupDir, array $meta): bool
@@ -440,9 +577,7 @@ final class UpdaterSelfUpdate
         }
         $json = json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         return is_string($json) && @file_put_contents(
-            $backupDir . DIRECTORY_SEPARATOR . 'update-meta.json',
-            $json,
-            LOCK_EX
+            $backupDir . DIRECTORY_SEPARATOR . 'update-meta.json', $json, LOCK_EX
         ) !== false;
     }
 
@@ -456,9 +591,7 @@ final class UpdaterSelfUpdate
         }
         $json = json_encode($meta, JSON_UNESCAPED_SLASHES);
         return is_string($json) && @file_put_contents(
-            $directory . DIRECTORY_SEPARATOR . gmdate('Y-m') . '.log',
-            $json . PHP_EOL,
-            FILE_APPEND | LOCK_EX
+            $directory . DIRECTORY_SEPARATOR . gmdate('Y-m') . '.log', $json . PHP_EOL, FILE_APPEND | LOCK_EX
         ) !== false;
     }
 
@@ -476,13 +609,11 @@ final class UpdaterSelfUpdate
         }
         $json = json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         return is_string($json) && @file_put_contents(
-            $directory . DIRECTORY_SEPARATOR . $backupId . '.json',
-            $json,
-            LOCK_EX
+            $directory . DIRECTORY_SEPARATOR . $backupId . '.json', $json, LOCK_EX
         ) !== false;
     }
 
-    private function removePendingFiles(string $backupId): bool
+    private function removePendingFiles(string $backupId, array $bundle): bool
     {
         if (!is_dir($this->pendingDir) || is_link($this->pendingDir)) {
             return false;
@@ -492,25 +623,16 @@ final class UpdaterSelfUpdate
             return false;
         }
         $completedDir = $temporaryBase . DIRECTORY_SEPARATOR . $backupId . '-complete';
-        if (file_exists($completedDir) || is_link($completedDir)
-            || !@rename($this->pendingDir, $completedDir)
-        ) {
+        if (file_exists($completedDir) || is_link($completedDir) || !@rename($this->pendingDir, $completedDir)) {
             return false;
         }
-        $fileOk = @unlink($completedDir . DIRECTORY_SEPARATOR . self::PENDING_FILE);
-        $metadataOk = @unlink($completedDir . DIRECTORY_SEPARATOR . self::METADATA_FILE);
-        $directoryOk = @rmdir($completedDir);
-        return $fileOk && $metadataOk && $directoryOk;
-    }
-
-    private function pendingFilePath(): string
-    {
-        return $this->pendingDir . DIRECTORY_SEPARATOR . self::PENDING_FILE;
-    }
-
-    private function metadataPath(): string
-    {
-        return $this->pendingDir . DIRECTORY_SEPARATOR . self::METADATA_FILE;
+        $allOk = true;
+        foreach ($bundle as $entry) {
+            $definition = self::TARGETS[$entry['target']];
+            $allOk = @unlink($completedDir . DIRECTORY_SEPARATOR . $definition['pending_file']) && $allOk;
+            $allOk = @unlink($completedDir . DIRECTORY_SEPARATOR . $definition['metadata_file']) && $allOk;
+        }
+        return $allOk && @rmdir($completedDir);
     }
 }
 
