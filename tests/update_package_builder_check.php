@@ -10,6 +10,28 @@ if (!mkdir($tmp, 0700, true)) {
 
 $passes = 0;
 
+$targetVersion = trim((string) @file_get_contents($root . '/VERSION'));
+if (preg_match('/\A[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?\z/', $targetVersion) !== 1) {
+    throw new RuntimeException('root VERSION is not a valid Tomos version');
+}
+
+function adjacentVersion(string $version, int $delta): string
+{
+    if (preg_match('/\A(.*?)([0-9]+)\z/', $version, $matches) === 1) {
+        $number = (int) $matches[2] + $delta;
+        if ($number >= 0) {
+            return $matches[1] . $number;
+        }
+    }
+    return $delta < 0 ? '0.0.0' : $version . '.1';
+}
+
+$fromVersion = adjacentVersion($targetVersion, -1);
+$newerVersion = adjacentVersion($targetVersion, 1);
+if (version_compare($fromVersion, $targetVersion, '>=') || version_compare($newerVersion, $targetVersion, '<=')) {
+    throw new RuntimeException('could not derive adjacent test versions from root VERSION');
+}
+
 function check(bool $condition, string $message): void
 {
     global $passes;
@@ -59,10 +81,10 @@ try {
     $privateKeyPath = $tmp . '/private.pem';
     file_put_contents($privateKeyPath, $privateKey, LOCK_EX);
 
-    $output = $tmp . '/tomos-update-0.1.0-alpha.18.zip';
+    $output = $tmp . '/tomos-update-' . $targetVersion . '.zip';
     [$code, $outputText] = runBuilder($root, $tmp, [
-        'from' => '0.1.0-alpha.17',
-        'version' => '0.1.0-alpha.18',
+        'from' => $fromVersion,
+        'version' => $targetVersion,
         'private-key' => $privateKeyPath,
         'output' => $output,
         'file' => 'VERSION',
@@ -73,15 +95,15 @@ try {
     check($zip->open($output) === true, 'builder creates a readable ZIP');
     $manifest = json_decode((string) $zip->getFromName('manifest.json'), true);
     check(is_array($manifest), 'builder writes JSON manifest');
-    check(($manifest['from_version'] ?? null) === '0.1.0-alpha.17', 'manifest contains from_version');
-    check(($manifest['version'] ?? null) === '0.1.0-alpha.18', 'manifest contains target version');
+    check(($manifest['from_version'] ?? null) === $fromVersion, 'manifest contains from_version');
+    check(($manifest['version'] ?? null) === $targetVersion, 'manifest contains target version');
     check(!array_key_exists('minimum_version', $manifest), 'manifest does not contain legacy minimum_version');
     $zip->close();
 
-    $bridgeOutput = $tmp . '/tomos-update-0.1.0-alpha.18-bridge.zip';
+    $bridgeOutput = $tmp . '/tomos-update-' . $targetVersion . '-bridge.zip';
     [$code, $outputText] = runBuilder($root, $tmp, [
-        'from' => '0.1.0-alpha.17',
-        'version' => '0.1.0-alpha.18',
+        'from' => $fromVersion,
+        'version' => $targetVersion,
         'legacy-bridge' => true,
         'private-key' => $privateKeyPath,
         'output' => $bridgeOutput,
@@ -92,9 +114,9 @@ try {
     check($bridgeZip->open($bridgeOutput) === true, 'builder creates a readable bridge ZIP');
     $bridgeManifest = json_decode((string) $bridgeZip->getFromName('manifest.json'), true);
     check(is_array($bridgeManifest), 'bridge ZIP contains JSON manifest');
-    check(($bridgeManifest['from_version'] ?? null) === '0.1.0-alpha.17', 'bridge manifest contains from_version');
-    check(($bridgeManifest['minimum_version'] ?? null) === '0.1.0-alpha.17', 'bridge minimum_version equals from_version');
-    check(($bridgeManifest['version'] ?? null) === '0.1.0-alpha.18', 'bridge manifest contains target version');
+    check(($bridgeManifest['from_version'] ?? null) === $fromVersion, 'bridge manifest contains from_version');
+    check(($bridgeManifest['minimum_version'] ?? null) === $fromVersion, 'bridge minimum_version equals from_version');
+    check(($bridgeManifest['version'] ?? null) === $targetVersion, 'bridge manifest contains target version');
     check(is_array($bridgeManifest['files'] ?? null), 'bridge manifest contains files');
     check(($bridgeManifest['product'] ?? null) === 'Tomos', 'bridge manifest has Tomos product');
     $bridgeZip->close();
@@ -104,7 +126,7 @@ try {
             && is_string($bridgeManifest['version'] ?? null)
             && is_string($bridgeManifest['minimum_version'] ?? null)
             && is_array($bridgeManifest['files'] ?? null),
-        'bridge manifest retains the alpha.17 legacy-required fields'
+        'bridge manifest retains the legacy-required fields'
     );
 
     foreach ([
@@ -123,8 +145,8 @@ try {
     ] as $label => $fixture) {
         $bundleOutput = $tmp . '/' . $label . '.zip';
         [$code, $outputText] = runBuilder($root, $tmp, [
-            'from' => '0.1.0-alpha.17',
-            'version' => '0.1.0-alpha.18',
+            'from' => $fromVersion,
+            'version' => $targetVersion,
             'private-key' => $privateKeyPath,
             'output' => $bundleOutput,
             'file' => [$fixture['file'], 'VERSION'],
@@ -145,8 +167,8 @@ try {
 
     $bothOutput = $tmp . '/bundle.zip';
     [$code, $outputText] = runBuilder($root, $tmp, [
-        'from' => '0.1.0-alpha.17',
-        'version' => '0.1.0-alpha.18',
+        'from' => $fromVersion,
+        'version' => $targetVersion,
         'private-key' => $privateKeyPath,
         'output' => $bothOutput,
         'file' => ['update/index.php', 'core/UpdateService.php', 'VERSION'],
@@ -161,10 +183,10 @@ try {
     $bothZip->close();
 
     foreach ([
-        'missing from' => ['minimum' => '0.1.0-alpha.17'],
-        'from equals version' => ['from' => '0.1.0-alpha.18', 'version' => '0.1.0-alpha.18'],
-        'from is newer' => ['from' => '0.1.0-alpha.19', 'version' => '0.1.0-alpha.18'],
-        'invalid from' => ['from' => 'not-a-version', 'version' => '0.1.0-alpha.18'],
+        'missing from' => ['minimum' => $fromVersion],
+        'from equals version' => ['from' => $targetVersion, 'version' => $targetVersion],
+        'from is newer' => ['from' => $newerVersion, 'version' => $targetVersion],
+        'invalid from' => ['from' => 'not-a-version', 'version' => $targetVersion],
     ] as $label => $arguments) {
         $arguments['private-key'] = $privateKeyPath;
         $arguments['output'] = $tmp . '/' . bin2hex(random_bytes(4)) . '.zip';
