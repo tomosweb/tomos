@@ -1,5 +1,30 @@
 # 更新履歴
 
+## v0.1.0-alpha.19 - 2026-08-16
+
+### 概要
+
+- alpha.18で導入した公式オンライン更新経路を開始するための最小リリースです。
+- Tomos本体のruntime差分は `VERSION` のみです。
+- alpha.18 → alpha.19は、`from_version`を厳密に確認する通常Updateです。
+- 手動の署名済みUpdate ZIPも正式な更新経路として維持します。
+- alpha.17 → alpha.18で必要だったUpdater finalizeは、alpha.18 → alpha.19では不要です。
+
+## v0.1.0-alpha.18 - 2026-08-16
+
+### 追加
+
+- Tomos Updateから公式catalogを確認するオンライン更新機能を追加しました。
+- `UpdatePackageDownloader` と `UpdateReleaseProvider` を追加しました。
+- オンライン更新と手動Update ZIPを同じ `UpdateService` へ統合しました。
+
+### 安全性・更新方式
+
+- Update ZIPの `from_version` を現在の `VERSION` と厳密に照合します。
+- 更新は1バージョンずつ行い、自動多段更新は行いません。
+- alpha.17 → alpha.18だけは、旧Updaterから新Updaterへ移行する一回限りのlegacy bridgeを使用します。
+- `update/index.php` と `core/UpdateService.php` はUpdater bundleとしてatomicにfinalizeします。
+
 ## v0.1.0-alpha.17 - 2026-08-14
 
 ### 追加

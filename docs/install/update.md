@@ -2,6 +2,31 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
+## 現在の更新方法（alpha.18以降）
+
+通常の更新は、Tomos Postの「Tomos Update」から次の手順で行います。
+
+1. 公式のオンライン更新情報を確認します。
+2. 更新内容の確認画面で、現在のversionと更新先versionを確認します。
+3. 「更新する」を明示的に押して適用します。
+
+オンライン更新はページを開いただけではZIPを取得・適用せず、自動適用もしません。更新は常に1versionずつ行い、Update ZIPの`from_version`が現在の`VERSION`と完全一致する場合だけ受け付けます。自動多段更新、バックグラウンド更新は行いません。
+
+手動の署名済みUpdate ZIPも正式な更新経路として利用できます。オンライン更新と手動更新のどちらも、同じ署名検証、`from_version`検証、backup、rollback、apply処理を使用します。
+
+### v0.1.0-alpha.18からv0.1.0-alpha.19への更新
+
+alpha.18からalpha.19へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。`from_version`は`0.1.0-alpha.18`、更新先は`0.1.0-alpha.19`です。この更新ではUpdater finalizeは必要ありません。
+
+### v0.1.0-alpha.17からv0.1.0-alpha.18への移行
+
+alpha.17から新しいUpdaterへ移行する最初の更新だけは、一回限りのbootstrap例外です。次の2段階を必ず実行してください。
+
+1. `tomos-update-0.1.0-alpha.18.zip`を手動で適用します。
+2. 更新後に`/post/update-finalize/`を開き、「Updater更新を反映する」を実行します。
+
+Step 2を完了すると、`update/index.php`と`core/UpdateService.php`のUpdater bundleが反映されます。その後、alpha.19へ進めてください。
+
 ## v0.1.0-alpha.14への更新
 
 v0.1.0-alpha.13.1をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.14.zip` を適用できます。
