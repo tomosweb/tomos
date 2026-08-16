@@ -41,6 +41,15 @@ try {
     $html = (string) ob_get_clean();
     check(strpos($html, 'Tomos かんたんインストール') !== false, 'initial UI has title');
     check(strpos($html, 'この場所に設置') !== false && strpos($html, '新しいフォルダに設置') !== false, 'initial UI has A/B choices');
+    check(strpos($html, 'class="wrap"') !== false && strpos($html, 'class="actions"') !== false && strpos($html, 'class="hint"') !== false, 'initial UI uses Tomos layout classes');
+    check(strpos($html, '確認番号:') !== false, 'initial UI uses confirmation label');
+    check(strpos($html, '#f6f4ef') !== false && strpos($html, '#fcfbf8') !== false && strpos($html, '#d9d6cf') !== false, 'initial UI uses Tomos surface and border tokens');
+    check(strpos($html, '#9a431c') !== false && strpos($html, '#853919') !== false, 'initial UI uses Tomos primary tokens');
+    check(strpos($html, 'max-width:800px') !== false && strpos($html, '@media(max-width:560px)') !== false, 'initial UI uses Tomos layout breakpoints');
+    check(strpos($html, ':focus-visible') !== false && strpos($html, 'min-height:44px') !== false, 'initial UI preserves keyboard focus and touch target styles');
+    check(strpos($html, '#28634d') === false && strpos($html, 'max-width:640px') === false && strpos($html, 'class="card"') === false, 'initial UI does not retain old layout tokens');
+    check(strpos($html, '診断コード:') === false, 'initial UI does not retain old diagnostic label');
+    check(strpos($html, '@media(max-width:480px)') === false, 'initial UI does not retain old breakpoint');
     check(strpos($html, 'staging') === false && strpos($html, 'RSA') === false && strpos($html, 'ZipArchive') === false, 'initial UI hides internal terminology');
     check(strpos($html, expectedDiagnostic('ready')) !== false, 'initial UI uses ready diagnostic code');
     checkDiagnosticFor($ui, 'environment', 'environment');
