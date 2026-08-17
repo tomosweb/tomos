@@ -7,12 +7,14 @@ namespace Tomos;
 final class LinkAliasIndex
 {
     private string $indexFile;
+    private string $pagesIndexFile;
 
     public function __construct(string $cacheDir)
     {
-        $this->indexFile = rtrim($cacheDir, DIRECTORY_SEPARATOR)
-            . DIRECTORY_SEPARATOR . 'index'
-            . DIRECTORY_SEPARATOR . 'link-aliases.json';
+        $indexDir = rtrim($cacheDir, DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR . 'index';
+        $this->indexFile = $indexDir . DIRECTORY_SEPARATOR . 'link-aliases.json';
+        $this->pagesIndexFile = $indexDir . DIRECTORY_SEPARATOR . 'pages.json';
     }
 
     public function indexFile(): string
@@ -22,7 +24,7 @@ final class LinkAliasIndex
 
     public function exists(): bool
     {
-        return is_file($this->indexFile);
+        return is_file($this->indexFile) && $this->isConsistentWithPages();
     }
 
     public function build(array $pages): array
@@ -67,6 +69,7 @@ final class LinkAliasIndex
 
         return [
             'version' => 1,
+            'pages_fingerprint' => $this->pagesFingerprint($pages),
             'aliases' => $aliases,
             'conflicts' => $conflicts,
         ];
@@ -137,6 +140,42 @@ final class LinkAliasIndex
         $alias = trim($alias);
 
         return $alias;
+    }
+
+    private function isConsistentWithPages(): bool
+    {
+        if (!is_file($this->pagesIndexFile)) {
+            return false;
+        }
+
+        $aliasJson = @file_get_contents($this->indexFile);
+        $pagesJson = @file_get_contents($this->pagesIndexFile);
+        if (!is_string($aliasJson) || !is_string($pagesJson)) {
+            return false;
+        }
+
+        $aliasData = json_decode($aliasJson, true);
+        $pages = json_decode($pagesJson, true);
+        if (!is_array($aliasData) || !is_array($pages)) {
+            return false;
+        }
+
+        $fingerprint = $aliasData['pages_fingerprint'] ?? null;
+        if (!is_string($fingerprint) || preg_match('/\A[a-f0-9]{64}\z/', $fingerprint) !== 1) {
+            return false;
+        }
+
+        return hash_equals($fingerprint, $this->pagesFingerprint($pages));
+    }
+
+    private function pagesFingerprint(array $pages): string
+    {
+        $json = json_encode($pages, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        if (!is_string($json)) {
+            throw new \RuntimeException('Pages fingerprint could not be encoded.');
+        }
+
+        return hash('sha256', $json);
     }
 
     private function aliasesForPage(array $page): array
