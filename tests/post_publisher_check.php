@@ -62,6 +62,39 @@ try {
     assertError($result, 'ページを更新できませんでした。既存ページは変更していません。', 'safe replace failure');
     assertSame([], glob($updateRollbackDir . '/images/*') ?: [], 'safe replace failure must roll back saved images');
 
+    $replacementRollbackDir = $contentDir . '/replacement-rollback';
+    mkdir($replacementRollbackDir . '/blocked', 0777, true);
+    mkdir($replacementRollbackDir . '/images', 0777, true);
+    $managedImage = $replacementRollbackDir . '/images/tms-dddddddddddddddd.gif';
+    file_put_contents($managedImage, 'old-managed-image');
+    $oldManagedHash = hash_file('sha256', $managedImage);
+    $result = $publisher->updateExisting(
+        $replacementRollbackDir . '/blocked',
+        '# Must not replace directory\n',
+        ['tms-dddddddddddddddd.gif' => $validGif],
+        'replacement-rollback'
+    );
+    assertError($result, 'ページを更新できませんでした。既存ページは変更していません。', 'existing image replacement rollback');
+    assertSame($oldManagedHash, hash_file('sha256', $managedImage), 'Markdown failure must restore replaced managed image');
+    assertSame([], glob($managedImage . '.tomos-backup-*') ?: [], 'successful rollback must not leave image backup files');
+
+    $replacementCommitDir = $contentDir . '/replacement-commit';
+    mkdir($replacementCommitDir . '/images', 0777, true);
+    $replacementTarget = $replacementCommitDir . '/article.md';
+    file_put_contents($replacementTarget, '# Before\n');
+    $managedImage = $replacementCommitDir . '/images/tms-eeeeeeeeeeeeeeee.gif';
+    file_put_contents($managedImage, 'old-managed-image');
+    $oldManagedHash = hash_file('sha256', $managedImage);
+    $result = $publisher->updateExisting(
+        $replacementTarget,
+        '# After\n',
+        ['tms-eeeeeeeeeeeeeeee.gif' => $validGif],
+        'replacement-commit'
+    );
+    assertTrue($result->ok, 'successful Markdown update must commit image replacement');
+    assertTrue(hash_file('sha256', $managedImage) !== $oldManagedHash, 'successful update must keep new managed image');
+    assertSame([], glob($managedImage . '.tomos-backup-*') ?: [], 'successful update must remove old image backup');
+
     $warnings = $publisher->rebuildIndexes('article.md');
     assertSame([], $warnings, 'successful publication must rebuild indexes without warnings');
     assertTrue(is_file($cacheDir . '/index/pages.json'), 'metadata index must be rebuilt');

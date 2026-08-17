@@ -142,6 +142,12 @@ try {
             'metadata' => 'core/updater-pending/update-service.json',
             'target' => 'core/UpdateService.php',
         ],
+        'lock-only' => [
+            'file' => 'core/UpdateLock.php',
+            'pending' => 'core/updater-pending/update-lock.php',
+            'metadata' => 'core/updater-pending/update-lock.json',
+            'target' => 'core/UpdateLock.php',
+        ],
     ] as $label => $fixture) {
         $bundleOutput = $tmp . '/' . $label . '.zip';
         [$code, $outputText] = runBuilder($root, $tmp, [
@@ -165,22 +171,24 @@ try {
         $bundleZip->close();
     }
 
-    $bothOutput = $tmp . '/bundle.zip';
+    $allOutput = $tmp . '/bundle.zip';
     [$code, $outputText] = runBuilder($root, $tmp, [
         'from' => $fromVersion,
         'version' => $targetVersion,
         'private-key' => $privateKeyPath,
-        'output' => $bothOutput,
-        'file' => ['update/index.php', 'core/UpdateService.php', 'VERSION'],
+        'output' => $allOutput,
+        'file' => ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php', 'VERSION'],
     ]);
-    check($code === 0, 'two-target bundle build succeeds: ' . $outputText);
-    $bothZip = new ZipArchive();
-    check($bothZip->open($bothOutput) === true, 'two-target bundle opens');
-    foreach (['update-index.php', 'update-index.json', 'update-service.php', 'update-service.json'] as $entry) {
-        check($bothZip->locateName('files/core/updater-pending/' . $entry) !== false, 'two-target bundle contains ' . $entry);
+    check($code === 0, 'three-target bundle build succeeds: ' . $outputText);
+    $allZip = new ZipArchive();
+    check($allZip->open($allOutput) === true, 'three-target bundle opens');
+    foreach (['update-index.php', 'update-index.json', 'update-service.php', 'update-service.json', 'update-lock.php', 'update-lock.json'] as $entry) {
+        check($allZip->locateName('files/core/updater-pending/' . $entry) !== false, 'three-target bundle contains ' . $entry);
     }
-    check($bothZip->locateName('files/core/UpdateService.php') === false, 'two-target bundle excludes direct UpdateService');
-    $bothZip->close();
+    foreach (['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php'] as $protected) {
+        check($allZip->locateName('files/' . $protected) === false, 'three-target bundle excludes direct ' . $protected);
+    }
+    $allZip->close();
 
     foreach ([
         'missing from' => ['minimum' => $fromVersion],

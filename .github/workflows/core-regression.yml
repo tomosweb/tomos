@@ -1,0 +1,54 @@
+name: Core regression
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-regression:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: openssl, mbstring, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: PHP lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file" >/dev/null
+          done < <(find . -path './core/webauthn/vendor' -prune -o -name '*.php' -print0)
+
+      - name: Prepare WebAuthn runtime
+        run: composer install --working-dir=core/webauthn --no-dev --prefer-dist --no-interaction --classmap-authoritative
+
+      - name: Build distribution fixture
+        run: bash tools/build-distribution.sh
+
+      - name: Run regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tests/*_check.php; do
+            if [ "$test" = "tests/installer_phase5_check.php" ]; then
+              echo "Skipping $test (requires signed release-candidate fixture; covered by installer release workflow)"
+              continue
+            fi
+            echo "Running $test"
+            php "$test"
+          done
