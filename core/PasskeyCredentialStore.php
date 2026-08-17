@@ -94,13 +94,36 @@ final class PasskeyCredentialStore
 
     public function updateUsage(string $credentialId, int $signCount, ?int $lastUsedAt = null): bool
     {
-        $record = $this->load($credentialId);
-        if ($record === null || $signCount < 0) {
+        if ($signCount < 0 || !$this->validCredentialId($credentialId) || !$this->ensureDir()) {
             return false;
         }
-        $record['sign_count'] = $signCount;
-        $record['last_used_at'] = $lastUsedAt ?? time();
-        return $this->save($record);
+
+        $lock = @fopen($this->usageLockPath($credentialId), 'c');
+        if (!is_resource($lock)) {
+            return false;
+        }
+        @chmod($this->usageLockPath($credentialId), 0600);
+        if (!@flock($lock, LOCK_EX)) {
+            fclose($lock);
+            return false;
+        }
+
+        try {
+            // Read only after the per-credential lock is held. This prevents a
+            // slower concurrent authentication from overwriting a newer counter.
+            $record = $this->load($credentialId);
+            if ($record === null) {
+                return false;
+            }
+
+            $record['sign_count'] = max((int) ($record['sign_count'] ?? 0), $signCount);
+            $usedAt = $lastUsedAt ?? time();
+            $record['last_used_at'] = max((int) ($record['last_used_at'] ?? 0), $usedAt);
+            return $this->save($record);
+        } finally {
+            @flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     /** @param array<string,mixed> $credential @return array<string,mixed>|null */
@@ -165,6 +188,11 @@ final class PasskeyCredentialStore
     private function path(string $credentialId): string
     {
         return $this->dir . DIRECTORY_SEPARATOR . hash('sha256', $credentialId) . '.json';
+    }
+
+    private function usageLockPath(string $credentialId): string
+    {
+        return $this->dir . DIRECTORY_SEPARATOR . '.usage-' . hash('sha256', $credentialId) . '.lock';
     }
 
     private function validCredentialId(string $credentialId): bool
