@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/core/PasskeyChallengeStore.php';
 require_once dirname(__DIR__) . '/core/PasskeyWebAuthnClient.php';
 require_once dirname(__DIR__) . '/core/PasskeyAuthenticationService.php';
 require_once dirname(__DIR__) . '/core/PasskeyRegistrationService.php';
+require_once dirname(__DIR__) . '/core/ConfigWriteLock.php';
 require_once dirname(__DIR__) . '/core/PostPasswordHashUpdater.php';
 require_once dirname(__DIR__) . '/core/PasskeyPasswordResetService.php';
 

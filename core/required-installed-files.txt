@@ -28,6 +28,7 @@ core/PostInboxApi.php
 core/PostInboxAutoPublisher.php
 core/PostPublisher.php
 core/PostImageUploadSessionStore.php
+core/ConfigWriteLock.php
 core/SiteSettingsConfigWriter.php
 core/ThemePackageException.php
 core/ThemePackageInstaller.php

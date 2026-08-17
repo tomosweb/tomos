@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/core/ConfigWriteLock.php';
 require_once dirname(__DIR__) . '/core/PostPasswordHashUpdater.php';
 
 use Tomos\PostPasswordHashUpdater;
@@ -42,8 +43,7 @@ try {
 
     echo "post_password_hash_updater_check: OK\n";
 } finally {
-    if (is_file($configPath)) unlink($configPath);
-    if (is_dir($tmp)) rmdir($tmp);
+    removeTree($tmp);
 }
 
 function assertContains(string $needle, string $haystack, string $message): void
@@ -61,4 +61,19 @@ function assertThrows(callable $fn, string $message): void
         return;
     }
     throw new RuntimeException($message);
+}
+
+function removeTree(string $path): void
+{
+    if (!file_exists($path) && !is_link($path)) {
+        return;
+    }
+    if (is_file($path) || is_link($path)) {
+        @unlink($path);
+        return;
+    }
+    foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $item) {
+        removeTree($path . DIRECTORY_SEPARATOR . $item);
+    }
+    @rmdir($path);
 }
