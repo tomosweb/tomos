@@ -124,8 +124,13 @@ final class ImageReferenceIndex
             throw new \RuntimeException('Image reference index could not be encoded.');
         }
 
-        $tmpFile = $this->indexFile . '.tmp';
+        try {
+            $tmpFile = $this->indexFile . '.tmp-' . bin2hex(random_bytes(8));
+        } catch (\Throwable $exception) {
+            throw new \RuntimeException('Image reference index temporary file could not be prepared.');
+        }
         if (file_put_contents($tmpFile, $json . "\n", LOCK_EX) === false) {
+            @unlink($tmpFile);
             throw new \RuntimeException('Image reference index temporary file could not be written.');
         }
 
