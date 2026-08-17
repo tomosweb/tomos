@@ -193,7 +193,7 @@ code{background:#f1f1ee;border-radius:4px;padding:0.1rem 0.25rem}
     echo '<h2>テーマ</h2>';
     renderThemeChoices($themeResults, (string) ($theme['name'] ?? 'tomos-minimal'));
     echo '<p class="hint">テーマはサイトの見た目を決めるファイル一式です。通常は標準テーマ <code>tomos-minimal</code> のままで構いません。</p>';
-    echo '<p class="hint">テーマは <code>themes/</code> フォルダに追加できます。追加したテーマは検証に通った場合のみ選択できます。テーマアップロード機能は現時点ではありません。</p>';
+    echo '<p class="hint">テーマは <code>themes/</code> フォルダに追加できます。設置後はTomos Postのテーマ管理からテーマZIPを追加でき、検証に通ったテーマだけを使用できます。</p>';
 
     echo '<h2>機能</h2>';
     checkbox('検索を有効にする', 'feature_search', !empty($features['search']));
@@ -205,7 +205,7 @@ code{background:#f1f1ee;border-radius:4px;padding:0.1rem 0.25rem}
     checkbox('HTMLキャッシュを有効にする', 'feature_html_cache', array_key_exists('html_cache', $features) ? !empty($features['html_cache']) : true);
     checkbox('Tomos Postを有効にする', 'feature_post', array_key_exists('post', $features) ? !empty($features['post']) : true);
     echo '<p class="hint">HTMLキャッシュはMarkdown変換後の本文HTMLを <code>cache/html/</code> に保存し、表示を軽くします。通常は有効のままで構いません。</p>';
-    echo '<p class="hint">Tomos Postは、Tomos Writeなどで作成したMarkdownファイルの投稿、投稿の取り下げ、trash整理、テーマ切り替えを扱う最小機能です。有効にすると、setup完了時に管理用合言葉を一度だけ表示します。</p>';
+    echo '<p class="hint">Tomos Postでは、Markdownファイルの投稿、記事管理、投稿の取り下げ、trash整理、サイト設定、セキュリティ、テーマ管理を行えます。有効にすると、setup完了時に管理用合言葉を一度だけ表示します。</p>';
     echo '<p class="hint">メタデータキャッシュは有効として保存します。生HTML許可などの危険な項目はセットアップ画面では変更できません。</p>';
 
     echo '<div class="actions"><button type="submit"' . ($validThemeCount === 0 || $detectedUrl === null || $setupUrlError !== '' ? ' disabled' : '') . '>config.php を保存する</button></div>';
