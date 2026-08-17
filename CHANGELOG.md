@@ -1,5 +1,27 @@
 # 更新履歴
 
+## v0.1.0-beta.1 - 2026-08-17
+
+### 概要
+
+- alpha最終版のシステム整合性監査を完了し、最初のbeta版へ移行します。
+- 新機能追加より、投稿・設定・索引・cache・Update・Passkeyの整合性とfailure時rollbackの確認を優先しました。
+- alpha.19 → beta.1は通常の署名済みUpdate経路を使用します。
+
+### 信頼性・安全性
+
+- PostのMarkdownと管理画像のtransaction境界を揃え、途中失敗時のrollbackを強化しました。
+- metadata aliasとHTML cacheで世代不一致を検出し、不整合なderived stateを利用しないようにしました。
+- `config.php` の同時更新をlockとcompare-and-swapで保護しました。
+- Passkey credentialの利用回数更新を直列化し、`sign_count`等の後退を防止しました。
+- Update、Updater self-update、Theme、Post、Configへfailure injection回帰を追加しました。
+- derived index/cacheの固定temporary pathを整理しました。
+
+### 改善
+
+- 画像加工が安全側へフォールバックして元画像保存に成功した場合、GDやメモリ判定等の内部事情を利用者向け警告として表示しないようにしました。
+- EXIF向き補正不可など利用者に意味のある警告と、画像保存失敗のエラーは維持します。
+
 ## v0.1.0-alpha.19 - 2026-08-16
 
 ### 概要
@@ -247,7 +269,7 @@ v0.1.0-alpha.13の修正版です。
 ### 変更
 
 - Tomos Updateを今後も安定して提供するため、署名確認に使用する信頼点を更新しました。
-- 既存環境では、alpha.6への更新のみ手動更新が必要です。
+- 既存環境では、alpha.6への更新のみ手動操作が必要です。
 - alpha.6への移行後は、新しい信頼点を使ってTomos Updateを利用できます。
 
 ### ドキュメント
