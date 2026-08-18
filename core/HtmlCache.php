@@ -6,7 +6,7 @@ namespace Tomos;
 
 final class HtmlCache
 {
-    private const CACHE_VERSION = '6';
+    private const CACHE_VERSION = '7';
 
     private string $htmlDir;
     private bool $enabled;
@@ -60,6 +60,12 @@ final class HtmlCache
             return false;
         }
 
+        $expectedHtmlHash = (string) ($meta['html_sha256'] ?? '');
+        $actualHtmlHash = @hash_file('sha256', $htmlPath);
+        if ($expectedHtmlHash === '' || !is_string($actualHtmlHash) || !hash_equals($expectedHtmlHash, $actualHtmlHash)) {
+            return false;
+        }
+
         return ($meta['source_path'] ?? '') === $sourcePath
             && (int) ($meta['source_mtime'] ?? -1) === (int) $mtime
             && (int) ($meta['source_size'] ?? -1) === (int) $size
@@ -94,13 +100,19 @@ final class HtmlCache
 
         $htmlPath = $this->getPath($sourcePath);
         $metaPath = $this->getMetaPath($sourcePath);
-        $htmlTmp = $htmlPath . '.tmp';
-        $metaTmp = $metaPath . '.tmp';
+        try {
+            $suffix = bin2hex(random_bytes(8));
+        } catch (\Throwable $exception) {
+            return false;
+        }
+        $htmlTmp = $htmlPath . '.tmp-' . $suffix;
+        $metaTmp = $metaPath . '.tmp-' . $suffix;
         $meta = [
             'source_path' => $sourcePath,
             'source_mtime' => (int) $mtime,
             'source_size' => (int) $size,
             'cache_version' => self::CACHE_VERSION,
+            'html_sha256' => hash('sha256', $html),
             'created_at' => date('c'),
         ];
         $metaJson = json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

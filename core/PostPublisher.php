@@ -67,11 +67,16 @@ final class PostPublisher
         }
         $saveError = $this->writeNewFile($targetPath, $content);
         if ($saveError !== '') {
-            $this->removeSavedImages($imageSave['created']);
-            return new PostPublishResult(false, [$saveError]);
+            $rollbackOk = $this->rollbackImageChanges($imageSave['created'], $imageSave['replaced']);
+            $errors = [$saveError];
+            if (!$rollbackOk) {
+                $errors[] = '画像の自動復元を完了できませんでした。管理者による確認が必要です。';
+            }
+            return new PostPublishResult(false, $errors);
         }
 
-        return new PostPublishResult(true, [], $imageSave['warnings']);
+        $warnings = array_merge($imageSave['warnings'], $this->commitImageChanges($imageSave['replaced']));
+        return new PostPublishResult(true, [], array_values(array_unique($warnings)));
     }
 
     /**
@@ -88,11 +93,16 @@ final class PostPublisher
 
         $replaceError = $this->replaceFileSafely($targetPath, $content);
         if ($replaceError !== '') {
-            $this->removeSavedImages($imageSave['created']);
-            return new PostPublishResult(false, [$replaceError]);
+            $rollbackOk = $this->rollbackImageChanges($imageSave['created'], $imageSave['replaced']);
+            $errors = [$replaceError];
+            if (!$rollbackOk) {
+                $errors[] = '画像の自動復元を完了できませんでした。管理者による確認が必要です。';
+            }
+            return new PostPublishResult(false, $errors);
         }
 
-        return new PostPublishResult(true, [], $imageSave['warnings']);
+        $warnings = array_merge($imageSave['warnings'], $this->commitImageChanges($imageSave['replaced']));
+        return new PostPublishResult(true, [], array_values(array_unique($warnings)));
     }
 
     /**
@@ -137,17 +147,17 @@ final class PostPublisher
 
     /**
      * @param array<string,string> $images
-     * @return array{error:string,created:string[],warnings:string[]}
+     * @return array{error:string,created:string[],replaced:array<string,string>,warnings:string[]}
      */
     private function saveImages(array $images, string $folder): array
     {
         if ($images === []) {
-            return ['error' => '', 'created' => [], 'warnings' => []];
+            return ['error' => '', 'created' => [], 'replaced' => [], 'warnings' => []];
         }
 
         $contentBase = realpath($this->contentDir);
         if ($contentBase === false || !is_dir($contentBase)) {
-            return ['error' => 'content/ フォルダが見つかりません。', 'created' => [], 'warnings' => []];
+            return ['error' => 'content/ フォルダが見つかりません。', 'created' => [], 'replaced' => [], 'warnings' => []];
         }
 
         $imageDir = $contentBase;
@@ -156,29 +166,38 @@ final class PostPublisher
         }
         $imageDir .= DIRECTORY_SEPARATOR . 'images';
         if (!is_dir($imageDir) && !@mkdir($imageDir, 0775, true) && !is_dir($imageDir)) {
-            return ['error' => '画像保存先フォルダを作成できませんでした。', 'created' => [], 'warnings' => []];
+            return ['error' => '画像保存先フォルダを作成できませんでした。', 'created' => [], 'replaced' => [], 'warnings' => []];
         }
 
         $imageDirReal = realpath($imageDir);
         if ($imageDirReal === false || !Security::isPathInside($imageDirReal, $contentBase)) {
-            return ['error' => '画像保存先を確認できませんでした。', 'created' => [], 'warnings' => []];
+            return ['error' => '画像保存先を確認できませんでした。', 'created' => [], 'replaced' => [], 'warnings' => []];
         }
 
         $created = [];
+        $replaced = [];
         $warnings = [];
         $processor = new ImageProcessor();
         foreach ($images as $fileName => $sourcePath) {
             $fileName = strtolower((string) $fileName);
             if (preg_match('/\Atms-[a-f0-9]{16}\.(jpg|jpeg|png|gif|webp)\z/', $fileName) !== 1 || !is_file($sourcePath)) {
-                $this->removeSavedImages($created);
-                return ['error' => '選択された画像を確認できませんでした。', 'created' => [], 'warnings' => $warnings];
+                $rollbackOk = $this->rollbackImageChanges($created, $replaced);
+                $error = '選択された画像を確認できませんでした。';
+                if (!$rollbackOk) {
+                    $error .= ' 画像の自動復元を完了できなかったため、管理者による確認が必要です。';
+                }
+                return ['error' => $error, 'created' => [], 'replaced' => [], 'warnings' => $warnings];
             }
 
             $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
             $processed = $processor->process($sourcePath, $extension, $imageDirReal);
             if (!$processed->ok) {
-                $this->removeSavedImages($created);
-                return ['error' => $processed->error, 'created' => [], 'warnings' => $warnings];
+                $rollbackOk = $this->rollbackImageChanges($created, $replaced);
+                $error = $processed->error;
+                if (!$rollbackOk) {
+                    $error .= ' 画像の自動復元を完了できなかったため、管理者による確認が必要です。';
+                }
+                return ['error' => $error, 'created' => [], 'replaced' => [], 'warnings' => $warnings];
             }
             $warnings = array_merge($warnings, $processed->warnings);
 
@@ -188,14 +207,27 @@ final class PostPublisher
                 $sourceHash = hash_file('sha256', $sourcePath);
                 $processedHash = hash_file('sha256', $processed->path);
                 if ($targetHash !== $sourceHash && $targetHash !== $processedHash) {
-                    // A managed image may change when image-processing behavior is corrected.
-                    if (is_string($sourceHash) && is_string($processedHash)
-                        && $this->replaceExistingImage($processed->path, $targetPath)) {
+                    if (!is_string($sourceHash) || !is_string($processedHash)) {
+                        @unlink($processed->path);
+                        $rollbackOk = $this->rollbackImageChanges($created, $replaced);
+                        $error = '画像の内容を確認できませんでした。';
+                        if (!$rollbackOk) {
+                            $error .= ' 画像の自動復元を完了できなかったため、管理者による確認が必要です。';
+                        }
+                        return ['error' => $error, 'created' => [], 'replaced' => [], 'warnings' => $warnings];
+                    }
+                    $replacement = $this->replaceExistingImage($processed->path, $targetPath);
+                    if (!empty($replacement['ok'])) {
+                        $replaced[$targetPath] = (string) $replacement['backup'];
                         continue;
                     }
                     @unlink($processed->path);
-                    $this->removeSavedImages($created);
-                    return ['error' => '同じ名前の画像がすでにあります。別の画像を選び直してください。', 'created' => [], 'warnings' => $warnings];
+                    $rollbackOk = $this->rollbackImageChanges($created, $replaced);
+                    $error = '同じ名前の画像がすでにあります。別の画像を選び直してください。';
+                    if (!empty($replacement['rollback_failed']) || !$rollbackOk) {
+                        $error .= ' 画像の自動復元を完了できなかったため、管理者による確認が必要です。';
+                    }
+                    return ['error' => $error, 'created' => [], 'replaced' => [], 'warnings' => $warnings];
                 }
                 @unlink($processed->path);
                 continue;
@@ -203,42 +235,83 @@ final class PostPublisher
 
             if (!@rename($processed->path, $targetPath) && !@copy($processed->path, $targetPath)) {
                 @unlink($processed->path);
-                $this->removeSavedImages($created);
-                return ['error' => '画像を保存できませんでした。', 'created' => [], 'warnings' => $warnings];
+                $rollbackOk = $this->rollbackImageChanges($created, $replaced);
+                $error = '画像を保存できませんでした。';
+                if (!$rollbackOk) {
+                    $error .= ' 画像の自動復元を完了できなかったため、管理者による確認が必要です。';
+                }
+                return ['error' => $error, 'created' => [], 'replaced' => [], 'warnings' => $warnings];
             }
             @unlink($processed->path);
             $created[] = $targetPath;
         }
 
-        return ['error' => '', 'created' => $created, 'warnings' => array_values(array_unique($warnings))];
+        return [
+            'error' => '',
+            'created' => $created,
+            'replaced' => $replaced,
+            'warnings' => array_values(array_unique($warnings)),
+        ];
     }
 
-    private function replaceExistingImage(string $sourcePath, string $targetPath): bool
+    /** @return array{ok:bool,backup:string,rollback_failed:bool} */
+    private function replaceExistingImage(string $sourcePath, string $targetPath): array
     {
         try {
             $backupPath = $targetPath . '.tomos-backup-' . bin2hex(random_bytes(8));
         } catch (\Throwable $exception) {
-            return false;
+            return ['ok' => false, 'backup' => '', 'rollback_failed' => false];
         }
 
         if (!@rename($targetPath, $backupPath)) {
-            return false;
+            return ['ok' => false, 'backup' => '', 'rollback_failed' => false];
         }
         if (@rename($sourcePath, $targetPath)) {
-            @unlink($backupPath);
-            return true;
+            return ['ok' => true, 'backup' => $backupPath, 'rollback_failed' => false];
         }
 
-        @rename($backupPath, $targetPath);
-        return false;
+        $restored = @rename($backupPath, $targetPath);
+        return ['ok' => false, 'backup' => $backupPath, 'rollback_failed' => !$restored];
     }
 
-    /** @param string[] $paths */
-    private function removeSavedImages(array $paths): void
+    /**
+     * @param string[] $created
+     * @param array<string,string> $replaced map target path to backup path
+     */
+    private function rollbackImageChanges(array $created, array $replaced): bool
     {
-        foreach ($paths as $path) {
-            is_file($path) && @unlink($path);
+        $ok = true;
+        foreach (array_reverse($created) as $path) {
+            if (is_file($path) && !@unlink($path)) {
+                $ok = false;
+            }
         }
+
+        foreach (array_reverse($replaced, true) as $target => $backup) {
+            if (is_file($target) && !@unlink($target)) {
+                $ok = false;
+                continue;
+            }
+            if (!is_file($backup) || !@rename($backup, $target)) {
+                $ok = false;
+            }
+        }
+        return $ok;
+    }
+
+    /**
+     * @param array<string,string> $replaced map target path to backup path
+     * @return string[]
+     */
+    private function commitImageChanges(array $replaced): array
+    {
+        $warnings = [];
+        foreach ($replaced as $backup) {
+            if (is_file($backup) && !@unlink($backup)) {
+                $warnings[] = '画像更新は完了しましたが、旧画像の一時バックアップを削除できませんでした。';
+            }
+        }
+        return $warnings;
     }
 
     private function writeNewFile(string $targetPath, string $content): string

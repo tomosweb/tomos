@@ -2,7 +2,7 @@
 
 - Tomos Postの画像は最大5点、1点10MBまでです。公開先の受信条件に合わせて分割送信しますが、WebサーバーやプロキシなどPHPから把握できない制限で送信が失敗する場合はあります。その場合も未完了のMarkdownは公開しません。
 
-Tomos is an alpha release. It is usable for small
+Tomos is currently pre-release software. It is usable for small
 Markdown-based publishing, but it is not a full CMS or general-purpose file
 manager.
 

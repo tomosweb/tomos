@@ -9,10 +9,12 @@ use RuntimeException;
 final class PostPasswordHashUpdater
 {
     private string $configPath;
+    private string $rootDir;
 
     public function __construct(string $rootDir)
     {
-        $this->configPath = rtrim($rootDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'config.php';
+        $this->rootDir = rtrim($rootDir, DIRECTORY_SEPARATOR);
+        $this->configPath = $this->rootDir . DIRECTORY_SEPARATOR . 'config.php';
     }
 
     public function update(string $passwordHash): void
@@ -21,6 +23,19 @@ final class PostPasswordHashUpdater
             throw new RuntimeException('管理用合言葉のハッシュを作成できませんでした。');
         }
 
+        try {
+            ConfigWriteLock::run($this->rootDir, function () use ($passwordHash): void {
+                $this->updateUnlocked($passwordHash);
+            });
+        } catch (RuntimeException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            throw new RuntimeException('config.php を更新できませんでした。');
+        }
+    }
+
+    private function updateUnlocked(string $passwordHash): void
+    {
         $source = @file_get_contents($this->configPath);
         if (!is_string($source) || $source === '') {
             throw new RuntimeException('config.php を読み込めませんでした。');

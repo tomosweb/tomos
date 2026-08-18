@@ -68,8 +68,9 @@ final class MetadataIndex
             throw new \RuntimeException('Metadata index could not be encoded.');
         }
 
-        $tmpFile = $this->indexFile . '.tmp';
+        $tmpFile = $this->randomTemporaryPath($this->indexFile);
         if (file_put_contents($tmpFile, $json . "\n", LOCK_EX) === false) {
+            @unlink($tmpFile);
             throw new \RuntimeException('Metadata index temporary file could not be written.');
         }
 
@@ -301,14 +302,24 @@ final class MetadataIndex
             throw new \RuntimeException('Metadata index could not be encoded.');
         }
 
-        $tmpFile = $file . '.tmp';
+        $tmpFile = $this->randomTemporaryPath($file);
         if (file_put_contents($tmpFile, $json . "\n", LOCK_EX) === false) {
+            @unlink($tmpFile);
             throw new \RuntimeException('Metadata index temporary file could not be written.');
         }
 
         if (!rename($tmpFile, $file)) {
             @unlink($tmpFile);
             throw new \RuntimeException('Metadata index could not be saved.');
+        }
+    }
+
+    private function randomTemporaryPath(string $file): string
+    {
+        try {
+            return $file . '.tmp-' . bin2hex(random_bytes(8));
+        } catch (\Throwable $exception) {
+            throw new \RuntimeException('Metadata index temporary file could not be prepared.');
         }
     }
 

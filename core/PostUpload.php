@@ -584,7 +584,7 @@ final class PostUpload
             $contentPath,
             $internalUrl,
             $absoluteUrl,
-            (string) ($record->meta['original_file_name'] ?? ''),
+            $decision->originalFileName,
             $safeFileName,
             false,
             '',

@@ -6,6 +6,9 @@ namespace Tomos;
 
 final class ConfigWriter
 {
+    /** @var array<string,string> */
+    private static array $expectedSourceFingerprints = [];
+
     public static function build(array $input, array $currentConfig, string $rootDir): array
     {
         [$siteSettings, $errors] = self::validateSiteSettings($input);
@@ -139,21 +142,32 @@ final class ConfigWriter
         ], $errors];
     }
 
+    public static function expectUnchangedSource(array $currentConfig, array $newConfig): array
+    {
+        self::$expectedSourceFingerprints[self::fingerprint($newConfig)] = self::fingerprint($currentConfig);
+        return $newConfig;
+    }
+
     public static function write(string $configPath, array $config, string $rootDir): bool
     {
-        $content = self::toPhp($config, $rootDir);
-        $tmpPath = $configPath . '.tmp';
+        $newFingerprint = self::fingerprint($config);
+        $expectedFingerprint = self::$expectedSourceFingerprints[$newFingerprint] ?? null;
+        unset(self::$expectedSourceFingerprints[$newFingerprint]);
 
-        if (@file_put_contents($tmpPath, $content, LOCK_EX) === false) {
+        try {
+            return ConfigWriteLock::run($rootDir, static function () use ($configPath, $config, $rootDir, $expectedFingerprint): bool {
+                if (is_string($expectedFingerprint)) {
+                    $latest = self::loadCurrent($configPath);
+                    if ($latest === null || !hash_equals($expectedFingerprint, self::fingerprint($latest))) {
+                        return false;
+                    }
+                }
+
+                return self::writeUnlocked($configPath, $config, $rootDir);
+            });
+        } catch (\Throwable $exception) {
             return false;
         }
-
-        if (!@rename($tmpPath, $configPath)) {
-            @unlink($tmpPath);
-            return false;
-        }
-
-        return true;
     }
 
     public static function toPhp(array $config, string $rootDir): string
@@ -190,6 +204,53 @@ final class ConfigWriter
         }
 
         return "<?php\n\nreturn " . $export . ";\n";
+    }
+
+    private static function writeUnlocked(string $configPath, array $config, string $rootDir): bool
+    {
+        $content = self::toPhp($config, $rootDir);
+        try {
+            $tmpPath = $configPath . '.tmp-' . bin2hex(random_bytes(8));
+        } catch (\Throwable $exception) {
+            return false;
+        }
+
+        if (@file_put_contents($tmpPath, $content, LOCK_EX) === false) {
+            @unlink($tmpPath);
+            return false;
+        }
+
+        $mode = @fileperms($configPath);
+        if (is_int($mode)) {
+            @chmod($tmpPath, $mode & 0777);
+        }
+
+        if (!@rename($tmpPath, $configPath)) {
+            @unlink($tmpPath);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static function loadCurrent(string $configPath): ?array
+    {
+        if (!is_file($configPath)) {
+            return null;
+        }
+
+        try {
+            $loaded = require $configPath;
+        } catch (\Throwable $exception) {
+            return null;
+        }
+
+        return is_array($loaded) ? $loaded : null;
+    }
+
+    private static function fingerprint(array $config): string
+    {
+        return hash('sha256', serialize($config));
     }
 
     private static function cleanText(string $value, int $limit): string
@@ -234,5 +295,4 @@ final class ConfigWriter
     {
         return preg_match('#^/(?:home|var|usr|etc|opt|srv|private|Users)(?:/|$)#', $value) === 1;
     }
-
 }

@@ -152,7 +152,29 @@ final class PostDrafts
                 $this->frontMatterParser,
                 true
             );
-            return array_values(array_filter($index->build(), static fn (array $entry): bool => !empty($entry['draft'])));
+            $entries = $index->loadFreshManagement();
+            if ($entries === null) {
+                $entries = $index->rebuildManagement();
+            }
+
+            $drafts = [];
+            foreach ($entries as $entry) {
+                if (!is_array($entry) || empty($entry['draft'])) {
+                    continue;
+                }
+                $path = (string) ($entry['path'] ?? '');
+                $fullPath = $this->safeContentPath($path);
+                if ($fullPath === null || !is_readable($fullPath)) {
+                    continue;
+                }
+                $content = @file_get_contents($fullPath);
+                if (!is_string($content) || !$this->isDraft($content, $path)) {
+                    continue;
+                }
+                $drafts[] = $entry;
+            }
+
+            return $drafts;
         } catch (\Throwable $exception) {
             return [];
         }

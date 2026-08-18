@@ -40,7 +40,7 @@ final class SiteSettingsConfigWriter
         $newConfig['features']['sitemap'] = $sitemapEnabled;
         $newConfig['feed']['path_prefix'] = $settings['rss_path_prefix'];
 
-        return [$newConfig, []];
+        return [ConfigWriter::expectUnchangedSource($currentConfig, $newConfig), []];
     }
 
     private static function stringInputErrors(array $input): array

@@ -14,6 +14,14 @@ Tomosをすでに設置している場合の、データを保持した更新手
 
 手動の署名済みUpdate ZIPも正式な更新経路として利用できます。オンライン更新と手動更新のどちらも、同じ署名検証、`from_version`検証、backup、rollback、apply処理を使用します。
 
+### v0.1.0-alpha.19からv0.1.0-beta.1への更新
+
+alpha.19からbeta.1へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。`from_version`は`0.1.0-alpha.19`、更新先は`0.1.0-beta.1`です。
+
+この更新ではUpdater finalizeは必要ありません。更新完了後、「現在のバージョン」が`0.1.0-beta.1`になっていることを確認してください。
+
+更新前に、少なくとも`config.php`、`content/`、利用中テーマ、`storage/security/passkeys/`をバックアップしてください。
+
 ### v0.1.0-alpha.18からv0.1.0-alpha.19への更新
 
 alpha.18からalpha.19へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。`from_version`は`0.1.0-alpha.18`、更新先は`0.1.0-alpha.19`です。この更新ではUpdater finalizeは必要ありません。

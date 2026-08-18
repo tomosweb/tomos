@@ -2,7 +2,7 @@
 
 Tomosのドキュメントは、目的別に分けています。
 
-現在のバージョン: `v0.1.0-alpha.8`
+現在のバージョン: `v0.1.0-beta.1`
 
 ## 最短ルート
 
@@ -33,7 +33,6 @@ Tomos Postには、合言葉の連続失敗をIP単位で一時停止する軽�
 - `install/setup.md`: setup画面の説明
 - `install/troubleshooting.md`: よくあるトラブル
 - `install/hosting.md`: ホストサービスの注意
-- `install/custom-domain.md`: 既存Tomosを独自ドメイン直下で公開する方法
 
 ## 機能を知りたいとき
 
@@ -48,7 +47,14 @@ Tomos Postには、合言葉の連続失敗をIP単位で一時停止する軽�
 
 ## テーマを扱うとき
 
-Tomosには標準テーマ `tomos-minimal` に加えて、文章中心のサンプルテーマ `tomos-journal` とダークテーマ `tomos-dark` が同梱されています。
+Tomosには次の6テーマを同梱しています。
+
+- `tomos-minimal`
+- `tomos-journal`
+- `tomos-dark`
+- `tomos-note`
+- `tomos-blog`
+- `tomos-90s`
 
 設置後のテーマ切替は、`/post/settings/`のサイト設定画面から移動できるテーマ変更専用画面で行えます。投稿、取り下げ、trash整理、テーマ切り替えには共通の管理用合言葉を使います。
 

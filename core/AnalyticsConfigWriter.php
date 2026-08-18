@@ -19,6 +19,6 @@ final class AnalyticsConfigWriter
         }
         $newConfig['analytics']['ga4_measurement_id'] = $normalized;
 
-        return [$newConfig, []];
+        return [ConfigWriter::expectUnchangedSource($currentConfig, $newConfig), []];
     }
 }

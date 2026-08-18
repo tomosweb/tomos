@@ -20,6 +20,11 @@ final class UpdaterSelfUpdate
             'metadata_file' => 'update-service.json',
             'directory' => 'core',
         ],
+        'core/UpdateLock.php' => [
+            'pending_file' => 'update-lock.php',
+            'metadata_file' => 'update-lock.json',
+            'directory' => 'core',
+        ],
     ];
 
     private $rootDir;
@@ -77,7 +82,6 @@ final class UpdaterSelfUpdate
                 throw new RuntimeException('tomos_update_locked');
             }
 
-            // Validate every pending/current target before backup or replacement.
             $stage = 'pending_validation';
             $bundle = $this->collectPendingBundle();
             $stage = 'current_files';
@@ -105,14 +109,13 @@ final class UpdaterSelfUpdate
                 $temporary = $temporaryPaths[$target];
                 $this->assertPhpAndHash($temporary, $entry['expected_sha256']);
                 if (!@chmod($temporary, $entry['permissions'])
-                    || (fileperms($temporary) & 0777) !== $entry['permissions']
+                    || $this->filePermissions($temporary) !== $entry['permissions']
                 ) {
                     throw new RuntimeException('temporary_permissions');
                 }
                 $this->assertPhpAndHash($temporary, $entry['expected_sha256']);
             }
 
-            // All temporary files are ready before the first target is replaced.
             $stage = 'replace';
             foreach ($bundle as $target => &$entry) {
                 if (!$entry['changed']) {
@@ -136,7 +139,7 @@ final class UpdaterSelfUpdate
                     ? $entry['expected_sha256']
                     : $entry['old_sha256'];
                 $this->assertPhpAndHash($entry['target_path'], $installedHash);
-                if ((fileperms($entry['target_path']) & 0777) !== $entry['permissions']) {
+                if ($this->filePermissions($entry['target_path']) !== $entry['permissions']) {
                     throw new RuntimeException('post_replace_permissions');
                 }
                 $entry['installed_sha256'] = $this->hashFile($entry['target_path']);
@@ -237,7 +240,7 @@ final class UpdaterSelfUpdate
             $targetDir = dirname($targetPath);
             $this->assertSafeTarget($target, $targetPath, $targetDir, $definition['directory']);
             $oldHash = $this->hashFile($targetPath);
-            $permissions = fileperms($targetPath) & 0777;
+            $permissions = $this->filePermissions($targetPath);
             $bundle[$target]['target_path'] = $targetPath;
             $bundle[$target]['old_sha256'] = $oldHash;
             $bundle[$target]['permissions'] = $permissions;
@@ -330,7 +333,7 @@ final class UpdaterSelfUpdate
                 || !@copy($entry['target_path'], $backupPath)
                 || !@chmod($backupPath, $entry['permissions'])
                 || !hash_equals($entry['old_sha256'], $this->hashFile($backupPath))
-                || (fileperms($backupPath) & 0777) !== $entry['permissions']
+                || $this->filePermissions($backupPath) !== $entry['permissions']
             ) {
                 throw new RuntimeException('backup_file');
             }
@@ -355,7 +358,7 @@ final class UpdaterSelfUpdate
                 $this->copyToExclusiveTemporary($backupPath, $restorePath);
                 $this->assertPhpAndHash($restorePath, $entry['old_sha256']);
                 if (!@chmod($restorePath, $entry['permissions'])
-                    || (fileperms($restorePath) & 0777) !== $entry['permissions']
+                    || $this->filePermissions($restorePath) !== $entry['permissions']
                 ) {
                     return false;
                 }
@@ -369,7 +372,7 @@ final class UpdaterSelfUpdate
             }
             foreach ($bundle as $entry) {
                 $this->assertPhpAndHash($entry['target_path'], $entry['old_sha256']);
-                if ((fileperms($entry['target_path']) & 0777) !== $entry['permissions']) {
+                if ($this->filePermissions($entry['target_path']) !== $entry['permissions']) {
                     return false;
                 }
             }
@@ -452,6 +455,16 @@ final class UpdaterSelfUpdate
             throw new RuntimeException('hash');
         }
         return strtolower($hash);
+    }
+
+    private function filePermissions(string $path): int
+    {
+        clearstatcache(true, $path);
+        $permissions = @fileperms($path);
+        if (!is_int($permissions)) {
+            throw new RuntimeException('permissions');
+        }
+        return $permissions & 0777;
     }
 
     private function backupPath(string $backupDir, string $target): string

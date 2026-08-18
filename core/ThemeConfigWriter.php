@@ -31,7 +31,7 @@ final class ThemeConfigWriter
 
         $newConfig['theme']['name'] = $themeName;
 
-        return [$newConfig, []];
+        return [ConfigWriter::expectUnchangedSource($currentConfig, $newConfig), []];
     }
 
     private static function normalizeThemeName(string $themeName): string

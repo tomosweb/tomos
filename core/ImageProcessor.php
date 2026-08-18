@@ -75,18 +75,22 @@ final class ImageProcessor
         }
 
         if ($this->forceOriginal || !$this->canProcessWithGd($extension)) {
+            if (!$this->forceOriginal) {
+                $this->logProcessingFallback('GD image processing is unavailable; original image was preserved.');
+            }
             return $this->copyOriginalWithWarnings(
                 $sourcePath,
                 $tempPath,
-                array_merge(['画像加工機能が使えないため、画像を元のまま保存しました。'], $orientationWarnings)
+                $orientationWarnings
             );
         }
 
         if (!$this->hasEnoughMemoryForGd($info, $extension, $sourcePath)) {
+            $this->logProcessingFallback('GD memory safety check rejected processing; original image was preserved.');
             return $this->copyOriginalWithWarnings(
                 $sourcePath,
                 $tempPath,
-                array_merge(['サーバーの画像加工用メモリが不足する可能性があるため、画像を元のまま保存しました。'], $orientationWarnings)
+                $orientationWarnings
             );
         }
 
@@ -94,10 +98,11 @@ final class ImageProcessor
             return $this->processWithGd($sourcePath, $tempPath, $extension, $info);
         } catch (\Throwable $exception) {
             @unlink($tempPath);
+            $this->logProcessingFallback('GD image processing failed; original image was preserved.');
             return $this->copyOriginalWithWarnings(
                 $sourcePath,
                 $tempPath,
-                array_merge(['画像を加工できなかったため、画像を元のまま保存しました。'], $orientationWarnings)
+                $orientationWarnings
             );
         }
     }
@@ -275,6 +280,11 @@ final class ImageProcessor
     }
 
     private function logExif(string $message): void
+    {
+        error_log('[Tomos ImageProcessor] ' . $message);
+    }
+
+    private function logProcessingFallback(string $message): void
     {
         error_log('[Tomos ImageProcessor] ' . $message);
     }

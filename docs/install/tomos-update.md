@@ -1,140 +1,103 @@
 # Tomos Update
 
-Tomos Updateは、公式オンライン更新と手動の署名済みUpdate ZIP更新を提供します。どちらも確認画面を経て既存の署名検証・backup・rollback処理へ合流します。手動ZIP更新は恒久的な正式ルートとして残ります。
+Tomos Updateは、公式オンライン更新と手動の署名済みUpdate ZIP更新を提供します。どちらも確認画面を経て、同じ署名検証、`from_version`検証、backup、rollback、apply処理を使用します。
 
-## ブラウザ更新と手動ZIP更新
+手動ZIP更新は恒久的な正式ルートとして残ります。オンライン更新を利用できない場合も、正式な署名済みUpdate ZIPを使った更新経路を維持します。
 
-`/update/`を開いただけではUpdate ZIPを取得・適用しません。画面を開いたときは公式カタログの次の1ステップだけを確認し、オンライン更新の「更新内容を確認」を押した後に、認証済みのPOSTでZIPを取得・検証します。取得後も確認画面で停止し、「更新する」を押した場合だけ適用します。
+## 現在の更新方法
 
-オンライン更新は常に1バージョンずつ進みます。オンライン更新情報を取得できない場合も、手動の署名済みUpdate ZIPは利用できます。現在利用できるオンライン更新がない場合の表示は、カタログの掲載状況だけでは最新版と断定できないため、「現在利用できるオンライン更新はありません」とします。
+通常の更新はTomos Postの「Tomos Update」から行います。
 
-オンライン更新と手動ZIP更新のどちらも、最終的には`manifest.sig`と`update/public-key.pem`による既存の署名検証を通過する必要があります。自動更新、バックグラウンド更新、一括多段更新は行いません。
+1. Tomos Postへ認証します。
+2. Tomos Update画面（`/update/`）を開きます。
+3. 公式オンライン更新を利用する場合は「更新内容を確認」を押します。手動更新の場合は正式な署名済みUpdate ZIPを選びます。
+4. 現在のversion、更新先version、対象ファイルを確認します。
+5. 「更新する」を明示的に押した場合だけ更新を適用します。
+6. 更新完了後、表示されるversionと公開ページを確認します。
+
+`/update/`を開いただけではUpdate ZIPを適用しません。オンライン更新でも、ZIPの取得・検証と実際の適用は明示的な操作を分けています。
+
+自動更新、バックグラウンド更新、一括多段更新は行いません。更新は常に1versionずつ進みます。
 
 ## 更新元バージョンの必須一致
 
-Update ZIPの署名済み`manifest.json`には、適用できる唯一の現在版を示す`from_version`と、更新後の`version`が含まれます。オンライン更新・手動ZIP更新を問わず、`from_version`が現在の`VERSION`と完全一致しないZIPは、署名が正しくても確認・適用できません。Tomos Updateは常に次の1バージョンへの逐次更新だけを受け付けます。
+Update ZIPの署名済み`manifest.json`には、適用できる唯一の現在版を示す`from_version`と、更新後の`version`が含まれます。
 
-旧形式の`minimum_version`だけを持つUpdate ZIPは後方互換のfallbackを行わず拒否します。既存のalpha.17以前の環境で旧形式ZIPを使用していた場合は、旧形式ZIPをそのまま再利用せず、新形式の`from_version`を含む正式なUpdate ZIP、または管理者が案内する手動移行手順を使用してください。次のリリース以降のUpdate ZIPは必ず新manifest形式で生成します。
+オンライン更新・手動ZIP更新を問わず、`from_version`が現在の`VERSION`と完全一致しないZIPは、署名が正しくても確認・適用できません。
 
-alpha.17から新Updaterへ移行する最初のalpha.18だけは、旧Updater互換の`minimum_version`を`from_version`と同じ値で追加したlegacy bridge ZIPを使用できます。bridgeは1回限りの移行用途であり、段飛ばしを許可しません。alpha.18以降の通常Update ZIPには`minimum_version`を含めません。
+通常Update ZIPでは旧形式の`minimum_version`を使用しません。
 
-## v0.1.0-alpha.13への更新
+## v0.1.0-alpha.19からv0.1.0-beta.1への更新
 
-すでにv0.1.0-alpha.12をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.13.zip` を適用できます。
-
-旧alpha.13 Update ZIPの説明にあるminimum versionは旧manifest形式の情報です。現在のTomos Updateでは、`0.1.0-alpha.12`から`0.1.0-alpha.13`へ更新する場合も、新形式の`from_version`を持つ署名済みZIPを使用してください。
-
-### v0.1.0-alpha.12からv0.1.0-alpha.13への更新
-
-1. 既存サイトの `config.php`、`content/`、`themes/` をバックアップします。`storage/security/passkeys/` が存在する場合は、このディレクトリもバックアップします。
-2. Tomos Postの「Tomos Update」を開きます。
-3. `tomos-update-0.1.0-alpha.13.zip` を選び、「更新内容を確認」を押します。
-4. 現在のバージョンが `0.1.0-alpha.12`、更新後のバージョンが `0.1.0-alpha.13` と表示されていることを確認します。
-5. 更新対象を確認し、更新を実行します。
-6. 更新完了後、「現在のバージョン」が `0.1.0-alpha.13` と表示されていることを確認します。
-7. Tomos Postに「セキュリティ」への導線が追加されていることを確認します。
-
-alpha.13では、Tomos PostにWebAuthnパスキー認証、複数パスキー管理、パスキーによる管理用合言葉再設定、パスキー未登録時の復旧、セキュリティ画面を追加します。
-
-Tomos本体はPHP 7.4以上で利用できます。パスキー機能を利用する場合は、PHP 8.0以上、OpenSSL、mbstring、HTTPS、WebAuthn対応ブラウザが必要です。条件を満たさない場合も、従来の管理用合言葉認証は利用できます。
-
-WebAuthn runtimeはUpdate ZIPへ同梱されています。利用者がComposerをインストールしたり、サーバー上でComposerを実行したりする必要はありません。
-
-`storage/security/passkeys/` はTomos Updateの更新対象ではありません。登録済みパスキーのcredentialはUpdateによって上書きまたは削除されません。
-
-このUpdateでは、`config.php`、`content/`、利用者が追加したテーマも上書きまたは削除しません。
-
-## v0.1.0-alpha.12への更新
-
-すでにv0.1.0-alpha.11をご利用の場合は、Tomos Postの「Tomos Update」から、署名済みの `tomos-update-0.1.0-alpha.12.zip` を適用できます。
-
-### v0.1.0-alpha.11からv0.1.0-alpha.12への更新
-
-1. 既存サイトの `config.php`、`content/`、`themes/` をバックアップします。
-2. Tomos Postの「Tomos Update」を開きます。
-3. `tomos-update-0.1.0-alpha.12.zip` を選び、「更新内容を確認」を押します。
-4. 現在のバージョンが `0.1.0-alpha.11`、更新後のバージョンが `0.1.0-alpha.12` と表示されていることを確認します。
-5. 更新対象を確認し、更新を実行します。
-6. 更新完了後、「現在のバージョン」が `0.1.0-alpha.12` と表示されていることを確認します。
-7. Tomos Postのテーマ管理画面に「テーマZIPを追加」が表示されることを確認します。
-
-このUpdateでは、`config.php`、`content/`、利用者が追加したテーマを上書きまたは削除しません。
-
-## v0.1.0-alpha.11への更新
-
-v0.1.0-alpha.5以前をご利用の場合は、最初にv0.1.0-alpha.6へ手動で更新してください。
-
-alpha.6への移行後、署名済みUpdate ZIPを使い、v0.1.0-alpha.7、alpha.8、alpha.9、alpha.10の順に更新してください。alpha.10からは、Tomos Postの「Tomos Update」でv0.1.0-alpha.11へ更新できます。
-
-更新順序:
+alpha.19からbeta.1へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。
 
 ```text
-v0.1.0-alpha.5以前
-↓
-v0.1.0-alpha.6へ手動更新
-↓
-Tomos Updateからv0.1.0-alpha.7へ更新
-↓
-Tomos Updateからv0.1.0-alpha.8へ更新
-↓
-Tomos Updateからv0.1.0-alpha.9へ更新
-↓
-Tomos Updateからv0.1.0-alpha.10へ更新
-↓
-Tomos Updateからv0.1.0-alpha.11へ更新
+from_version: 0.1.0-alpha.19
+version: 0.1.0-beta.1
 ```
 
-すでにv0.1.0-alpha.10をご利用の場合は、そのままTomos Updateからalpha.11へ更新できます。
+この更新では `/post/update-finalize/` の操作は必要ありません。
 
-## alpha.6の信頼点移行
+beta.1への更新前に、少なくとも `config.php`、`content/`、利用中テーマ、`storage/security/passkeys/` をバックアップしてください。
 
-Tomos Updateを今後も安定して提供するため、`v0.1.0-alpha.6`で署名確認に使用する信頼点を更新します。既存環境からalpha.6への移行だけは、[既存環境の更新](update.md)に沿って`VERSION`と`update/public-key.pem`を手動で上書きしてください。alpha.6自体の署名済みUpdate ZIPは提供しません。
+## Updater finalizeが必要だったlegacy移行
 
-alpha.6への移行後は、alpha.7以降の署名済みUpdate ZIPをこの画面で確認できます。alpha.13のUpdate ZIPは、現在のバージョンが`0.1.0-alpha.12`の場合に適用できます。
+`/post/update-finalize/` が必要なのは、旧Updaterから新Updaterへ移行した `v0.1.0-alpha.17 -> v0.1.0-alpha.18` の一回限りのbootstrapです。
 
-新しい公開鍵のフィンガープリント:
+この移行では、alpha.18のlegacy bridge ZIPを適用した後に `/post/update-finalize/` を開き、Updater bundleを明示的に反映します。
 
-```text
-SHA-256: 228636b1c3d2c93cf320063c478c2604b892a287bb346e1f6a3adf98047247cf
-```
+alpha.18以降の通常Updateでは、このlegacy finalize手順を繰り返しません。
 
-## 利用手順
+## 署名と検証
 
-1. Tomos Postを開き、管理用合言葉で認証します。
-2. Tomos Update画面（`/update/`）を開きます。
-3. 正規のTomos更新ZIPを選び、「更新内容を確認」を押します。
-4. 現在と更新後のバージョン、対象ファイル、テーマ変更の有無を確認します。
-5. 「更新する」を押します。
+オンライン更新と手動ZIP更新のどちらも、最終的に次を検証します。
 
-alpha.10以降では、通常Update完了後にUpdater本体の明示反映が必要です。alpha.18では、`update/index.php`と`core/UpdateService.php`を同じUpdater bundleとして反映します。
+- `manifest.sig` と `update/public-key.pem` による署名
+- `from_version` と現在の `VERSION` の完全一致
+- 製品名と更新先version
+- manifestに記載された各ファイルのSHA-256
+- 更新対象pathのallowlist
+- symlinkや危険なpathの拒否
+- 更新後の必須ファイルとVERSION
 
-1. Tomos PostのUpdater更新反映画面（`/post/update-finalize/`）を開きます。
-2. 反映待ち状態を確認します。GETで画面を開いただけでは反映されません。
-3. 管理用合言葉を入力し、「Updater更新を反映する」を押します。
-4. 「Updater本体を更新しました。」と表示され、反映待ちの更新がなくなったことを確認します。
+更新中に失敗した場合は、更新済みファイルのrollbackを試みます。rollback自体に失敗した場合は通常の更新失敗と区別して扱います。
 
-`update/index.php`と`core/UpdateService.php`は置換前に同じbundle backupへ保存されます。反映に失敗した場合は両ファイルの旧版復元を試み、待機ファイルを残して再実行できる状態を維持します。通常Update中にこの2ファイルが直接置換されることはありません。
+## 更新対象外のデータ
 
-更新対象ファイルだけが `storage/update-backups/` へバックアップされます。`config.php`、`content/`、`cache/`、`storage/`、`trash/`、独自テーマは更新対象になりません。途中で失敗した場合は更新済みファイルを自動復元し、新規追加ファイルを削除します。
+Tomos Updateは、利用者の運用データを通常の更新対象にしません。
+
+主な更新対象外:
+
+- `config.php`
+- `content/`
+- `cache/` の生成済みデータ
+- `storage/` の運用データ
+- `trash/`
+- 利用者が追加した独自テーマ
+- `storage/security/passkeys/` の登録済みcredential
+
+更新前のバックアップは、Tomos Update自身のrollbackとは別に利用者側でも作成してください。
 
 ## 必要な環境
 
 - PHP 7.4以上
 - ZipArchive
 - OpenSSL
-- Tomos設置ディレクトリ内の対象ファイル／対象ディレクトリへの書き込み権限
+- Tomos設置ディレクトリ内の更新対象への書き込み権限
 - `storage/update-tmp/`、`storage/update-backups/`、`storage/update-logs/` への書き込み権限
 
-ZipArchiveまたはOpenSSLが利用できない場合はTomos Updateを使用できません。FTPまたはサーバーのファイル管理機能で更新してください。
+ZipArchiveまたはOpenSSLが利用できない場合はTomos Updateを使用できません。
 
-パスキー機能を利用する場合は、Tomos Update自体の必要環境に加えて、PHP 8.0以上、mbstring、HTTPS、WebAuthn対応ブラウザが必要です。
+パスキー機能を利用する場合は、Tomos本体とは別にPHP 8.0以上、mbstring、HTTPS、WebAuthn対応ブラウザが必要です。
 
 ## 保存データ
 
-- `storage/update-backups/`: 更新対象ファイルと `update-meta.json`
-- `storage/update-logs/`: 月単位のJSON Lines結果ログ
-- `storage/update-tmp/`: 確認中のZIPと展開ファイル（24時間後に削除）
-- `storage/update.lock`: 更新中だけ存在する排他ロック
-- `storage/security/passkeys/`: 登録済みパスキーのcredential。Tomos Updateの更新対象外です。
+- `storage/update-backups/`: 更新対象ファイルと更新メタ情報
+- `storage/update-logs/`: 更新結果ログ
+- `storage/update-tmp/`: 確認中のZIPと展開ファイル
+- `storage/update.lock`: 更新中の排他ロック
+- `storage/security/passkeys/`: 登録済みパスキーcredential。Tomos Updateの更新対象外
 
-`storage/.htaccess` は保存データへのWebアクセスを拒否します。Apache以外では、Webサーバー側でも `storage/` へのアクセスを禁止してください。
+Apache環境では `storage/.htaccess` がWebからの直接アクセスを拒否します。Apache以外ではWebサーバー側でも `storage/` へのアクセスを禁止してください。
+
+過去のalpha版固有の更新手順は、[既存環境の更新](update.md)と各release noteを参照してください。
