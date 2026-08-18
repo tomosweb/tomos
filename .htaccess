@@ -8,7 +8,7 @@
 DirectoryIndex index.php
 Options -Indexes
 
-<FilesMatch "^(config\.php|config\.sample\.php)$">
+<FilesMatch "^(config\.php|config\.sample\.php|theme-settings\.php)$">
   Order allow,deny
   Deny from all
   Require all denied

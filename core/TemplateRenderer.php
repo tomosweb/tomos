@@ -8,6 +8,7 @@ final class TemplateRenderer
 {
     private array $config;
     private string $themePath;
+    private ThemeSettings $themeSettings;
     private array $allowedHtmlVariables = [
         'page.body' => true,
         'page.content' => true,
@@ -37,6 +38,9 @@ final class TemplateRenderer
         'theme.asset_url' => true,
         'theme.favicon_url' => true,
         'theme.apple_touch_icon_url' => true,
+        'theme.hero_image_url' => true,
+        'theme.hero_button_url' => true,
+        'theme.logo_url' => true,
     ];
     private array $absoluteUrlVariables = [
         'site.ogp_url' => true,
@@ -47,14 +51,14 @@ final class TemplateRenderer
     private string $effectiveThemeName;
     private string $analyticsNonce;
 
-    public function __construct(array $config, string $analyticsNonce = '')
+    public function __construct(array $config, string $analyticsNonce = '', ?string $rootDir = null)
     {
         $this->config = $config;
         $this->analyticsNonce = $analyticsNonce;
+        $themesDir = rtrim((string) ($config['paths']['theme_dir'] ?? ''), DIRECTORY_SEPARATOR);
         $this->effectiveThemeName = $this->resolveThemeName((string) ($config['theme']['name'] ?? 'tomos-minimal'));
-        $this->themePath = rtrim((string) $config['paths']['theme_dir'], DIRECTORY_SEPARATOR)
-            . DIRECTORY_SEPARATOR
-            . $this->effectiveThemeName;
+        $this->themePath = $themesDir . DIRECTORY_SEPARATOR . $this->effectiveThemeName;
+        $this->themeSettings = new ThemeSettings($rootDir ?? dirname($themesDir));
         $this->assertThemeDoesNotContainPhp();
     }
 
@@ -186,24 +190,25 @@ final class TemplateRenderer
         ];
         $faviconAsset = $this->faviconAsset();
         $appleTouchIconAsset = $this->themeAsset('apple-touch-icon.png');
+        $theme = array_merge([
+            'asset_url' => Security::publicUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets', $publicBasePath),
+            'favicon_url' => Security::publicUrl(
+                '/themes/' . rawurlencode($faviconAsset['theme']) . '/assets/' . rawurlencode($faviconAsset['file']),
+                $publicBasePath
+            ),
+            'favicon_type' => $faviconAsset['file'] === 'favicon.svg' ? 'image/svg+xml' : 'image/png',
+            'apple_touch_icon_url' => Security::publicUrl(
+                '/themes/' . rawurlencode($appleTouchIconAsset['theme']) . '/assets/' . rawurlencode($appleTouchIconAsset['file']),
+                $publicBasePath
+            ),
+        ], $this->themeSettings->templateContext($publicBasePath));
 
         return [
             'site' => $site,
             'page' => $page,
             'nav' => $nav,
             'list' => $list,
-            'theme' => [
-                'asset_url' => Security::publicUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets', $publicBasePath),
-                'favicon_url' => Security::publicUrl(
-                    '/themes/' . rawurlencode($faviconAsset['theme']) . '/assets/' . rawurlencode($faviconAsset['file']),
-                    $publicBasePath
-                ),
-                'favicon_type' => $faviconAsset['file'] === 'favicon.svg' ? 'image/svg+xml' : 'image/png',
-                'apple_touch_icon_url' => Security::publicUrl(
-                    '/themes/' . rawurlencode($appleTouchIconAsset['theme']) . '/assets/' . rawurlencode($appleTouchIconAsset['file']),
-                    $publicBasePath
-                ),
-            ],
+            'theme' => $theme,
         ];
     }
 
