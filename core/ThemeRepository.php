@@ -45,6 +45,7 @@ final class ThemeRepository
                 'version' => (string) ($theme['version'] ?? ''),
                 'description' => (string) ($theme['description'] ?? ''),
                 'author' => (string) ($theme['author'] ?? ''),
+                'requires_tomos' => (string) ($theme['requires_tomos'] ?? ''),
                 'supports' => is_array($theme['supports'] ?? null) ? $theme['supports'] : [],
                 'is_valid' => !empty($result['valid']),
                 'valid' => !empty($result['valid']),

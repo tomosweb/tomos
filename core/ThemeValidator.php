@@ -121,12 +121,27 @@ final class ThemeValidator
             $errors[] = 'theme.json の supports はオブジェクトで指定してください。';
         }
 
+        $requiresTomos = trim((string) ($decoded['requires_tomos'] ?? ''));
+        if ($requiresTomos !== '') {
+            if (!$this->isTomosVersion($requiresTomos)) {
+                $errors[] = 'theme.json の requires_tomos は Tomos のバージョン番号を1つ指定してください。';
+            } else {
+                $currentTomos = $this->currentTomosVersion();
+                if ($currentTomos === '' || !$this->isTomosVersion($currentTomos)) {
+                    $errors[] = 'このテーマの互換性を確認するためのTomos本体バージョンを取得できません。';
+                } elseif (version_compare($currentTomos, $requiresTomos, '<')) {
+                    $errors[] = 'このテーマには Tomos ' . $requiresTomos . ' 以上が必要です。現在のTomosは ' . $currentTomos . ' です。';
+                }
+            }
+        }
+
         return [
             'name' => $name,
             'display_name' => (string) ($decoded['display_name'] ?? ''),
             'version' => (string) ($decoded['version'] ?? ''),
             'description' => (string) ($decoded['description'] ?? ''),
             'author' => (string) ($decoded['author'] ?? ''),
+            'requires_tomos' => $requiresTomos,
             'supports' => is_array($decoded['supports'] ?? null) ? $decoded['supports'] : [],
         ];
     }
@@ -207,6 +222,31 @@ final class ThemeValidator
         if (preg_match('/<script\b/i', $content) === 1 || preg_match('/\s(?:href|xlink:href)\s*=\s*["\']https?:\/\//i', $content) === 1) {
             $errors[] = $relativePath . ': SVG内にscriptまたは外部参照があります。';
         }
+    }
+
+    private function currentTomosVersion(): string
+    {
+        $directory = $this->themesDir;
+        for ($depth = 0; $depth <= 6; $depth++) {
+            $candidate = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'VERSION';
+            if (is_file($candidate) && is_readable($candidate)) {
+                $value = file_get_contents($candidate);
+                return $value === false ? '' : trim($value);
+            }
+
+            $parent = dirname($directory);
+            if ($parent === $directory) {
+                break;
+            }
+            $directory = $parent;
+        }
+
+        return '';
+    }
+
+    private function isTomosVersion(string $version): bool
+    {
+        return preg_match('/\A(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z/', $version) === 1;
     }
 
     private function isSafeThemeName(string $themeName): bool
