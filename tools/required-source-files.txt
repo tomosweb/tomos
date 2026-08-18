@@ -32,6 +32,7 @@ core/PostInboxAutoPublisher.php
 core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
 core/ThemeSettings.php
+core/HomeNewsProvider.php
 core/ThemePackageException.php
 core/ThemePackageInstaller.php
 core/ThemePackagePolicy.php

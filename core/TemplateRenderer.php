@@ -41,6 +41,7 @@ final class TemplateRenderer
         'theme.hero_image_url' => true,
         'theme.hero_button_url' => true,
         'theme.logo_url' => true,
+        'home.news_url' => true,
     ];
     private array $absoluteUrlVariables = [
         'site.ogp_url' => true,
@@ -202,6 +203,14 @@ final class TemplateRenderer
                 $publicBasePath
             ),
         ], $this->themeSettings->templateContext($publicBasePath));
+        $home = [
+            'has_news' => false,
+            'news_items' => [],
+            'news_url' => Security::publicUrl('/news/', $publicBasePath),
+        ];
+        if ((string) ($page['internal_url'] ?? '') === '/') {
+            $home = HomeNewsProvider::fromConfig($this->config, $this->themeSettings, $publicBasePath)->context();
+        }
 
         return [
             'site' => $site,
@@ -209,6 +218,7 @@ final class TemplateRenderer
             'nav' => $nav,
             'list' => $list,
             'theme' => $theme,
+            'home' => $home,
         ];
     }
 
