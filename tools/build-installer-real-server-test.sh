@@ -59,7 +59,7 @@ for test in \
   php "${ROOT_DIR}/${test}"
 done
 
-VERSIONED_URL="${ASSET_BASE_URL%/}/v${VERSION}"
+VERSIONED_URL="${ASSET_BASE_URL%/}/installer/releases/${VERSION}"
 mkdir -p "${OUTPUT_DIR}/versioned"
 rm -f \
   "${OUTPUT_DIR}/install.php" \
