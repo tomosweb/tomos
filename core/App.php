@@ -218,7 +218,7 @@ final class App
                 return $metadataIndex->build();
             }
 
-            $pages = $metadataIndex->loadCached();
+            $pages = $metadataIndex->loadFresh();
             if ($pages === null) {
                 $performance->set('metadata_index', 'rebuild');
                 return $metadataIndex->rebuild();
