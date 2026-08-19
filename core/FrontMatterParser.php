@@ -58,6 +58,10 @@ final class FrontMatterParser
         $metadata = $this->normalizeMetadata($metadata);
         $metadata['description_explicit'] = $descriptionExplicit;
 
+        if ($metadata['date'] === null) {
+            $metadata['date'] = $this->dateFromPath($contentPath);
+        }
+
         if ($metadata['title'] === '') {
             $metadata['title'] = $this->extractFirstHeading($body) ?? $this->titleFromPath($contentPath);
         }
@@ -200,6 +204,22 @@ final class FrontMatterParser
 
         $value = trim((string) $value);
         return trim($value, "\"'");
+    }
+
+    private function dateFromPath(string $contentPath): ?string
+    {
+        $filename = basename($contentPath, '.md');
+        if (preg_match('/\A(\d{4}-\d{2}-\d{2})(?:-|\z)/', $filename, $matches) !== 1) {
+            return null;
+        }
+
+        $date = $matches[1];
+        $parts = array_map('intval', explode('-', $date));
+        if (count($parts) !== 3 || !checkdate($parts[1], $parts[2], $parts[0])) {
+            return null;
+        }
+
+        return $date;
     }
 
     private function titleFromPath(string $contentPath): string
