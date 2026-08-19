@@ -46,6 +46,7 @@ final class ThemeSettings
         $hero = is_array($loaded['hero'] ?? null) ? $loaded['hero'] : [];
         $news = is_array($loaded['news'] ?? null) ? $loaded['news'] : [];
         $design = is_array($loaded['design'] ?? null) ? $loaded['design'] : [];
+        $folders = is_array($loaded['folders'] ?? null) ? $loaded['folders'] : [];
 
         $settings = $defaults;
         $settings['hero']['enabled'] = $this->boolValue($hero, 'enabled', $defaults['hero']['enabled']);
@@ -69,8 +70,22 @@ final class ThemeSettings
 
         $settings['design']['logo'] = $this->assetPath((string) ($design['logo'] ?? ''));
         $settings['design']['key_color'] = $this->colorValue((string) ($design['key_color'] ?? ''));
+        $settings['folders'] = $this->folderTitles($folders);
 
         return $this->settings = $settings;
+    }
+
+    public function virtualFolderTitle(string $folder): string
+    {
+        $folder = trim(str_replace('\\', '/', $folder), '/');
+        $segments = $folder === '' ? [] : explode('/', $folder);
+        $fallback = (string) end($segments);
+        if ($fallback === '') {
+            return '';
+        }
+
+        $title = $this->settings()['folders'][$fallback]['title'] ?? null;
+        return is_string($title) && $title !== '' ? $title : $fallback;
     }
 
     public function templateContext(string $publicBasePath): array
@@ -118,7 +133,25 @@ final class ThemeSettings
                 'logo' => '',
                 'key_color' => '',
             ],
+            'folders' => [],
         ];
+    }
+
+    private function folderTitles(array $folders): array
+    {
+        $normalized = [];
+        foreach ($folders as $folder => $settings) {
+            if (!is_string($folder) || !is_array($settings) || !is_string($settings['title'] ?? null)) {
+                continue;
+            }
+
+            $title = $this->cleanText($settings['title'], 200);
+            if ($title !== '') {
+                $normalized[$folder] = ['title' => $title];
+            }
+        }
+
+        return $normalized;
     }
 
     private function boolValue(array $values, string $key, bool $default): bool
