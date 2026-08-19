@@ -52,6 +52,19 @@ $cacheDir = $root . DIRECTORY_SEPARATOR . 'cache';
 @mkdir($contentDir . DIRECTORY_SEPARATOR . 'news', 0775, true);
 @mkdir($cacheDir, 0775, true);
 
+$config = [
+    'paths' => [
+        'content_dir' => $contentDir,
+        'cache_dir' => $cacheDir,
+    ],
+    'features' => [
+        'metadata_cache' => true,
+    ],
+    'metadata' => [
+        'include_drafts' => false,
+    ],
+];
+
 try {
     file_put_contents(
         $contentDir . DIRECTORY_SEPARATOR . 'news' . DIRECTORY_SEPARATOR . 'a.md',
@@ -64,8 +77,9 @@ try {
         failCheck('Initial metadata index must contain one page.');
     }
 
+    $bFile = $contentDir . DIRECTORY_SEPARATOR . 'news' . DIRECTORY_SEPARATOR . 'b.md';
     file_put_contents(
-        $contentDir . DIRECTORY_SEPARATOR . 'news' . DIRECTORY_SEPARATOR . 'b.md',
+        $bFile,
         "---\ntitle: B\ndate: 2026-08-19\ndraft: false\n---\n\nB\n"
     );
 
@@ -73,18 +87,7 @@ try {
         failCheck('Adding Markdown outside Tomos must make the metadata index stale.');
     }
 
-    PublicMetadataFreshener::ensure([
-        'paths' => [
-            'content_dir' => $contentDir,
-            'cache_dir' => $cacheDir,
-        ],
-        'features' => [
-            'metadata_cache' => true,
-        ],
-        'metadata' => [
-            'include_drafts' => false,
-        ],
-    ]);
+    PublicMetadataFreshener::ensure($config);
 
     $fresh = $index->loadFresh();
     if (!is_array($fresh) || count($fresh) !== 2) {
@@ -95,6 +98,48 @@ try {
     sort($titles);
     if ($titles !== ['A', 'B']) {
         failCheck('Rebuilt metadata index must contain the newly deployed Markdown page.');
+    }
+
+    $schemaFile = $cacheDir . DIRECTORY_SEPARATOR . 'index' . DIRECTORY_SEPARATOR . 'metadata-schema.txt';
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '2') {
+        failCheck('Public metadata refresh must persist the current cache schema marker.');
+    }
+
+    $indexedMtime = filemtime($bFile);
+    $indexedSize = filesize($bFile);
+    if ($indexedMtime === false || $indexedSize === false) {
+        failCheck('Metadata cache fixture source stats could not be read.');
+    }
+
+    $changed = "---\ntitle: C\ndate: 2026-08-19\ndraft: false\n---\n\nC\n";
+    if (strlen($changed) !== $indexedSize) {
+        failCheck('Metadata cache fixture must preserve source size.');
+    }
+    file_put_contents($bFile, $changed);
+    if (!touch($bFile, $indexedMtime, $indexedMtime)) {
+        failCheck('Metadata cache fixture source mtime could not be restored.');
+    }
+    clearstatcache(true, $bFile);
+    @unlink($schemaFile);
+
+    $structurallyFresh = $index->loadFresh();
+    $staleTitles = is_array($structurallyFresh)
+        ? array_map(static fn(array $page): string => (string) ($page['title'] ?? ''), $structurallyFresh)
+        : [];
+    if (!in_array('B', $staleTitles, true)) {
+        failCheck('Fixture must represent a structurally fresh cache with stale parser-derived metadata.');
+    }
+
+    PublicMetadataFreshener::ensure($config);
+    $rebuiltForSchema = $index->loadFresh();
+    $rebuiltTitles = is_array($rebuiltForSchema)
+        ? array_map(static fn(array $page): string => (string) ($page['title'] ?? ''), $rebuiltForSchema)
+        : [];
+    if (in_array('B', $rebuiltTitles, true) || !in_array('C', $rebuiltTitles, true)) {
+        failCheck('Missing cache schema marker must force rebuild even when file stats are unchanged.');
+    }
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '2') {
+        failCheck('Schema-forced rebuild must restore the current cache schema marker.');
     }
 
     $indexFile = $index->indexFile();
