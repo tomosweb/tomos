@@ -6,7 +6,7 @@ namespace Tomos;
 
 final class HtmlCache
 {
-    private const CACHE_VERSION = '7';
+    private const CACHE_VERSION = '8';
 
     private string $htmlDir;
     private bool $enabled;
@@ -60,9 +60,18 @@ final class HtmlCache
             return false;
         }
 
+        $sourceHash = @hash_file('sha256', $sourceFile);
+        if (!is_string($sourceHash) || $sourceHash === '') {
+            return false;
+        }
+
         $expectedHtmlHash = (string) ($meta['html_sha256'] ?? '');
         $actualHtmlHash = @hash_file('sha256', $htmlPath);
         if ($expectedHtmlHash === '' || !is_string($actualHtmlHash) || !hash_equals($expectedHtmlHash, $actualHtmlHash)) {
+            return false;
+        }
+
+        if (!hash_equals((string) ($meta['source_sha256'] ?? ''), $sourceHash)) {
             return false;
         }
 
@@ -98,6 +107,11 @@ final class HtmlCache
             return false;
         }
 
+        $sourceHash = @hash_file('sha256', $sourceFile);
+        if (!is_string($sourceHash) || $sourceHash === '') {
+            return false;
+        }
+
         $htmlPath = $this->getPath($sourcePath);
         $metaPath = $this->getMetaPath($sourcePath);
         try {
@@ -111,6 +125,7 @@ final class HtmlCache
             'source_path' => $sourcePath,
             'source_mtime' => (int) $mtime,
             'source_size' => (int) $size,
+            'source_sha256' => $sourceHash,
             'cache_version' => self::CACHE_VERSION,
             'html_sha256' => hash('sha256', $html),
             'created_at' => date('c'),

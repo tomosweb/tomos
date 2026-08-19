@@ -6,7 +6,7 @@ namespace Tomos;
 
 final class PublicMetadataFreshener
 {
-    private const CACHE_SCHEMA = '2';
+    private const CACHE_SCHEMA = '3';
 
     public static function ensure(array $config): void
     {
