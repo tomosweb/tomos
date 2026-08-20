@@ -50,9 +50,19 @@ try {
     if (($defaults['news']['path'] ?? '') !== '/news/' || ($defaults['news']['limit'] ?? 0) !== 5) {
         fail('News defaults must remain /news/ and 5 items.');
     }
+    if (defined('TOMOS_THEME_SETTINGS_CONTEXT')) {
+        fail('Theme settings context must not be defined when no settings file is loaded.');
+    }
 
     file_put_contents($root . '/theme-settings.php', <<<'PHP'
 <?php
+if (!defined('TOMOS_THEME_SETTINGS_CONTEXT')
+    || TOMOS_THEME_SETTINGS_CONTEXT !== true
+) {
+    http_response_code(404);
+    return [];
+}
+
 return [
     'hero' => [
         'enabled' => true,
@@ -79,8 +89,18 @@ return [
 PHP
     );
 
+    http_response_code(200);
+    $direct = require $root . '/theme-settings.php';
+    if ($direct !== [] || http_response_code() !== 404) {
+        fail('Direct theme-settings.php execution must return an empty array with HTTP 404.');
+    }
+    http_response_code(200);
+
     $settings = new ThemeSettings($root);
     $normalized = $settings->settings();
+    if (!defined('TOMOS_THEME_SETTINGS_CONTEXT') || TOMOS_THEME_SETTINGS_CONTEXT !== true) {
+        fail('ThemeSettings must define its internal load context before requiring the settings file.');
+    }
     if (($normalized['news']['limit'] ?? 0) !== 10) {
         fail('News limit must be clamped to 10.');
     }
@@ -153,7 +173,7 @@ PHP
 
     $htaccess = file_get_contents(dirname(__DIR__) . '/.htaccess');
     if (!is_string($htaccess) || strpos($htaccess, 'theme-settings\\.php') === false) {
-        fail('theme-settings.php must be denied by the root .htaccess.');
+        fail('Fresh Apache installs must retain .htaccess denial as defense in depth.');
     }
 
     echo "theme_settings_check: OK\n";

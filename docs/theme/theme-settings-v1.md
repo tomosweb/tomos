@@ -29,8 +29,17 @@ Tomos/
 
 ## 設定例
 
+`theme-settings.php` は、Tomos coreから読み込まれた場合だけ設定配列を返す。Webから直接実行された場合は404で終了するguardを先頭に置く。
+
 ```php
 <?php
+if (!defined('TOMOS_THEME_SETTINGS_CONTEXT')
+    || TOMOS_THEME_SETTINGS_CONTEXT !== true
+) {
+    http_response_code(404);
+    return [];
+}
+
 return [
     'hero' => [
         'enabled' => true,
@@ -58,6 +67,8 @@ return [
     ],
 ];
 ```
+
+`TOMOS_THEME_SETTINGS_CONTEXT` はcore内部の読み込みcontextであり、サイト側やテーマ側から定義しない。
 
 ## v1で認識するキー
 
@@ -150,7 +161,11 @@ SVGは直接公開されるため、script、event handler、外部HTTP参照、
 
 `theme-settings.php` は管理者が配置するPHP設定ファイルであり、theme packageではない。theme内PHP禁止ルールの例外ではなく、Tomosルートのサイト設定として扱う。
 
-`.htaccess`でHTTP直接取得を拒否する。
+安全性の一次境界はファイル自身のdirect-access guardとする。`ThemeSettings`は実在する設定ファイルを読み込む直前にだけ`TOMOS_THEME_SETTINGS_CONTEXT`を定義し、正式サンプルの`theme-settings.php`はこのcontextがない直接実行に対してHTTP 404と空配列を返す。
+
+Apacheのルート`.htaccess`でも`theme-settings.php`のHTTP直接取得を拒否する。これは新規インストール時のdefense in depthであり、ThemeSettings成立の必須条件にはしない。Nginx等の`.htaccess`を使わない環境や、旧版からTomos Updateした環境でも、direct-access guardだけで設定ファイルを直接実行させない。
+
+`theme-settings.php`にはパスワード、API key、token、秘密鍵その他の機密情報を保存しない。v1で扱うのは公開サイトの表示に必要な低頻度設定だけである。
 
 読み込み時は次を行う。
 
@@ -167,11 +182,16 @@ SVGは直接公開されるため、script、event handler、外部HTTP参照、
 
 `theme-settings.php` と `theme-assets/` はTomos配布物へ同梱しない。
 
-Tomos Updateで更新するのはPhase 2を実行するcoreと`.htaccess`であり、サイト固有設定・画像は保持する。
+Tomos UpdateはThemeSettingsを実行するcoreを更新するが、ルート`.htaccess`、`theme-settings.php`、`theme-assets/`は更新しない。`.htaccess`は設置環境側の設定として保持し、RewriteBase等のサイト固有変更をTomos Updateで上書きしない。
+
+新規インストール用のTomos本体通常配布ZIPには、そのversionの標準`.htaccess`を同梱する。旧版からUpdateしたサイトが新しい`.htaccess`を持たなくても、新機能の安全性はそれだけに依存しない。
+
+設計原則として、本体Updateで変更しない設置環境ファイルに、新しいcore機能の安全性を依存させない。
 
 ## 後方互換
 
 - `theme-settings.php`なしで従来通り動作
+- guardを持たない既存の`theme-settings.php`もcoreからは従来通り読み込める
 - `theme-assets/`なしで従来通り動作
 - 新APIを使わない既存themeは変更不要
 - 既存themeのHTML/CSSを自動変更しない

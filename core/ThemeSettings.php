@@ -32,6 +32,9 @@ final class ThemeSettings
         }
 
         try {
+            if (!defined('TOMOS_THEME_SETTINGS_CONTEXT')) {
+                define('TOMOS_THEME_SETTINGS_CONTEXT', true);
+            }
             $loaded = require $this->settingsPath;
         } catch (Throwable $exception) {
             error_log('[Tomos theme settings] theme-settings.php could not be loaded.');
