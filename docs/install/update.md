@@ -2,7 +2,7 @@
 
 Tomosをすでに設置している場合の、データを保持した更新手順です。
 
-## 現在の更新方法（alpha.18以降）
+## 現在の更新方法
 
 通常の更新は、Tomos Postの「Tomos Update」から次の手順で行います。
 
@@ -13,6 +13,17 @@ Tomosをすでに設置している場合の、データを保持した更新手
 オンライン更新はページを開いただけではZIPを取得・適用せず、自動適用もしません。更新は常に1versionずつ行い、Update ZIPの`from_version`が現在の`VERSION`と完全一致する場合だけ受け付けます。自動多段更新、バックグラウンド更新は行いません。
 
 手動の署名済みUpdate ZIPも正式な更新経路として利用できます。オンライン更新と手動更新のどちらも、同じ署名検証、`from_version`検証、backup、rollback、apply処理を使用します。
+
+### v0.1.0-beta.1からv0.2.0への更新
+
+0.1.0-beta.1からv0.2.0へは、Tomos Updateによる通常の1-step updateを使用します。中間betaはありません。
+
+```text
+from_version: 0.1.0-beta.1
+version: 0.2.0
+```
+
+`from_version`は現在の`VERSION`と完全一致する必要があります。root `.htaccess`は更新せず、`config.php`、`content/`、custom theme、`theme-settings.php`、`theme-assets/`、運用データを保持します。標準theme ID配下は更新対象になり得ます。更新前にバックアップを作成してください。
 
 ### v0.1.0-alpha.19からv0.1.0-beta.1への更新
 

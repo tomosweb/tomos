@@ -1,6 +1,6 @@
 # Tomos Theme Contract v1
 
-対象: Tomos v0.1.0-beta.1以降  
+対象: Tomos v0.2.0以降
 策定日: 2026-08-18  
 開発計画: `docs/theme-platform-development-plan.md`
 
@@ -59,7 +59,7 @@ coreが担当するもの:
   "version": "1.0.0",
   "description": "Example theme for Tomos.",
   "author": "Example Author",
-  "requires_tomos": "0.1.0-beta.2",
+  "requires_tomos": "0.2.0",
   "supports": {
     "navigation": true,
     "responsive": true

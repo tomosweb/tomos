@@ -123,7 +123,10 @@ check(strpos($setupGuide, '登録済みパスキー') !== false, 'setup guide do
 check(strpos($troubleshooting, '/post/passkey/recovery/') !== false, 'troubleshooting documents passkey recovery');
 check(strpos($troubleshooting, 'submission_id') !== false, 'troubleshooting documents current duplicate-submit behavior');
 
-check(strpos($updateGuide, '## 現在の更新方法（alpha.18以降）') !== false, 'update guide has current update instructions');
+check(strpos($updateGuide, '## 現在の更新方法') !== false, 'update guide has current update instructions');
+check(strpos($updateGuide, 'v0.1.0-beta.1からv0.2.0への更新') !== false, 'update guide describes beta.1 to 0.2.0');
+check(strpos($updateGuide, 'from_version: 0.1.0-beta.1') !== false, 'update guide fixes 0.2.0 from_version boundary');
+check(strpos($updateGuide, 'version: 0.2.0') !== false, 'update guide fixes 0.2.0 target boundary');
 check(strpos($updateGuide, 'v0.1.0-alpha.18からv0.1.0-alpha.19への更新') !== false, 'update guide describes alpha.18 to alpha.19');
 check(strpos($updateGuide, 'v0.1.0-alpha.17からv0.1.0-alpha.18への移行') !== false, 'update guide describes the alpha.17 bootstrap');
 check(strpos($updateGuide, '/post/update-finalize/') !== false, 'update guide preserves legacy finalize instructions');

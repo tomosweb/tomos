@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.1.0-alpha.19';
+$fromVersion = '0.1.0-beta.1';
 
-if ($targetVersion !== '0.1.0-beta.1') {
-    throw new RuntimeException('beta1 release transition check requires VERSION 0.1.0-beta.1');
+if ($targetVersion !== '0.2.0') {
+    throw new RuntimeException('release transition check requires VERSION 0.2.0');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
-    throw new RuntimeException('alpha.19 must compare older than beta.1');
+    throw new RuntimeException('beta.1 must compare older than 0.2.0');
 }
 
-$tmp = sys_get_temp_dir() . '/tomos-beta1-transition-' . bin2hex(random_bytes(8));
+$tmp = sys_get_temp_dir() . '/tomos-release-transition-' . bin2hex(random_bytes(8));
 if (!mkdir($tmp, 0700, true)) {
-    throw new RuntimeException('could not create beta1 transition fixture');
+    throw new RuntimeException('could not create release transition fixture');
 }
 
 try {
@@ -27,7 +27,7 @@ try {
     $keyPath = $tmp . '/private.pem';
     file_put_contents($keyPath, $privateKey, LOCK_EX);
 
-    $output = $tmp . '/tomos-update-0.1.0-beta.1.zip';
+    $output = $tmp . '/tomos-update-0.2.0.zip';
     $command = escapeshellarg(PHP_BINARY)
         . ' ' . escapeshellarg($root . '/tools/build-update-package.php')
         . ' ' . escapeshellarg('--from=' . $fromVersion)
@@ -40,49 +40,49 @@ try {
     $code = 0;
     exec($command . ' 2>&1', $lines, $code);
     if ($code !== 0) {
-        throw new RuntimeException('alpha.19 -> beta.1 update package build failed: ' . implode("\n", $lines));
+        throw new RuntimeException('beta.1 -> 0.2.0 update package build failed: ' . implode("\n", $lines));
     }
 
     $zip = new ZipArchive();
     if ($zip->open($output) !== true) {
-        throw new RuntimeException('beta1 update package is not readable');
+        throw new RuntimeException('0.2.0 update package is not readable');
     }
     try {
         $manifest = json_decode((string) $zip->getFromName('manifest.json'), true);
         if (!is_array($manifest)) {
-            throw new RuntimeException('beta1 manifest is not valid JSON');
+            throw new RuntimeException('0.2.0 manifest is not valid JSON');
         }
         if (($manifest['product'] ?? null) !== 'Tomos') {
-            throw new RuntimeException('beta1 manifest product mismatch');
+            throw new RuntimeException('0.2.0 manifest product mismatch');
         }
         if (($manifest['from_version'] ?? null) !== $fromVersion) {
-            throw new RuntimeException('beta1 manifest from_version mismatch');
+            throw new RuntimeException('0.2.0 manifest from_version mismatch');
         }
         if (($manifest['version'] ?? null) !== $targetVersion) {
-            throw new RuntimeException('beta1 manifest version mismatch');
+            throw new RuntimeException('0.2.0 manifest version mismatch');
         }
         if (array_key_exists('minimum_version', $manifest)) {
-            throw new RuntimeException('beta1 normal update must not contain legacy minimum_version');
+            throw new RuntimeException('0.2.0 normal update must not contain legacy minimum_version');
         }
         $versionBytes = $zip->getFromName('files/VERSION');
         if (!is_string($versionBytes) || trim($versionBytes) !== $targetVersion) {
-            throw new RuntimeException('beta1 package VERSION payload mismatch');
+            throw new RuntimeException('0.2.0 package VERSION payload mismatch');
         }
         if (($manifest['files']['VERSION'] ?? null) !== hash('sha256', $versionBytes)) {
-            throw new RuntimeException('beta1 VERSION manifest hash mismatch');
+            throw new RuntimeException('0.2.0 VERSION manifest hash mismatch');
         }
     } finally {
         $zip->close();
     }
 
-    $releaseNote = (string) file_get_contents($root . '/docs/releases/v0.1.0-beta.1.md');
-    if (strpos($releaseNote, 'from_version: 0.1.0-alpha.19') === false
-        || strpos($releaseNote, 'version: 0.1.0-beta.1') === false
+    $releaseNote = (string) file_get_contents($root . '/docs/releases/v0.2.0.md');
+    if (strpos($releaseNote, 'from_version: 0.1.0-beta.1') === false
+        || strpos($releaseNote, 'version: 0.2.0') === false
     ) {
-        throw new RuntimeException('beta1 release note must document the exact update transition');
+        throw new RuntimeException('0.2.0 release note must document the exact update transition');
     }
 
-    echo "beta1_release_transition_check: OK\n";
+    echo "release_transition_check: OK\n";
 } finally {
     removeTree($tmp);
 }
