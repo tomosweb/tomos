@@ -1,7 +1,7 @@
 {
   "name": "tomos-note",
   "display_name": "Tomos Note",
-  "version": "0.1.1",
+  "version": "1.2.0",
   "description": "知的記録、研究メモ、読書メモ、技術メモに向いた、構造が読みやすいノートテーマです。",
   "author": "Tomos Project",
   "supports": {

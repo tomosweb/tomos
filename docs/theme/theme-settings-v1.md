@@ -51,6 +51,11 @@ return [
         'logo' => 'logo.svg',
         'key_color' => '#174467',
     ],
+    'folders' => [
+        'news' => [
+            'title' => '更新情報',
+        ],
+    ],
 ];
 ```
 
@@ -81,6 +86,28 @@ Phase 3の構造化News APIが使用する。
 
 - `logo`: `theme-assets/`からの相対パス
 - `key_color`: `#RRGGBB` のみ
+
+### folders
+
+Virtual Folderごとの表示名を指定します。
+
+```php
+'folders' => [
+    'news' => [
+        'title' => '更新情報',
+    ],
+    'research' => [
+        'title' => '研究成果',
+    ],
+],
+```
+
+- キーはURL pathのfolder basenameです（`news`、`research`など）
+- `title`が空、未指定、または不正な場合はfolder basenameへfallbackします
+- 表示名設定はVirtual Folderの表示だけを変更します
+- `folders`はroutingを有効化せず、公開子記事やdraft判定によるVirtual Folder成立条件も変更しません
+
+Virtual Folderの成立条件とテンプレート側の利用方法は`theme-authoring.md`を参照してください。
 
 ## template API
 

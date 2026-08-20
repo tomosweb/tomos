@@ -1,28 +1,30 @@
 # Tomos Minimal
 
-Tomos標準の最小テーマです。
+Tomos標準の最小テーマです。シンプルな構造で、独自テーマの出発点にも向いています。
 
-## 構成
+## このテーマについて
+
+文章とナビゲーションを素直に表示する、余計な機能を持たない軽量テーマです。
+
+## 主な特徴
+
+- 最小限のHTML/CSS構成
+- JavaScriptに依存しない表示
+- 通常ページと一覧ページに対応
+- 標準ロゴ由来の基本アセットを同梱
+
+## テーマ構成
 
 - `templates/layout.html`
 - `templates/page.html`
 - `templates/list.html`
 - `assets/style.css`
-- `assets/favicon.png`
-- `assets/apple-touch-icon.png`
-- `assets/ogp.png`
 - `theme.json`
 
-## 方針
+## テーマ制作について
 
-テーマはHTML/CSSのみを担当します。
+テーマの作成・カスタマイズについては、[Tomos公式サイト](https://tomoswords.org/)をご確認ください。
 
-PHPは書きません。
+## ライセンス
 
-ページ解決、Markdown変換、ナビゲーション、タグ、検索、RSS/sitemap生成はcoreが担当します。
-
-## アセット
-
-標準テーマは既存のTomosロゴアセットから作成した favicon、apple-touch-icon、OGP画像を含みます。
-
-favicon と apple-touch-icon はHTML表示用URLとして出力され、OGP画像は `site.url` 基準の絶対URLとして出力されます。
+ライセンスはTomos本体の`LICENSE`に従います。

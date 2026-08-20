@@ -253,6 +253,34 @@ theme.json.requires_tomos = 必要なTomos本体の最低version
 
 テーマ側にTomosと同じversion番号を機械的に付ける必要はない。
 
+## 標準テーマセットのversion方針
+
+Tomos本体に同梱する次の6テーマは、原則として一つの標準テーマセットとして管理します。
+
+- `tomos-minimal`
+- `tomos-note`
+- `tomos-90s`
+- `tomos-dark`
+- `tomos-journal`
+- `tomos-blog`
+
+Phase 5-Cで確定した標準テーマセットのversionは次のとおりです。
+
+```text
+tomos-minimal   1.2.0
+tomos-note      1.2.0
+tomos-90s       1.2.0
+tomos-dark      1.2.0
+tomos-journal   1.2.0
+tomos-blog      1.2.0
+```
+
+`1.2.0`は標準テーマセットの世代を表す共通baselineです。各テーマのデザイン、用途、使用APIが同一になることを意味しません。
+
+今後、標準テーマセットに共通する変更をリリースする場合も、原則として6テーマへ同じversionを付与します。個別テーマだけに独立した重大リリースが必要になった場合は、その時点で別途判断します。
+
+`theme.json.version`と`requires_tomos`は独立して管理します。`requires_tomos`はTomos本体の最低必要versionであり、標準テーマセットのversionを代用しません。今後も標準テーマセットの共通変更では、原則として6テーマへ同じversionを付与します。
+
 ## license / homepage / preview等
 
 `author`以外の配布サイト向けmetadataとして、将来次を検討できる。
