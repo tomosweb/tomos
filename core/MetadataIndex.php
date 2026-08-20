@@ -270,6 +270,11 @@ final class MetadataIndex
                 return null;
             }
 
+            $contentHash = @hash_file('sha256', $fullPath);
+            if (!is_string($contentHash) || $contentHash === '' || !hash_equals((string) ($page['content_sha256'] ?? ''), $contentHash)) {
+                return null;
+            }
+
             $indexedPaths[$path] = true;
         }
 
@@ -366,6 +371,7 @@ final class MetadataIndex
             'search_text' => $this->searchText($metadata, $parsed['body']),
             'mtime' => $mtime,
             'size' => $size,
+            'content_sha256' => hash('sha256', $markdown),
             'draft' => $metadata['draft'],
         ];
     }

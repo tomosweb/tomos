@@ -3,6 +3,13 @@
 Tomos のテーマは、HTML テンプレート、CSS、theme.json で構成します。
 `themes/tomos-minimal` は Tomos の標準テーマです。別テーマを作る場合も core を変更せず、`themes/` 配下に新しいテーマディレクトリを追加し、`config.php` の `theme.name` を変更して切り替えられる構造を維持します。
 
+この文書を制作者向けの入口とします。詳細な契約は次の文書を参照してください。
+
+- [theme-contract-v1.md](theme-contract-v1.md): `theme.json`、派生テーマ、標準テーマセットの契約
+- [theme-settings-v1.md](theme-settings-v1.md): サイト固有の `theme-settings.php` と `theme.*` 設定
+- [home-news-api-v1.md](home-news-api-v1.md): トップページの構造化News API
+- [theme-validation.md](theme-validation.md): ThemeValidatorとテーマZIP検査
+
 テーマは、サイトの見た目を決めるファイル一式です。setup画面では、検証に通ったテーマだけを選べます。
 
 この文書は、HTML/CSSが少し分かる人、AIにテーマ作成を依頼したい人、FTP等で `themes/` にテーマを置ける人向けです。
@@ -12,6 +19,22 @@ Tomos のテーマは、HTML テンプレート、CSS、theme.json で構成し�
 - `tomos-minimal`: 標準の最小テーマ
 - `tomos-journal`: 日記・エッセイ・個人の記録向けの文章中心テーマ
 - `tomos-dark`: 暗い背景で文章を静かに読めるダークテーマ
+- `tomos-note`: ノート・研究メモ・読書メモ向けのテーマ
+- `tomos-90s`: 90年代テキストサイト風のテーマ
+- `tomos-blog`: 専用トップとプロフィールを持つブログ向けの応用テーマ
+
+### 6テーマの比較
+
+| テーマ | 主な用途 | `home.html` | ナビゲーション・表示の特徴 | 独自画像 | `list.latest_pages` | 位置づけ |
+| --- | --- | --- | --- | --- | --- | --- |
+| `tomos-minimal` | 最小構成の標準サイト | なし | 標準的なサイドナビゲーション | なし | なし | 基準テーマ |
+| `tomos-note` | 研究・読書・技術メモ | なし | セクション導線と読みやすいノート組版 | なし | なし | 参照テーマ候補 |
+| `tomos-90s` | テキストサイト風サイト | なし | `nav.primary_links`を使う独自ヘッダー | なし | なし | デザイン応用例 |
+| `tomos-dark` | 暗い背景の読み物サイト | なし | 標準ナビゲーションのダーク配色 | なし | なし | デザイン応用例 |
+| `tomos-journal` | 日記・エッセイ | なし | 標準ナビゲーションと文章中心の組版 | なし | なし | デザイン応用例 |
+| `tomos-blog` | 個人ブログ | あり | プロフィール、専用トップ、最新記事カード | `header.png`、`profile.png` | あり | 高度な応用例 |
+
+6テーマは同じ機能・同じテンプレート構造である必要はありません。`tomos-note`を標準的な読みやすい参照例、`tomos-blog`を専用トップを持つ応用例として扱います。
 
 ## 基本方針
 
@@ -116,7 +139,6 @@ theme 側の責務は表示に限定します。
 - `page.content`
 - `page.meta_html`
 - `page.body`
-- `page.toc`
 - `page.tags_html`
 - `page.folder_pages_html`
 - `nav.tree`
@@ -135,30 +157,67 @@ AI にテーマを作らせる場合も、PHP、外部 script、未定義変数�
 
 ## 初期テンプレート変数
 
-- `{{ site.name }}`
-- `{{ site.description }}`
-- `{{ site.language }}`
-- `{{ site.home_url }}`
-- `{{ site.about_url }}`
-- `{{ site.feed_url }}`
-- `{{ site.sitemap_url }}`
-- `{{ page.title }}`
-- `{{ page.description }}`
-- `{{ page.date }}`
-- `{{ page.updated }}`
-- `{{ page.show_updated }}`
-- `{{ page.url }}`
-- `{{{ page.body }}}`
-- `{{{ page.content }}}`
-- `{{{ page.meta_html }}}`
-- `{{{ page.tags_html }}}`
-- `{{{ page.folder_pages_html }}}`（フォルダーの `index.md` 向けの記事一覧。1ページ30件）
-- `{{{ nav.tree }}}`
-- `{{{ nav.mobile_tree }}}`
-- `{{{ nav.breadcrumbs }}}`
-- `{{{ list.pages }}}`
-- `{{{ list.latest_pages }}}`（トップ向けの最新12件。index系ページとaboutを除外）
-- `{{ theme.asset_url }}`
+以下は現在のTheme Platform v1でテーマから利用できる主な変数です。変数名は実装と一致させ、未定義の変数を前提にしないでください。
+
+### `site.*`
+
+サイト設定とcoreが生成するURL・表示情報です。
+
+- `site.name`, `site.description`, `site.language`
+- `site.url`, `site.base_path`, `site.public_base_path`
+- `site.home_url`, `site.about_url`, `site.feed_url`, `site.sitemap_url`
+- `site.ogp_url`
+- `site.analytics_html`（coreが許可したHTML。通常はlayoutから出力）
+
+### `page.*`
+
+現在表示中のページです。通常ページとVirtual Folderで共通して使える表示用項目に加え、Virtual Folderでは`page.page_type`が`virtual_folder_index`になります。
+
+- `page.title`, `page.description`, `page.date`, `page.updated`, `page.show_updated`
+- `page.url`, `page.absolute_url`
+- `page.body`, `page.content`, `page.meta_html`, `page.tags_html`
+- `page.folder_pages_html`
+
+`page.body`や`page.content`などのHTMLは、coreが生成・検査した値だけを三重波括弧で出力できます。
+
+### `nav.*`
+
+NavigationBuilderが生成する値です。HTML値はcoreが生成するため、テーマ側でページ探索やURL生成を行いません。
+
+- `nav.tree`, `nav.mobile_tree`, `nav.sections`
+- `nav.primary_links`, `nav.breadcrumbs`
+- `nav.home_url`, `nav.about_url`
+- `nav.primary_items`（各itemは`label`、`url`、`type`）
+
+### `list.*`
+
+- `list.pages`: 現在の一覧ページのHTML
+- `list.latest_pages`: トップページ向けの最新12件のHTML
+
+Virtual Folderでは、`list.html`が選択され、公開されたフォルダー直下記事の一覧が`list.pages`に渡されます。テーマ作者はVirtualFolderIndexや`pages.json`を直接扱いません。
+
+### `theme.*`
+
+`theme-settings.php`から正規化されたサイト固有表示設定と、テーマアセットのURLです。
+
+- `theme.asset_url`
+- `theme.favicon_url`, `theme.favicon_type`, `theme.apple_touch_icon_url`
+- `theme.hero_enabled`, `theme.hero_image_url`, `theme.hero_title`, `theme.hero_subtitle`
+- `theme.hero_button_enabled`, `theme.hero_button_label`, `theme.hero_button_url`
+- `theme.logo_url`, `theme.key_color`
+- `theme.news_enabled`, `theme.news_heading`, `theme.news_more_label`
+
+Hero、logo、key color、News設定の入力契約は[theme-settings-v1.md](theme-settings-v1.md)を参照してください。
+
+### `home.*`
+
+トップページの構造化News APIです。詳細は[home-news-api-v1.md](home-news-api-v1.md)に集約しています。
+
+- `home.has_news`
+- `home.news_items`（`date`、`date_display`、`title`、`url`）
+- `home.news_url`
+
+既存テーマが`home.*`を使わなくても動作することは後方互換の一部です。6テーマすべてに同じAPI利用を強制しません。
 
 三重波括弧で HTML として出力できる変数は、core のホワイトリストにあるものだけです。通常の `{{ variable }}` は必ず HTML エスケープされます。
 
@@ -168,6 +227,25 @@ AI にテーマを作らせる場合も、PHP、外部 script、未定義変数�
 
 `nav.tree` と `nav.mobile_tree` は、大量記事によるHTML肥大化を防ぐため、1フォルダーあたり最大30ページと「すべて見る」を出力します。30件より後の記事を閲覧中は、その記事を制限内に残します。全記事への導線は `page.folder_pages_html` のページング一覧が担います。
 
+## Virtual Folder
+
+`content/<folder>/`に公開された直下Markdown記事があり、公開された`index.md`がない、または`index.md`がdraftの場合、Tomosは`/<folder>/`をVirtual Folder Indexとして解決できます。Virtual Folderは`list.html`を使用し、一覧は`list.pages`から出力します。
+
+これはテーマ側でroutingを実装する機能ではありません。テーマは通常の`list.html`と`list.pages`を用意するだけでよく、`pages.json`、draft判定、Markdown解析、`folder_pages_html`の内部橋渡しを直接扱わないでください。
+
+## CSSの扱い
+
+CSSセレクターは、安定契約として文書化されたものとcore内部実装を区別します。現時点でテーマ作者が利用できる代表的なフックは、フォルダー一覧の`.folder-page-summary`、`.folder-pagination`、`.folder-pagination-pages`、`.folder-pagination-prev`、`.folder-pagination-next`、検索の`.search-summary`、`.search-results`です。その他のcore生成classは、明示的に契約化されるまで内部実装として扱ってください。
+
+テーマの表示確認は次の4層を分けて行います。
+
+1. TomosがHTMLを生成している
+2. DOMに対象要素が存在する
+3. CSSで対象要素が表示状態になっている
+4. ブラウザまたはCDNが最新CSSを取得している
+
+HTTP 200やHTML生成成功だけではブラウザ表示成功とは判定しません。CSS変更時はブラウザ・CDNキャッシュも確認します。
+
 ## テーマ追加の前提
 
 テーマは以下のように追加できます。
@@ -175,6 +253,8 @@ AI にテーマを作らせる場合も、PHP、外部 script、未定義変数�
 - `themes/tomos-minimal/`
 - `themes/tomos-paper/`
 - `themes/tomos-note/`
+
+標準テーマから派生する場合は、[theme-contract-v1.md](theme-contract-v1.md)の手順に従い、元テーマと異なる一意のIDを使用してください。標準テーマを直接改変すると、Tomos Updateで標準テーマが更新された際に独自変更と混線する可能性があります。
 
 Tomos は、`config.php` の `theme.name` に指定されたテーマディレクトリからテンプレートとアセットを読み込みます。テーマを追加しても、ページ解決、Markdown変換、ナビゲーション生成、URL生成、セキュリティ処理は core が担当します。
 

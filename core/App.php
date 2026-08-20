@@ -8,6 +8,7 @@ final class App
 {
     private array $config;
     private string $ga4Nonce = '';
+    private ?ThemeSettings $themeSettings = null;
 
     public function __construct(array $config)
     {
@@ -117,27 +118,31 @@ final class App
             $performance->lap('html_cache_check');
         }
 
-        if ($page === null || $contentHtml === null) {
-            $repository = $this->createPageRepository($frontMatterParser);
-            $lookup = $repository !== null
-                ? $repository->findByRoute($route)
-                : new PageLookupResult('not_found');
-            $performance->lap('page_repository_lookup');
+        if ($page === null) {
+            $page = VirtualFolderIndex::find($route, $pages);
+            if ($page !== null) {
+                $page['title'] = $this->themeSettings()->virtualFolderTitle((string) ($page['folder_path'] ?? ''));
+                $contentHtml = '';
+                $performance->set('html_cache', 'skipped');
+                $performance->set('markdown_render', 'skipped');
+                $performance->set('wiki_link_parse', 'skipped');
+            }
+        }
 
-            if ($lookup->status !== 'ok' || $lookup->page === null) {
-                $virtualPage = $repository !== null ? $repository->virtualFolderForRoute($route, $pages) : null;
-                if ($virtualPage === null) {
+        if ($page === null || $contentHtml === null) {
+            if ($page === null || ($page['page_type'] ?? '') !== 'virtual_folder_index') {
+                $repository = $this->createPageRepository($frontMatterParser);
+                $lookup = $repository !== null
+                    ? $repository->findByRoute($route)
+                    : new PageLookupResult('not_found');
+                $performance->lap('page_repository_lookup');
+
+                if ($lookup->status !== 'ok' || $lookup->page === null) {
                     http_response_code(404);
                     echo $this->renderNotFoundPage($renderer, $markdownParser, $navigation, $pages, $route->urlPath);
                     return;
                 }
 
-                $page = $virtualPage;
-                $contentHtml = '';
-                $performance->set('html_cache', 'skipped');
-                $performance->set('markdown_render', 'skipped');
-                $performance->set('wiki_link_parse', 'skipped');
-            } else {
                 $page = $lookup->page;
                 $contentHtml = $this->renderMarkdownContentHtml($page, $markdownParser, $pages, $publicBasePath, $htmlCache, $performance);
             }
@@ -218,7 +223,7 @@ final class App
                 return $metadataIndex->build();
             }
 
-            $pages = $metadataIndex->loadCached();
+            $pages = $metadataIndex->loadFresh();
             if ($pages === null) {
                 $performance->set('metadata_index', 'rebuild');
                 return $metadataIndex->rebuild();
@@ -327,6 +332,16 @@ final class App
         } catch (\Throwable $exception) {
             return null;
         }
+    }
+
+    private function themeSettings(): ThemeSettings
+    {
+        if ($this->themeSettings === null) {
+            $themesDir = rtrim((string) ($this->config['paths']['theme_dir'] ?? ''), DIRECTORY_SEPARATOR);
+            $this->themeSettings = new ThemeSettings(dirname($themesDir));
+        }
+
+        return $this->themeSettings;
     }
 
     private function contentWithoutDuplicateTitleHeading(string $markdown, string $title): string

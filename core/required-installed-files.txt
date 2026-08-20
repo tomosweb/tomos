@@ -30,6 +30,9 @@ core/PostPublisher.php
 core/PostImageUploadSessionStore.php
 core/ConfigWriteLock.php
 core/SiteSettingsConfigWriter.php
+core/ThemeSettings.php
+core/HomeNewsProvider.php
+core/PublicMetadataFreshener.php
 core/ThemePackageException.php
 core/ThemePackageInstaller.php
 core/ThemePackagePolicy.php

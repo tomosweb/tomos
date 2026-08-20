@@ -24,6 +24,7 @@ if (!is_file($configPath)) {
 $config = require $configPath;
 
 try {
+    Tomos\PublicMetadataFreshener::ensure($config);
     $app = new Tomos\App($config);
     $app->run($_SERVER['REQUEST_URI'] ?? '/');
 } catch (Throwable $exception) {

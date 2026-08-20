@@ -1,5 +1,34 @@
 # 更新履歴
 
+## v0.2.0 - 2026-08-20
+
+### Theme Platform v1
+
+- `theme.json` の `requires_tomos` による最低Tomos versionの宣言に対応しました。
+- ThemeSettings、theme-assets、structured Home News API、Virtual Folder Indexを公開契約として整理しました。
+- Theme Platformのtemplate contextを整備しました。
+- 標準6テーマを1.2.0世代へ整理しました。
+
+### runtime / freshness
+
+- metadata freshnessを改善しました。
+- HTML cache freshnessを改善しました。
+- dated filenameからの日付fallbackに対応しました。
+- Virtual Folderのfreshness関連処理を改善しました。
+
+### safety / responsibility boundary
+
+- `theme-settings.php` にself-guardを導入しました。
+- `.htaccess` はdefense in depthとして維持します。
+- Tomos Updateはroot `.htaccess`を更新しません。
+- ThemeSettingsへsecretsを保存しない責務を明確化しました。
+
+### compatibility
+
+- `requires_tomos` 未指定themeは従来どおり互換扱いです。
+- v0.2.0の新APIを必須利用するthemeは最低Tomos versionを指定できます。
+- theme versionとTomos core versionは独立して管理します。
+
 ## v0.1.0-beta.1 - 2026-08-17
 
 ### 概要
