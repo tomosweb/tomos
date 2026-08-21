@@ -124,6 +124,9 @@ check(strpos($troubleshooting, '/post/passkey/recovery/') !== false, 'troublesho
 check(strpos($troubleshooting, 'submission_id') !== false, 'troubleshooting documents current duplicate-submit behavior');
 
 check(strpos($updateGuide, '## 現在の更新方法') !== false, 'update guide has current update instructions');
+check(strpos($updateGuide, 'v0.2.0からv0.3.0への更新') !== false, 'update guide describes 0.2.0 to 0.3.0');
+check(strpos($updateGuide, 'from_version: 0.2.0') !== false, 'update guide fixes 0.3.0 from_version boundary');
+check(strpos($updateGuide, 'version: 0.3.0') !== false, 'update guide fixes 0.3.0 target boundary');
 check(strpos($updateGuide, 'v0.1.0-beta.1からv0.2.0への更新') !== false, 'update guide describes beta.1 to 0.2.0');
 check(strpos($updateGuide, 'from_version: 0.1.0-beta.1') !== false, 'update guide fixes 0.2.0 from_version boundary');
 check(strpos($updateGuide, 'version: 0.2.0') !== false, 'update guide fixes 0.2.0 target boundary');

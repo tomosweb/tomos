@@ -127,7 +127,11 @@ final class ConfigWriter
         }
 
         $rssPathPrefix = self::normalizeSetupPath((string) ($input['rss_path_prefix'] ?? ''), 'RSS対象パス', $errors);
-        $language = LanguageTag::normalizeOrNull($input['language'] ?? 'ja');
+        $languageInput = $input['language'] ?? 'ja';
+        if (isset($input['language_custom']) && is_string($input['language_custom']) && trim($input['language_custom']) !== '') {
+            $languageInput = $input['language_custom'];
+        }
+        $language = LanguageTag::normalizeOrNull($languageInput);
         if ($language === null) {
             $errors[] = '言語コードは BCP 47 形式（例: ja、en、zh-Hans）で指定してください。';
             $language = 'ja';

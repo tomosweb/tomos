@@ -83,6 +83,17 @@ foreach (['', 'en us', '" onload=x', '../en', "en\n"] as $tag) {
 if ($siteErrors !== [] || ($validSiteSettings['language'] ?? '') !== 'zh-Hans') {
     failMultilingual('valid site language was rejected by configuration validation.');
 }
+[$customSiteSettings, $customSiteErrors] = ConfigWriter::validateSiteSettings([
+    'site_name' => 'Example',
+    'site_description' => '',
+    'timezone' => 'Asia/Tokyo',
+    'rss_path_prefix' => '',
+    'language' => 'ja',
+    'language_custom' => 'en-US',
+]);
+if ($customSiteErrors !== [] || ($customSiteSettings['language'] ?? '') !== 'en-US') {
+    failMultilingual('custom BCP 47 site language was not accepted.');
+}
 [, $invalidSiteErrors] = ConfigWriter::validateSiteSettings([
     'site_name' => 'Example',
     'site_description' => '',

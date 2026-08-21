@@ -51,6 +51,7 @@ final class SiteSettingsConfigWriter
             'site_name' => 'サイト名',
             'site_description' => 'サイト説明',
             'language' => 'サイトの言語',
+            'language_custom' => 'カスタム言語コード',
             'timezone' => 'タイムゾーン',
             'rss_path_prefix' => 'RSS対象パス',
         ] as $key => $label) {

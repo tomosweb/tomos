@@ -14,6 +14,17 @@ Tomosをすでに設置している場合の、データを保持した更新手
 
 手動の署名済みUpdate ZIPも正式な更新経路として利用できます。オンライン更新と手動更新のどちらも、同じ署名検証、`from_version`検証、backup、rollback、apply処理を使用します。
 
+### v0.2.0からv0.3.0への更新
+
+0.2.0からv0.3.0へは、Tomos Updateによる通常の1-step updateを使用します。
+
+```text
+from_version: 0.2.0
+version: 0.3.0
+```
+
+`from_version`は現在の`VERSION`と完全一致する必要があります。URL構造と既存Markdownは変更せず、`config.php`、`content/`、custom theme、`theme-settings.php`、`theme-assets/`、運用データを保持します。標準theme ID配下は更新対象になり得ます。更新前にバックアップを作成してください。
+
 ### v0.1.0-beta.1からv0.2.0への更新
 
 0.1.0-beta.1からv0.2.0へは、Tomos Updateによる通常の1-step updateを使用します。中間betaはありません。
