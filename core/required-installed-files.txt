@@ -46,6 +46,7 @@ core/PasskeyAuthenticationService.php
 core/PasskeyManagementService.php
 core/PostPasswordHashUpdater.php
 core/PageSorter.php
+core/LanguageTag.php
 core/PublishedMetadata.php
 core/PasskeyPasswordResetService.php
 core/PasskeyServerRecoveryService.php

@@ -75,6 +75,7 @@ function formValues(array $config): array
     return [
         'site_name' => (string) ($config['site']['name'] ?? ''),
         'site_description' => (string) ($config['site']['description'] ?? ''),
+        'language' => Tomos\LanguageTag::fallback($config['site']['language'] ?? null),
         'timezone' => (string) ($config['site']['timezone'] ?? 'Asia/Tokyo'),
         'feature_rss' => !empty($config['features']['rss']),
         'rss_path_prefix' => (string) ($config['feed']['path_prefix'] ?? ''),
@@ -87,6 +88,7 @@ function submittedFormValues(array $input): array
     return [
         'site_name' => is_string($input['site_name'] ?? null) ? $input['site_name'] : '',
         'site_description' => is_string($input['site_description'] ?? null) ? $input['site_description'] : '',
+        'language' => is_string($input['language'] ?? null) ? $input['language'] : '',
         'timezone' => is_string($input['timezone'] ?? null) ? $input['timezone'] : '',
         'feature_rss' => isset($input['feature_rss']) && $input['feature_rss'] === '1',
         'rss_path_prefix' => is_string($input['rss_path_prefix'] ?? null) ? $input['rss_path_prefix'] : '',
@@ -144,6 +146,11 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text]{backg
     echo '<input id="site_name" type="text" name="site_name" value="' . e((string) $form['site_name']) . '" maxlength="100" required>';
     echo '<label for="site_description">サイト説明（任意）</label>';
     echo '<input id="site_description" type="text" name="site_description" value="' . e((string) $form['site_description']) . '" maxlength="200">';
+    echo '<label for="language">サイトの言語</label><select id="language" name="language">';
+    foreach (['ja' => '日本語 (ja)', 'en' => 'English (en)', 'fr' => 'Français (fr)', 'de' => 'Deutsch (de)', 'zh-Hans' => '简体中文 (zh-Hans)', 'zh-Hant' => '繁體中文 (zh-Hant)', 'ko' => '한국어 (ko)'] as $value => $label) {
+        echo '<option value="' . e($value) . '"' . (((string) ($form['language'] ?? 'ja') === $value) ? ' selected' : '') . '>' . e($label) . '</option>';
+    }
+    echo '</select><p class="hint">ページ側で <code>language</code> を指定しない場合、この言語が使用されます。</p>';
     echo '<label for="timezone">タイムゾーン</label>';
     echo '<input id="timezone" type="text" name="timezone" value="' . e((string) $form['timezone']) . '" placeholder="Asia/Tokyo" autocomplete="off" spellcheck="false">';
     echo '<p class="hint">空欄で保存すると <code>Asia/Tokyo</code> を使用します。</p>';

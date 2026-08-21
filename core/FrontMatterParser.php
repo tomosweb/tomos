@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . '/LanguageTag.php';
+
 final class FrontMatterParser
 {
     public function parse(string $markdown): array
@@ -147,6 +149,7 @@ final class FrontMatterParser
             'tags' => $this->normalizeTags($metadata['tags'] ?? []),
             'description' => $this->cleanScalar($metadata['description'] ?? ''),
             'draft' => $this->toBoolean($metadata['draft'] ?? false),
+            'language' => LanguageTag::normalizeOrNull($metadata['language'] ?? null),
         ];
     }
 

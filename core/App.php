@@ -160,6 +160,7 @@ final class App
             'date' => $page['date'],
             'updated' => $page['updated'],
             'tags' => $page['tags'],
+            'language' => $page['language'] ?? null,
             'tags_html' => $this->pageTagsHtml(is_array($page['tags']) ? $page['tags'] : [], $publicBasePath),
             'content' => $contentHtml,
             'path' => $page['path'],
@@ -327,7 +328,8 @@ final class App
                 (string) $this->config['paths']['content_dir'],
                 (string) $this->config['paths']['cache_dir'],
                 $frontMatterParser,
-                (bool) ($this->config['metadata']['include_drafts'] ?? false)
+                (bool) ($this->config['metadata']['include_drafts'] ?? false),
+                (string) ($this->config['site']['language'] ?? 'ja')
             );
         } catch (\Throwable $exception) {
             return null;

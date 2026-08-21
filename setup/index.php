@@ -179,11 +179,11 @@ code{background:#f1f1ee;border-radius:4px;padding:0.1rem 0.25rem}
     echo '<input id="detected_site_url" type="url" value="' . e((string) ($detectedUrl['site_url'] ?? '')) . '" readonly aria-describedby="detected_site_url_hint">';
     echo '<p id="detected_site_url_hint" class="hint">このサーバーから自動的に取得しました。URLや設置パスの入力は必要ありません。</p>';
 
-    echo '<label for="language">言語</label><select id="language" name="language">';
-    foreach (['ja' => 'ja', 'en' => 'en'] as $value => $label) {
+    echo '<label for="language">サイトの言語</label><select id="language" name="language">';
+    foreach (['ja' => '日本語 (ja)', 'en' => 'English (en)', 'fr' => 'Français (fr)', 'de' => 'Deutsch (de)', 'zh-Hans' => '简体中文 (zh-Hans)', 'zh-Hant' => '繁體中文 (zh-Hant)', 'ko' => '한국어 (ko)'] as $value => $label) {
         echo '<option value="' . e($value) . '"' . (((string) ($site['language'] ?? 'ja') === $value) ? ' selected' : '') . '>' . e($label) . '</option>';
     }
-    echo '</select>';
+    echo '</select><p class="hint">ページ側で <code>language</code> を指定しない場合、この言語が使用されます。</p>';
     input('タイムゾーン', 'timezone', (string) ($site['timezone'] ?? 'Asia/Tokyo'), 'text');
 
     echo '<h2>Google Analytics 4（任意）</h2>';
