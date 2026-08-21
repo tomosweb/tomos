@@ -8,6 +8,7 @@ Tomos のテーマは、HTML テンプレート、CSS、theme.json で構成し�
 - [theme-contract-v1.md](theme-contract-v1.md): `theme.json`、派生テーマ、標準テーマセットの契約
 - [theme-settings-v1.md](theme-settings-v1.md): サイト固有の `theme-settings.php` と `theme.*` 設定
 - [home-news-api-v1.md](home-news-api-v1.md): トップページの構造化News API
+- [multilingual-v1.md](multilingual-v1.md): ページ言語と多言語ページの公開契約
 - [theme-validation.md](theme-validation.md): ThemeValidatorとテーマZIP検査
 
 テーマは、サイトの見た目を決めるファイル一式です。setup画面では、検証に通ったテーマだけを選べます。
@@ -175,6 +176,7 @@ AI にテーマを作らせる場合も、PHP、外部 script、未定義変数�
 
 - `page.title`, `page.description`, `page.date`, `page.updated`, `page.show_updated`
 - `page.url`, `page.absolute_url`
+- `page.language`
 - `page.body`, `page.content`, `page.meta_html`, `page.tags_html`
 - `page.folder_pages_html`
 

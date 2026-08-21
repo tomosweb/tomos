@@ -147,6 +147,8 @@ final class TemplateRenderer
         $basePath = (string) ($this->config['site']['base_path'] ?? '');
         $publicBasePath = $this->publicBasePath();
         $site = $this->config['site'];
+        $site['language'] = LanguageTag::fallback($site['language'] ?? null);
+        $page['language'] = LanguageTag::fallback($page['language'] ?? null, $site['language']);
         $site['base_path'] = Security::normalizeBasePath($basePath);
         $site['public_base_path'] = Security::normalizeBasePath($publicBasePath);
         $site['home_url'] = Security::publicUrl('/', $publicBasePath);

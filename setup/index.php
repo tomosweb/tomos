@@ -179,11 +179,18 @@ code{background:#f1f1ee;border-radius:4px;padding:0.1rem 0.25rem}
     echo '<input id="detected_site_url" type="url" value="' . e((string) ($detectedUrl['site_url'] ?? '')) . '" readonly aria-describedby="detected_site_url_hint">';
     echo '<p id="detected_site_url_hint" class="hint">このサーバーから自動的に取得しました。URLや設置パスの入力は必要ありません。</p>';
 
-    echo '<label for="language">言語</label><select id="language" name="language">';
-    foreach (['ja' => 'ja', 'en' => 'en'] as $value => $label) {
-        echo '<option value="' . e($value) . '"' . (((string) ($site['language'] ?? 'ja') === $value) ? ' selected' : '') . '>' . e($label) . '</option>';
+    echo '<label for="language">サイトの言語</label><select id="language" name="language">';
+    $siteLanguage = (string) ($site['language'] ?? 'ja');
+    $commonLanguages = ['ja' => '日本語 (ja)', 'en' => 'English (en)', 'fr' => 'Français (fr)', 'de' => 'Deutsch (de)', 'zh-Hans' => '简体中文 (zh-Hans)', 'zh-Hant' => '繁體中文 (zh-Hant)', 'ko' => '한국어 (ko)'];
+    if (!isset($commonLanguages[$siteLanguage]) && $siteLanguage !== '') {
+        $commonLanguages = [$siteLanguage => $siteLanguage] + $commonLanguages;
     }
-    echo '</select>';
+    foreach ($commonLanguages as $value => $label) {
+        echo '<option value="' . e($value) . '"' . ($siteLanguage === $value ? ' selected' : '') . '>' . e($label) . '</option>';
+    }
+    echo '</select><p class="hint">ページ側で <code>language</code> を指定しない場合、この言語が使用されます。</p>';
+    input('カスタム言語コード（任意）', 'language_custom', '', 'text');
+    echo '<p class="hint">一覧にない言語は <code>en-US</code> や <code>zh-Hant</code> のようなBCP 47形式で入力できます。入力した場合は選択欄より優先されます。</p>';
     input('タイムゾーン', 'timezone', (string) ($site['timezone'] ?? 'Asia/Tokyo'), 'text');
 
     echo '<h2>Google Analytics 4（任意）</h2>';

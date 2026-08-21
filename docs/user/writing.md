@@ -152,6 +152,19 @@ draft: true
 
 公開する場合は `draft: false` にするか、`draft` 行を削除します。
 
+### language
+
+ページの言語を指定する場合は `language` を使います。省略した場合はサイトの既定言語が使われます。
+
+```markdown
+---
+title: What is Tomos?
+language: en
+---
+```
+
+Tomosはこの情報を使って公開上の言語を扱いますが、翻訳本文や翻訳ページ間の関係は管理しません。
+
 ## 見出し
 
 Markdownでは `#` を使って見出しを書きます。

@@ -1,5 +1,35 @@
 # 更新履歴
 
+## v0.3.0 - 2026-08-21
+
+### Added
+
+- サイトの既定言語設定に対応しました。
+- Markdownのfrontmatterでページごとの `language` を指定できるようにしました。
+- `page.language` をTheme contextとして提供します。
+- BCP 47形式に沿った言語タグの検証に対応しました。
+- SetupとTomos Postのサイト設定から言語を変更できるようにしました。
+- 同一サイト内で異なる言語のMarkdownページを共存できるようにしました。
+
+### Changed
+
+- 標準テーマが `<html lang="{{ page.language }}">` を出力します。
+- 標準6テーマを1.3.0世代へ更新しました。
+- `language` 未指定のページはサイトの既定言語を継承します。
+
+### Compatibility
+
+- 既存サイトの既定言語は `ja` です。
+- 既存Markdownの変更やmigrationは必要ありません。
+- URL構造は変更しません。
+- RSSはサイト単位の言語を維持します。
+
+### Not included
+
+- 自動翻訳・翻訳API
+- 翻訳workflow・翻訳関係管理
+- 自動hreflang生成
+
 ## v0.2.0 - 2026-08-20
 
 ### Theme Platform v1

@@ -2,6 +2,7 @@
 
 対象: Tomos v0.2.0以降
 策定日: 2026-08-18
+
 ## 現在位置
 
 - Phase 1 / Gate 1
@@ -262,18 +263,18 @@ Tomos本体に同梱する次の6テーマは、原則として一つの標準�
 - `tomos-journal`
 - `tomos-blog`
 
-Phase 5-Cで確定した標準テーマセットのversionは次のとおりです。
+v0.3.0で言語表示契約に対応した標準テーマセットのversionは次のとおりです。
 
 ```text
-tomos-minimal   1.2.0
-tomos-note      1.2.0
-tomos-90s       1.2.0
-tomos-dark      1.2.0
-tomos-journal   1.2.0
-tomos-blog      1.2.0
+tomos-minimal   1.3.0
+tomos-note      1.3.0
+tomos-90s       1.3.0
+tomos-dark      1.3.0
+tomos-journal   1.3.0
+tomos-blog      1.3.0
 ```
 
-`1.2.0`は標準テーマセットの世代を表す共通baselineです。各テーマのデザイン、用途、使用APIが同一になることを意味しません。
+`1.3.0`は標準テーマセットの世代を表す共通baselineです。各テーマのデザイン、用途、使用APIが同一になることを意味しません。
 
 今後、標準テーマセットに共通する変更をリリースする場合も、原則として6テーマへ同じversionを付与します。個別テーマだけに独立した重大リリースが必要になった場合は、その時点で別途判断します。
 
