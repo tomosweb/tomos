@@ -35,6 +35,7 @@ final class SiteSettingsConfigWriter
 
         $newConfig['site']['name'] = $settings['site_name'];
         $newConfig['site']['description'] = $settings['site_description'];
+        $newConfig['site']['language'] = $settings['language'];
         $newConfig['site']['timezone'] = $settings['timezone'];
         $newConfig['features']['rss'] = $rssEnabled;
         $newConfig['features']['sitemap'] = $sitemapEnabled;
@@ -49,6 +50,8 @@ final class SiteSettingsConfigWriter
         foreach ([
             'site_name' => 'サイト名',
             'site_description' => 'サイト説明',
+            'language' => 'サイトの言語',
+            'language_custom' => 'カスタム言語コード',
             'timezone' => 'タイムゾーン',
             'rss_path_prefix' => 'RSS対象パス',
         ] as $key => $label) {

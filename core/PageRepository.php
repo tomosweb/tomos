@@ -104,6 +104,7 @@ final class PageRepository
             'body' => '',
             'markdown' => '',
             'metadata' => [],
+            'language' => null,
         ];
     }
 
@@ -155,6 +156,7 @@ final class PageRepository
             'body' => $parsed['body'],
             'markdown' => $markdown,
             'metadata' => $metadata,
+            'language' => LanguageTag::normalizeOrNull($metadata['language'] ?? null),
         ]);
     }
 

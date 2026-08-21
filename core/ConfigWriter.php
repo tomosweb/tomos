@@ -33,12 +33,6 @@ final class ConfigWriter
         $publicBasePath = self::normalizeSetupPath((string) ($input['public_base_path'] ?? ''), 'public_base_path', $errors);
         $rssPathPrefix = $siteSettings['rss_path_prefix'];
 
-        $language = (string) ($input['language'] ?? 'ja');
-        if (!in_array($language, ['ja', 'en'], true)) {
-            $errors[] = '言語は ja または en を選択してください。';
-            $language = 'ja';
-        }
-
         $timezone = $siteSettings['timezone'];
 
         $themeName = self::cleanText((string) ($input['theme_name'] ?? 'tomos-minimal'), 80);
@@ -66,7 +60,7 @@ final class ConfigWriter
                 'url' => $url,
                 'base_path' => $basePath,
                 'public_base_path' => $publicBasePath,
-                'language' => $language,
+                'language' => $siteSettings['language'],
                 'timezone' => $timezone,
             ],
             'paths' => [
@@ -133,12 +127,22 @@ final class ConfigWriter
         }
 
         $rssPathPrefix = self::normalizeSetupPath((string) ($input['rss_path_prefix'] ?? ''), 'RSS対象パス', $errors);
+        $languageInput = $input['language'] ?? 'ja';
+        if (isset($input['language_custom']) && is_string($input['language_custom']) && trim($input['language_custom']) !== '') {
+            $languageInput = $input['language_custom'];
+        }
+        $language = LanguageTag::normalizeOrNull($languageInput);
+        if ($language === null) {
+            $errors[] = '言語コードは BCP 47 形式（例: ja、en、zh-Hans）で指定してください。';
+            $language = 'ja';
+        }
 
         return [[
             'site_name' => $name,
             'site_description' => $description,
             'timezone' => $timezone,
             'rss_path_prefix' => $rssPathPrefix,
+            'language' => $language,
         ], $errors];
     }
 

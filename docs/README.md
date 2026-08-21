@@ -2,7 +2,7 @@
 
 Tomosのドキュメントは、目的別に分けています。
 
-現在のバージョン: `v0.2.0`
+現在のバージョン: `v0.3.0`
 
 Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
 
@@ -61,6 +61,7 @@ Tomosには次の6テーマを同梱しています。
 設置後のテーマ切替は、`/post/settings/`のサイト設定画面から移動できるテーマ変更専用画面で行えます。投稿、取り下げ、trash整理、テーマ切り替えには共通の管理用合言葉を使います。
 
 - `theme/theme-authoring.md`: テーマの作り方
+- `theme/multilingual-v1.md`: ページ言語と多言語ページの公開契約
 - `theme/theme-validation.md`: テーマ検証
 - `theme/theme-checklist.md`: テーマ確認チェックリスト
 - `theme/ai-theme-prompt.md`: AIにテーマ作成を依頼するためのプロンプト

@@ -14,12 +14,14 @@ final class MetadataIndex
     private FrontMatterParser $frontMatterParser;
     private PageRepository $pageRepository;
     private LinkAliasIndex $linkAliasIndex;
+    private string $defaultLanguage;
 
     public function __construct(
         string $contentDir,
         string $cacheDir,
         ?FrontMatterParser $frontMatterParser = null,
-        bool $includeDrafts = false
+        bool $includeDrafts = false,
+        string $defaultLanguage = 'ja'
     ) {
         $realContentDir = realpath($contentDir);
         if ($realContentDir === false || !is_dir($realContentDir)) {
@@ -34,6 +36,7 @@ final class MetadataIndex
         $this->frontMatterParser = $frontMatterParser ?? new FrontMatterParser();
         $this->pageRepository = new PageRepository($this->contentDir, $this->frontMatterParser);
         $this->linkAliasIndex = new LinkAliasIndex($this->cacheDir);
+        $this->defaultLanguage = LanguageTag::fallback($defaultLanguage);
     }
 
     public function build(): array
@@ -227,6 +230,14 @@ final class MetadataIndex
                 return null;
             }
 
+            if (!array_key_exists('language', $page)) {
+                return null;
+            }
+
+            if (LanguageTag::normalizeOrNull($page['language']) === null) {
+                return null;
+            }
+
             if (!$this->isIndexableRelativePath((string) $page['path'])) {
                 return null;
             }
@@ -373,6 +384,7 @@ final class MetadataIndex
             'size' => $size,
             'content_sha256' => hash('sha256', $markdown),
             'draft' => $metadata['draft'],
+            'language' => LanguageTag::fallback($metadata['language'], $this->defaultLanguage),
         ];
     }
 
