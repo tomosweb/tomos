@@ -13,6 +13,15 @@ $process = null;
 
 try {
     copyTree($sourceRoot, $testRoot);
+    $packageSource = $testRoot . '/theme-packages/tomos-lab';
+    if (!is_dir($packageSource)) {
+        throw new RuntimeException('distributable tomos-lab theme package source is missing');
+    }
+    if (!is_dir($testRoot . '/themes')) {
+        mkdir($testRoot . '/themes', 0755, true);
+    }
+    copyTree($packageSource, $testRoot . '/themes/tomos-lab');
+
     foreach (['storage', 'cache', 'trash', 'theme-assets', 'content'] as $directory) {
         if (!is_dir($testRoot . '/' . $directory)) {
             mkdir($testRoot . '/' . $directory, 0755, true);
@@ -35,7 +44,7 @@ try {
 
     $preserved = hashes($testRoot, ['config.php', 'theme-settings.php', 'theme-assets/logo.svg', 'content/index.md']);
     $zipPath = $testRoot . '/tomos-lab-1.0.1.zip';
-    makeLabUpdateZip($testRoot . '/themes/tomos-lab', $zipPath);
+    makeLabUpdateZip($packageSource, $zipPath);
 
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errorNumber, $errorMessage);
     if (!is_resource($socket)) {
