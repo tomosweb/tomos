@@ -2,7 +2,7 @@
 
 Tomosのドキュメントは、目的別に分けています。
 
-現在のバージョン: `v0.3.0`
+現在のバージョン: `v0.3.1`
 
 Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
 
@@ -43,6 +43,7 @@ Tomos Postには、合言葉の連続失敗をIP単位で一時停止する軽�
 - `features/search.md`: 検索
 - `features/wiki-links.md`: Wikiリンク
 - `features/images.md`: 画像
+- `features/post.md`: Tomos Post
 - `features/themes.md`: テーマ
 - `features/rss-sitemap.md`: RSS / sitemap
 - `features/cache.md`: HTMLキャッシュ
