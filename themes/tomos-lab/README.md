@@ -38,6 +38,84 @@ News
 
 このテーマZIPには`theme-settings.php`や`theme-assets/`を含めません。制作者はサイト側でHero、logo、key color、News設定を構成してください。
 
+例:
+
+```php
+<?php
+if (!defined('TOMOS_THEME_SETTINGS_CONTEXT') || TOMOS_THEME_SETTINGS_CONTEXT !== true) {
+    http_response_code(404);
+    return [];
+}
+
+return [
+    'hero' => [
+        'enabled' => true,
+        'image' => 'hero.jpg',
+        'title' => 'Exploring Molecular Interfaces',
+        'subtitle' => 'Example Research Group, Example University',
+        'button_label' => 'Our Research',
+        'button_url' => '/research/',
+    ],
+    'news' => [
+        'enabled' => true,
+        'path' => '/news/',
+        'limit' => 5,
+        'heading' => 'NEWS',
+        'more_label' => 'View all',
+    ],
+    'design' => [
+        'logo' => 'logo.svg',
+        'key_color' => '#2f6175',
+    ],
+    'folders' => [
+        'research' => ['title' => 'Research'],
+        'members' => ['title' => 'Members'],
+        'publications' => ['title' => 'Publications'],
+        'news' => ['title' => 'News'],
+    ],
+];
+```
+
+`theme-assets/hero.jpg`と`theme-assets/logo.svg`のようなサイト固有画像はTheme ZIPとは別に保持します。
+
+## Markdown baseline
+
+初期コンテンツは通常Markdownだけで構成できます。
+
+```text
+content/
+├── index.md
+├── research/
+│   ├── index.md
+│   └── project-a.md
+├── members/
+│   └── index.md
+├── publications/
+│   └── index.md
+├── news/
+│   └── 2026-08-01-paper.md
+├── about.md
+├── contact.md
+└── en/
+    ├── index.md
+    └── research.md
+```
+
+Home本文の例:
+
+```markdown
+---
+title: Home
+description: Example Research Group
+---
+
+私たちは分子・材料・情報の境界領域から、新しい現象と技術を探究しています。
+
+研究内容、メンバー、研究成果は各ページからご覧ください。
+```
+
+英語ページではfrontmatterに`language: en`を指定します。
+
 ## Commercial workflow
 
 制作中は同じtheme ID (`tomos-lab`) のZIPをTomos Postから繰り返し投入できます。同versionの再投入も制作調整用途として許容されます。公開後のテーマ更新も同じ経路を使います。
