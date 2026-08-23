@@ -1,127 +1,27 @@
 # Tomos Lab
 
-研究室・研究グループ向けの商用サイト制作を想定したTomos Theme Platform用テーマです。
-
-## 位置づけ
-
-- Theme Platform Phase 6の商用検証テーマ
-- Research / Members / Publications / About / Accessは通常Markdown
-- Home Newsは既存の`home.*` APIを利用
-- Hero / logo / key colorは`theme-settings.php`と`theme-assets/`でサイト固有化
-- テーマ内PHPなし
-- Markdown解析、公開判定、URL生成、ページ探索はTomos coreへ委譲
-
-## 想定サイト構成
+研究室・研究グループ向けの商用Theme packageと、開発・制作・QA用sample siteを同じ単位で管理します。
 
 ```text
-Home
-Research
-Members
-Publications
-News
-About
-Access / Contact
+tomos-lab/
+├── package/       # 配布Theme ZIPの正本
+└── sample-site/   # 人間判断・改修・回帰確認用の基準サイト
 ```
 
-Homeは次の構成を基本とします。
+## package
 
-```text
-Hero
-index.md本文
-主要ページ導線
-News
-```
+`package/`だけをTheme ZIP化します。sample-siteは配布ZIPへ含めません。
 
-主要ページ導線は`nav.primary_items`を使うため、テーマ側に研究室固有URLを固定しません。
+## sample-site
 
-## Site-specific settings
+`sample-site/`はテーマ改修時の基準fixtureです。Hero、News、Research、Members、Publications、About、Contact、日本語/英語ページを含みます。
 
-このテーマZIPには`theme-settings.php`や`theme-assets/`を含めません。制作者はサイト側でHero、logo、key color、News設定を構成してください。
+制作時はsample-siteをTomosサイトのルートへ配置して初期状態を作り、研究室固有の情報へ差し替えます。
 
-例:
+人間判断の主な場所は次の通りです。
 
-```php
-<?php
-if (!defined('TOMOS_THEME_SETTINGS_CONTEXT') || TOMOS_THEME_SETTINGS_CONTEXT !== true) {
-    http_response_code(404);
-    return [];
-}
+- Theme制作者: `package/templates/` と `package/assets/`
+- サイト構築担当: `sample-site/theme-settings.php`、`sample-site/theme-assets/`、初期Markdown
+- 研究室の日常更新: `content/` Markdown / Tomos Post
 
-return [
-    'hero' => [
-        'enabled' => true,
-        'image' => 'hero.jpg',
-        'title' => 'Exploring Molecular Interfaces',
-        'subtitle' => 'Example Research Group, Example University',
-        'button_label' => 'Our Research',
-        'button_url' => '/research/',
-    ],
-    'news' => [
-        'enabled' => true,
-        'path' => '/news/',
-        'limit' => 5,
-        'heading' => 'NEWS',
-        'more_label' => 'View all',
-    ],
-    'design' => [
-        'logo' => 'logo.svg',
-        'key_color' => '#2f6175',
-    ],
-    'folders' => [
-        'research' => ['title' => 'Research'],
-        'members' => ['title' => 'Members'],
-        'publications' => ['title' => 'Publications'],
-        'news' => ['title' => 'News'],
-    ],
-];
-```
-
-`theme-assets/hero.jpg`と`theme-assets/logo.svg`のようなサイト固有画像はTheme ZIPとは別に保持します。
-
-## Markdown baseline
-
-初期コンテンツは通常Markdownだけで構成できます。
-
-```text
-content/
-├── index.md
-├── research/
-│   ├── index.md
-│   └── project-a.md
-├── members/
-│   └── index.md
-├── publications/
-│   └── index.md
-├── news/
-│   └── 2026-08-01-paper.md
-├── about.md
-├── contact.md
-└── en/
-    ├── index.md
-    └── research.md
-```
-
-Home本文の例:
-
-```markdown
----
-title: Home
-description: Example Research Group
----
-
-私たちは分子・材料・情報の境界領域から、新しい現象と技術を探究しています。
-
-研究内容、メンバー、研究成果は各ページからご覧ください。
-```
-
-英語ページではfrontmatterに`language: en`を指定します。
-
-## Commercial workflow
-
-制作中は同じtheme ID (`tomos-lab`) のZIPをTomos Postから繰り返し投入できます。同versionの再投入も制作調整用途として許容されます。公開後のテーマ更新も同じ経路を使います。
-
-Theme ZIP更新でサイト固有の`theme-settings.php`、`theme-assets/`、`content/`、`config.php`を上書きしないことが前提です。
-
-## Language
-
-`<html lang="{{ page.language }}">`を使用します。日本語・英語ページを同じテーマで共存できますが、翻訳関係やhreflangはテーマ側で推測しません。
+sample-siteは販売デモだけではなく、レスポンシブ、Home News、長文、一覧、画像、日本語/英語を改修後に確認するための基準状態として維持します。
