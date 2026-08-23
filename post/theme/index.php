@@ -73,7 +73,7 @@ label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{ac
     echo '<h1>テーマを切り替える</h1>';
     echo '<p class="hint">登録済みのテーマから、サイトの見た目を選びます。</p>';
     echo '<div class="result"><strong>現在のテーマ:</strong><br><code>' . e($currentLabel) . '</code></div>';
-    echo '<div class="actions"><a class="button secondary" href="' . e($addUrl) . '">テーマZIPを追加</a></div>';
+    echo '<div class="actions"><a class="button secondary" href="' . e($addUrl) . '">テーマZIPを追加・更新</a></div>';
 
     echo '<h2>利用できるテーマ</h2>';
     echo '<form method="post" action="' . e($confirmUrl) . '">';

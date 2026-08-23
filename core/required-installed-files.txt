@@ -35,6 +35,7 @@ core/HomeNewsProvider.php
 core/PublicMetadataFreshener.php
 core/ThemePackageException.php
 core/ThemePackageInstaller.php
+core/ThemePackageDeployment.php
 core/ThemePackagePolicy.php
 core/PasskeyEnvironment.php
 core/PasskeyCredentialStore.php
