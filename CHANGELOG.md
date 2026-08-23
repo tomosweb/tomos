@@ -1,5 +1,17 @@
 # 更新履歴
 
+## v0.3.1 - 2026-08-23
+
+### Fixed
+
+- 新規インストール直後などRemember認証Cookieがまだないブラウザで、Tomos Postから「テーマ」「サイト設定」を開くと投稿画面へ戻されることがある問題を修正しました。
+- PHP session cookieのPathをTomos Post配下へ明示し、サブディレクトリ設置でも投稿画面で成立した認証状態を設定・テーマ画面へ引き継げるようにしました。
+
+### Compatibility
+
+- v0.3.0の機能仕様、Markdown、テーマ、URL構造は変更しません。
+- Phase 6以降の未リリースTheme Platform機能は含みません。
+
 ## v0.3.0 - 2026-08-21
 
 ### Added
