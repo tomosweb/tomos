@@ -43,7 +43,6 @@ Tomos Postには、合言葉の連続失敗をIP単位で一時停止する軽�
 - `features/search.md`: 検索
 - `features/wiki-links.md`: Wikiリンク
 - `features/images.md`: 画像
-- `features/post.md`: Tomos Post
 - `features/themes.md`: テーマ
 - `features/rss-sitemap.md`: RSS / sitemap
 - `features/cache.md`: HTMLキャッシュ
