@@ -7,6 +7,8 @@ $postIndex = (string) file_get_contents($root . '/post/index.php');
 $flatEntry = $root . '/post/site-settings.php';
 $legacyEntry = $root . '/post/settings/index.php';
 $htaccess = (string) file_get_contents($root . '/.htaccess');
+$distributionFiles = (string) file_get_contents($root . '/tools/required-distribution-files.txt');
+$installedFiles = (string) file_get_contents($root . '/core/required-installed-files.txt');
 
 $failures = [];
 
@@ -15,6 +17,12 @@ if (!is_file($flatEntry)) {
 }
 if (!is_file($legacyEntry)) {
     $failures[] = 'legacy site settings entrypoint is missing';
+}
+if (strpos($distributionFiles, "post/site-settings.php") === false) {
+    $failures[] = 'flat site settings entrypoint is not required in the distribution';
+}
+if (strpos($installedFiles, "post/site-settings.php") === false) {
+    $failures[] = 'flat site settings entrypoint is not required in installed files';
 }
 
 $canonical = '/post/site-settings.php';
