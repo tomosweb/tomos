@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-if (!function_exists('proc_open')) {
-    fwrite(STDERR, "SKIP: proc_open is unavailable.\n");
+if (!function_exists('proc_open') || !class_exists('DOMDocument')) {
+    fwrite(STDERR, "SKIP: proc_open or DOMDocument is unavailable.\n");
     exit(2);
 }
 
@@ -72,6 +72,7 @@ try {
 
     $settingsHome = request($baseUrl . '/post/?section=settings', $cookie);
     assertSame(200, $settingsHome['status'], 'settings card response');
+    assertSettingsNavigationSemantics($settingsHome['body']);
     assertContains('href="/theme-labo/post/site-settings.php"', $settingsHome['body'], 'rendered Site Settings href');
     assertContains('href="/theme-labo/post/theme/"', $settingsHome['body'], 'rendered Theme href');
 
@@ -175,6 +176,47 @@ function assertTrue(bool $condition, string $label): void
 {
     if (!$condition) {
         throw new RuntimeException($label);
+    }
+}
+
+function assertSettingsNavigationSemantics(string $html): void
+{
+    $document = new DOMDocument();
+    libxml_use_internal_errors(true);
+    if (!$document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)) {
+        throw new RuntimeException('settings page HTML could not be parsed');
+    }
+
+    $links = [];
+    foreach ($document->getElementsByTagName('a') as $anchor) {
+        $classAttribute = $anchor->attributes->getNamedItem('class');
+        $className = $classAttribute instanceof DOMAttr ? (string) $classAttribute->nodeValue : '';
+        if (preg_match('/(?:^|\\s)settings-link(?:\\s|$)/', $className) === 1) {
+            $links[] = $anchor;
+        }
+    }
+    if (count($links) < 2) {
+        throw new RuntimeException('settings navigation cards are missing');
+    }
+
+    foreach ($links as $anchor) {
+        if (strtolower($anchor->nodeName) !== 'a') {
+            throw new RuntimeException('settings navigation control is not an anchor');
+        }
+        foreach (['onclick', 'onmousedown', 'onmouseup', 'ontouchstart'] as $attribute) {
+            if ($anchor->hasAttribute($attribute)) {
+                throw new RuntimeException('settings navigation anchor has inline click interception: ' . $attribute);
+            }
+        }
+        for ($parent = $anchor->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (in_array(strtolower($parent->tagName), ['form', 'button'], true)) {
+                throw new RuntimeException('settings navigation anchor is nested in an interactive control');
+            }
+        }
+        $href = (string) $anchor->getAttribute('href');
+        if ($href === '' || strpos($href, '#') === 0) {
+            throw new RuntimeException('settings navigation anchor is not natively navigable');
+        }
     }
 }
 
