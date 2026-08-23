@@ -19,8 +19,9 @@
   <meta name="twitter:description" content="{{ page.description }}">
   <meta name="twitter:image" content="{{ site.ogp_url }}">
   <link rel="stylesheet" href="{{ theme.asset_url }}/style.css?v=1.0.0">
+  {{# theme.key_color }}<style>:root { --lab-accent: {{ theme.key_color }}; }</style>{{/ theme.key_color }}
 </head>
-<body style="--lab-accent: {{ theme.key_color }};">
+<body>
   <div class="lab-shell">
     <header class="lab-header">
       <div class="lab-header-inner">
