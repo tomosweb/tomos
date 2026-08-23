@@ -1,0 +1,60 @@
+<section class="lab-home">
+  {{# theme.hero_enabled }}
+  <section class="lab-hero">
+    <div class="lab-hero-media">
+      {{# theme.hero_image_url }}<img src="{{ theme.hero_image_url }}" alt="">{{/ theme.hero_image_url }}
+    </div>
+    <div class="lab-hero-copy">
+      <p class="lab-eyebrow">RESEARCH GROUP</p>
+      <h1>{{ theme.hero_title }}</h1>
+      <p>{{ theme.hero_subtitle }}</p>
+      {{# theme.hero_button_enabled }}<a class="lab-button" href="{{ theme.hero_button_url }}">{{ theme.hero_button_label }}</a>{{/ theme.hero_button_enabled }}
+    </div>
+  </section>
+  {{/ theme.hero_enabled }}
+
+  <section class="lab-intro">
+    <div class="lab-intro-label">
+      <p class="lab-eyebrow">ABOUT OUR WORK</p>
+      <h2>{{ site.name }}</h2>
+    </div>
+    <div class="lab-prose">
+      {{{ page.content }}}
+    </div>
+  </section>
+
+  <section class="lab-sections" aria-labelledby="lab-sections-title">
+    <header class="lab-section-heading">
+      <p class="lab-eyebrow">EXPLORE</p>
+      <h2 id="lab-sections-title">研究室を知る</h2>
+    </header>
+    <div class="lab-section-grid">
+      {{# nav.primary_items }}
+      <a class="lab-section-card" href="{{ url }}">
+        <span class="lab-section-name">{{ label }}</span>
+        <span class="lab-section-arrow" aria-hidden="true">→</span>
+      </a>
+      {{/ nav.primary_items }}
+    </div>
+  </section>
+
+  {{# home.has_news }}
+  <section class="lab-news" aria-labelledby="lab-news-title">
+    <header class="lab-section-heading lab-section-heading-row">
+      <div>
+        <p class="lab-eyebrow">LATEST</p>
+        <h2 id="lab-news-title">{{ theme.news_heading }}</h2>
+      </div>
+      <a class="lab-text-link" href="{{ home.news_url }}">{{ theme.news_more_label }} <span aria-hidden="true">→</span></a>
+    </header>
+    <div class="lab-news-list">
+      {{# home.news_items }}
+      <article class="lab-news-item">
+        <time datetime="{{ date }}">{{ date_display }}</time>
+        <h3><a href="{{ url }}">{{ title }}</a></h3>
+      </article>
+      {{/ home.news_items }}
+    </div>
+  </section>
+  {{/ home.has_news }}
+</section>
