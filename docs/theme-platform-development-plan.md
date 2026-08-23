@@ -272,7 +272,9 @@ Phase 7 テーマ配布基盤の準備
 
 ### 目的
 
-新テーマ基盤を使い、実際のセールスを想定した高品質な研究室向けテーマを制作する。
+新テーマ基盤を使い、実際のセールス・制作・納品・公開後保守までを想定した高品質な研究室向け商用テーマを制作する。
+
+研究室テーマはデモ専用ではなく、Theme ZIPを制作中に繰り返し調整・再投入し、公開後も同じtheme IDを更新できる商用品として扱う。詳細な実案件モデルは`docs/theme/lab-commercial-model-v1.md`を基準とする。
 
 ### 主な作業
 
@@ -280,22 +282,43 @@ Phase 7 テーマ配布基盤の準備
 - Hero、News、`index.md`本文を中心にトップページを設計する。
 - Members、Research、Publications等は通常Markdownページとして扱う。
 - 研究室ごとのHero画像・コピー・ロゴ等はサイト固有設定で管理する。
-- 研究室側の日常更新ではテーマ設定を触らない運用を確認する。
+- 初期サイト固有設定には必要に応じFTP/SFTPを利用する。
+- 制作中はTomos Postから同一theme IDのTheme ZIPを繰り返し投入し、HTML/CSS/assetsの調整を反映する。
+- 同version再投入、上位version更新、active theme更新、全体置換、rollbackを実案件フローで検証する。
+- Theme ZIP再投入で`theme-settings.php`、`theme-assets/`、`content/`、`config.php`が保持されることを確認する。
+- 研究室側の日常更新ではテーマ設定を触らず、Tomos PostとMarkdown中心で運用できることを確認する。
+- 日本語・英語ページを混在させ、`page.language`を使った表示を検証する。
 
 ### 成果物
 
-- 研究室向けテーマ v1
+- 研究室向け商用テーマ v1
 - デモサイト
-- 営業・制作時の導入手順
+- `docs/theme/lab-commercial-model-v1.md`
+- 営業・制作・納品・更新時の導入手順
+- Theme ZIP反復deploymentの実案件検証結果
 - 制作工数・保守範囲の実測
 
 ### Gate 6
 
 - 研究室固有機能をTomos本体へ追加せず実現できている。
-- テーマだけで十分なデザイン差別化が可能。
-- 一般研究室ユーザーの日常運用はMarkdown中心のまま。
-- 制作側のFTP/SFTP設定で初期構築が完結する。
-- 商用案件投入前に公式サイトで検証済みAPIのみを利用する。
+- テーマだけで商用品として十分なデザイン差別化が可能。
+- Hero、ロゴ、キーカラー等のサイト固有値がTheme ZIPから分離されている。
+- Research、Members、Publicationsをv1では通常Markdownで運用できる。
+- News投稿1回でトップと一覧が同じMarkdown正本へ従う。
+- 制作スタッフが同じtheme IDのZIPを制作中に繰り返し投入できる。
+- 同version再投入と上位version更新が成立し、削除済みthemeファイルが残留しない。
+- active themeを更新してもtheme選択が維持される。
+- Theme ZIP更新で`theme-settings.php`、`theme-assets/`、`content/`、`config.php`が保持される。
+- 不正・非互換・配置失敗時に既存themeを破壊せずrollback/recoveryできる。
+- 一般研究室ユーザーの日常運用はTomos PostとMarkdown中心のまま。
+- 一般利用者も公開後の同一theme ID更新をブラウザから実行できる。
+- PC、tablet、mobileで商用品として妥当な表示品質を満たす。
+- 日本語・英語ページが研究室専用言語ロジックなしに`page.language`で表示できる。
+- 制作者がTomos本体PHPを変更せず商用themeを制作できる。
+- themeがMarkdown解析、公開判定、draft判定、URL生成を重複実装していない。
+- 別の制作スタッフが営業・制作・納品・更新手順を再現できる。
+- Theme / ThemeSettings / Markdown / Coreの責務を研究室固有例外なしで説明できる。
+- 商用案件投入前に利用するCore APIは公式サイトまたは既存回帰で検証済みである。
 
 ## 12. Phase 7 — テーマ配布基盤の準備
 
