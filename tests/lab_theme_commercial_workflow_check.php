@@ -21,7 +21,7 @@ if (!class_exists(ZipArchive::class)) {
     exit(2);
 }
 
-$sourceTheme = dirname(__DIR__) . '/theme-packages/tomos-lab';
+$sourceTheme = dirname(__DIR__) . '/theme-packages/tomos-lab/package';
 if (!is_dir($sourceTheme)) {
     fwrite(STDERR, "FAIL: distributable tomos-lab theme package source is missing.\n");
     exit(1);
