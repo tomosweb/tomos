@@ -13,22 +13,31 @@ $process = null;
 
 try {
     copyTree($sourceRoot, $testRoot);
-    $packageSource = $testRoot . '/theme-packages/tomos-lab';
+    $packageSource = $testRoot . '/theme-packages/tomos-lab/package';
+    $sampleSource = $testRoot . '/theme-packages/tomos-lab/sample-site';
     if (!is_dir($packageSource)) {
         throw new RuntimeException('distributable tomos-lab theme package source is missing');
+    }
+    if (!is_dir($sampleSource)) {
+        throw new RuntimeException('tomos-lab sample site fixture is missing');
     }
     if (!is_dir($testRoot . '/themes')) {
         mkdir($testRoot . '/themes', 0755, true);
     }
     copyTree($packageSource, $testRoot . '/themes/tomos-lab');
+    copyTree($sampleSource . '/theme-assets', $testRoot . '/theme-assets');
+    copyTree($sampleSource . '/content', $testRoot . '/content');
+    copy($sampleSource . '/theme-settings.php', $testRoot . '/theme-settings.php');
 
-    foreach (['storage', 'cache', 'trash', 'theme-assets', 'content'] as $directory) {
+    foreach (['storage', 'cache', 'trash'] as $directory) {
         if (!is_dir($testRoot . '/' . $directory)) {
             mkdir($testRoot . '/' . $directory, 0755, true);
         }
     }
 
     $config = require $testRoot . '/config.sample.php';
+    $config['site']['name'] = 'Example Research Group';
+    $config['site']['description'] = 'Example University';
     $config['site']['url'] = 'http://127.0.0.1';
     $config['paths']['content_dir'] = $testRoot . '/content';
     $config['paths']['cache_dir'] = $testRoot . '/cache';
@@ -38,11 +47,16 @@ try {
     $config['security']['rate_limit_salt'] = bin2hex(random_bytes(16));
     $config['setup_completed'] = true;
     file_put_contents($testRoot . '/config.php', "<?php\nreturn " . var_export($config, true) . ";\n");
-    file_put_contents($testRoot . '/theme-settings.php', "<?php return ['hero'=>['title'=>'Browser Lab']];\n");
-    file_put_contents($testRoot . '/theme-assets/logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
-    file_put_contents($testRoot . '/content/index.md', "---\ntitle: Home\n---\n\nBrowser lab content.\n");
 
-    $preserved = hashes($testRoot, ['config.php', 'theme-settings.php', 'theme-assets/logo.svg', 'content/index.md']);
+    $preserved = hashes($testRoot, [
+        'config.php',
+        'theme-settings.php',
+        'theme-assets/logo.svg',
+        'theme-assets/hero.svg',
+        'content/index.md',
+        'content/news/2026-08-01-paper.md',
+        'content/research/project-a.md',
+    ]);
     $zipPath = $testRoot . '/tomos-lab-1.0.1.zip';
     makeLabUpdateZip($packageSource, $zipPath);
 
@@ -74,6 +88,12 @@ try {
     $loginJson = json_decode($login, true);
     assertTrue(is_array($loginJson) && !empty($loginJson['ok']), 'Tomos Post authentication failed');
 
+    $publicBefore = curlRequest($baseUrl . '/', $cookie);
+    assertNotContains('Fatal error', $publicBefore);
+    assertContains('Exploring Molecular Interfaces', $publicBefore);
+    assertContains('論文がJournal of Example Scienceに掲載されました', $publicBefore);
+    assertContains('私たちは、分子・材料・情報の境界領域', $publicBefore);
+
     $uploadPage = curlRequest($baseUrl . '/post/theme/add/', $cookie);
     assertContains('テーマZIPを追加・更新', $uploadPage);
     assertContains('同一versionの再アップロードも可能です', $uploadPage);
@@ -99,16 +119,18 @@ try {
     $themeJson = json_decode((string) file_get_contents($testRoot . '/themes/tomos-lab/theme.json'), true);
     assertSame('1.0.1', (string) ($themeJson['version'] ?? ''), 'updated theme version is wrong');
     assertContains('browser update 1.0.1', (string) file_get_contents($testRoot . '/themes/tomos-lab/assets/style.css'));
-    assertSame($preserved, hashes($testRoot, array_keys($preserved)), 'site-specific files changed');
+    assertSame($preserved, hashes($testRoot, array_keys($preserved)), 'site-specific sample files changed');
 
     $updatedConfig = require $testRoot . '/config.php';
     assertSame('tomos-lab', (string) ($updatedConfig['theme']['name'] ?? ''), 'active theme selection changed');
 
     $publicPage = curlRequest($baseUrl . '/', $cookie);
     assertNotContains('Fatal error', $publicPage);
-    assertContains('Browser lab content', $publicPage);
+    assertContains('Exploring Molecular Interfaces', $publicPage);
+    assertContains('論文がJournal of Example Scienceに掲載されました', $publicPage);
+    assertContains('私たちは、分子・材料・情報の境界領域', $publicPage);
 
-    echo "lab_theme_browser_update_check: ordinary browser update, active selection and site-data preservation passed\n";
+    echo "lab_theme_browser_update_check: sample site, ordinary browser update, active selection and site-data preservation passed\n";
 } catch (Throwable $exception) {
     if (is_file($testRoot . '/php-server.log')) {
         fwrite(STDERR, (string) file_get_contents($testRoot . '/php-server.log'));
