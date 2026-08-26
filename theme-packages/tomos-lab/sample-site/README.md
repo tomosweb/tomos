@@ -8,4 +8,4 @@ Tomosサイトへ適用するときは、`theme-settings.php`、`theme-assets/`�
 
 ## Navigation Settings v1の例
 
-`theme-settings.php`の`navigation`で、サイトの主要ナビゲーションを手動設定しています。ResearchとMembersを先頭へ並べ替え、Research / Membersの表示名を変更し、Aboutは表示名を省略して自動ラベルを使い、Publicationsは`hidden`にしています。`hidden`はナビゲーションから隠すだけで、`/publications/`の公開ページ自体は削除・非公開にしません。
+`theme-settings.php`の`navigation`で、サイトの主要ナビゲーションを手動設定しています。ResearchとMembersを先頭へ並べ替え、Research / Membersの表示名を変更し、Aboutは表示名を省略してauto navigationの既存ラベルを使い、Publicationsは`hidden`にしています。`hidden`はナビゲーションから隠すだけで、`/publications/`の公開ページ自体は削除・非公開にしません。auto navigationで解決できない宛先は、labelを推測せず無視されます。

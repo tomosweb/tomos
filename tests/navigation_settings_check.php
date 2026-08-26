@@ -30,7 +30,7 @@ return [
             ['path' => '/about/'],
             ['path' => 'https://example.com/'],
             ['path' => '/research/?next=/outside/'],
-            ['path' => '/publications/'],
+            ['path' => '/unknown/'],
         ],
     ],
 ];
@@ -58,10 +58,10 @@ try {
 
     $manual = new NavigationBuilder('', $settings);
     $manualItems = $manual->primaryItems($pages, '/');
-    assertNavigation(count($manualItems) === 3, 'hidden item must be omitted from primary navigation');
+    assertNavigation(count($manualItems) === 2, 'hidden and unresolved items must be omitted from primary navigation');
     assertNavigation(($manualItems[0]['label'] ?? '') === 'Our Research', 'manual label override must render');
     assertNavigation(($manualItems[1]['label'] ?? '') === 'About', 'omitted label must use auto label');
-    assertNavigation(($manualItems[2]['label'] ?? '') === 'publications', 'manual order must preserve later items');
+    assertNavigation(!in_array('/unknown/', array_column($manualItems, 'path'), true), 'unresolved manual paths must be ignored');
     assertNavigation(($manualItems[0]['url'] ?? '') === '/research/', 'manual order must render the configured URL');
     assertNavigation(array_search('/members/', array_column($pages, 'url'), true) !== false, 'hidden destination must remain publicly reachable');
     assertNavigation(strpos($manual->primaryLinks($pages, '/'), 'Our Research') !== false, 'primary_links must use manual settings');

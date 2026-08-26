@@ -432,7 +432,13 @@ final class NavigationBuilder
             if ($path === '') {
                 continue;
             }
-            $item = $autoByPath[$this->navigationKey($path)] ?? $this->primaryLinkItem($path, $this->fallbackLabel($path), 'custom', $currentUrl);
+            $item = $autoByPath[$this->navigationKey($path)] ?? null;
+            if ($item === null) {
+                // Manual navigation may only refer to destinations known to the
+                // existing auto navigation. Never invent a label for an
+                // unresolved path.
+                continue;
+            }
             if (!empty($configured['hidden'])) {
                 continue;
             }
@@ -708,17 +714,6 @@ final class NavigationBuilder
         }
 
         return $url;
-    }
-
-    private function fallbackLabel(string $path): string
-    {
-        $path = trim($path, '/');
-        if ($path === '') {
-            return 'Home';
-        }
-        $segments = explode('/', $path);
-        $segment = rawurldecode((string) end($segments));
-        return ucfirst(str_replace(['-', '_'], ' ', $segment));
     }
 
     private function navigationKey(string $path): string
