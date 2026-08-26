@@ -57,6 +57,13 @@ try {
     waitForServer($baseUrl . '/post/');
     $cookie = $testRoot . '/cookies.txt';
 
+    $unauthenticatedSite = request($baseUrl . '/post/site-settings.php', $testRoot . '/unauthenticated-site-cookies.txt');
+    assertSame(302, $unauthenticatedSite['status'], 'unauthenticated Site Settings status');
+    assertContains('location: /theme-labo/post/', strtolower($unauthenticatedSite['headers']), 'unauthenticated Site Settings redirect');
+    $unauthenticatedTheme = request($baseUrl . '/post/theme/', $testRoot . '/unauthenticated-theme-cookies.txt');
+    assertSame(302, $unauthenticatedTheme['status'], 'unauthenticated Theme status');
+    assertContains('location: /theme-labo/post/', strtolower($unauthenticatedTheme['headers']), 'unauthenticated Theme redirect');
+
     $postHome = request($baseUrl . '/post/', $cookie);
     assertSame(200, $postHome['status'], 'Tomos Post initial response');
     $login = request($baseUrl . '/post/?post_api=start', $cookie, [

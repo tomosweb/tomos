@@ -28,7 +28,7 @@ if (is_file($configPath)) {
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 if ($config === [] || !$authRemember->restoreSession()) {
-    header('Location: ' . Tomos\Security::publicUrl('/post/?section=settings', $publicBasePath));
+    header('Location: ' . Tomos\Security::publicUrl('/post/', $publicBasePath));
     exit;
 }
 
