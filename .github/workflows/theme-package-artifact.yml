@@ -1,0 +1,41 @@
+name: Theme package artifact
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-tomos-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build theme ZIP
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(jq -r '.version // empty' theme-packages/tomos-lab/package/theme.json)
+          test -n "$version"
+          output="$RUNNER_TEMP/tomos-lab-${version}.zip"
+          (
+            cd theme-packages/tomos-lab/package
+            zip -qr "$output" .
+          )
+          unzip -t "$output" >/dev/null
+          test -z "$(unzip -Z1 "$output" | grep '^sample-site/' || true)"
+          sha256sum "$output"
+          echo "path=$output" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload tomos-lab ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomos-lab-theme-${{ steps.package.outputs.version }}
+          path: ${{ steps.package.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14

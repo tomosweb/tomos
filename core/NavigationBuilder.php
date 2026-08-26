@@ -9,9 +9,12 @@ final class NavigationBuilder
     private const NAV_FOLDER_PAGE_LIMIT = 30;
 
     private string $publicBasePath;
-    public function __construct(string $publicBasePath = '')
+    private array $navigationSettings;
+
+    public function __construct(string $publicBasePath = '', array $navigationSettings = [])
     {
         $this->publicBasePath = $publicBasePath;
+        $this->navigationSettings = $navigationSettings;
     }
 
     public function tree(array $pages, string $currentUrl = '/', bool $openAllFolders = false, bool $includeFeed = true): string
@@ -393,6 +396,7 @@ final class NavigationBuilder
             $items[] = [
                 'label' => $folder,
                 'url' => Security::publicUrl($internalUrl, $this->publicBasePath),
+                'path' => $internalUrl,
                 'type' => 'section',
                 'active' => $this->isCurrentSection($currentUrl, $folder),
                 'slug' => $folder,
@@ -406,6 +410,7 @@ final class NavigationBuilder
             $items[] = [
                 'label' => 'RSS',
                 'url' => Security::publicUrl('/feed.xml', $this->publicBasePath),
+                'path' => '/feed.xml',
                 'type' => 'rss',
                 'active' => false,
                 'slug' => '',
@@ -413,7 +418,30 @@ final class NavigationBuilder
             ];
         }
 
-        return $items;
+        if (($this->navigationSettings['mode'] ?? 'auto') !== 'manual') {
+            return $items;
+        }
+
+        $autoByPath = [];
+        foreach ($items as $item) {
+            $autoByPath[$this->navigationKey((string) ($item['path'] ?? ''))] = $item;
+        }
+        $manual = [];
+        foreach (is_array($this->navigationSettings['items'] ?? null) ? $this->navigationSettings['items'] : [] as $configured) {
+            $path = $this->normalizeInternalUrl((string) ($configured['path'] ?? ''));
+            if ($path === '') {
+                continue;
+            }
+            $item = $autoByPath[$this->navigationKey($path)] ?? $this->primaryLinkItem($path, $this->fallbackLabel($path), 'custom', $currentUrl);
+            if (!empty($configured['hidden'])) {
+                continue;
+            }
+            if (($configured['label'] ?? '') !== '') {
+                $item['label'] = (string) $configured['label'];
+            }
+            $manual[] = $item;
+        }
+        return $manual;
     }
 
     private function fallbackTree(string $currentUrl, bool $includeFeed = true): string
@@ -462,6 +490,7 @@ final class NavigationBuilder
         return [
             'label' => $label,
             'url' => Security::publicUrl($normalizedUrl, $this->publicBasePath),
+            'path' => $normalizedUrl,
             'type' => $type,
             'active' => $active,
             'slug' => $slug,
@@ -679,6 +708,23 @@ final class NavigationBuilder
         }
 
         return $url;
+    }
+
+    private function fallbackLabel(string $path): string
+    {
+        $path = trim($path, '/');
+        if ($path === '') {
+            return 'Home';
+        }
+        $segments = explode('/', $path);
+        $segment = rawurldecode((string) end($segments));
+        return ucfirst(str_replace(['-', '_'], ' ', $segment));
+    }
+
+    private function navigationKey(string $path): string
+    {
+        $path = $this->normalizeInternalUrl($path);
+        return $path === '/' ? '/' : rtrim($path, '/');
     }
 
     private function escape(string $value): string
