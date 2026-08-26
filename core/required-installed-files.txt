@@ -55,6 +55,7 @@ core/webauthn/composer.json
 core/webauthn/composer.lock
 core/webauthn/vendor/autoload.php
 core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php
+post/site-settings.php
 post/settings/index.php
 post/theme/index.php
 post/theme/confirm/index.php

@@ -384,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = '下書きの保存先が正しくありません。';
                 }
             } elseif ($action === 'site_settings_auth') {
-                header('Location: ' . Tomos\Security::publicUrl('/post/settings/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
+                header('Location: ' . Tomos\Security::publicUrl('/post/site-settings.php', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
             }
             if (!in_array($action, ['publish_inbox', 'publish_draft', 'delete_draft'], true)) {
@@ -1060,7 +1060,7 @@ function renderSettingsHomeSection(string $token, array $config): void
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
     $links = [
-        [Tomos\Security::publicUrl('/post/settings/', $publicBasePath), 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
+        [Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath), 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
         [Tomos\Security::publicUrl('/post/theme/', $publicBasePath), 'テーマ', '公開サイトの見た目を切り替えます。'],
         [Tomos\Security::publicUrl('/post/security/', $publicBasePath), 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
         [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', '署名済みの更新を実行します。'],
@@ -2458,7 +2458,7 @@ function renderThemeSettingsSection(string $token, array $config): void
 function renderSiteSettingsSection(string $token, array $config): void
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
-    $settingsUrl = Tomos\Security::publicUrl('/post/settings/', $publicBasePath);
+    $settingsUrl = Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath);
 
     echo '<h2 id="site-information-settings">サイト情報・RSS・Sitemap</h2>';
     echo '<p class="hint">サイト名、説明、タイムゾーン、RSS、Sitemapを変更します。サイトURLや記事表示件数はこの画面では変更しません。</p>';
