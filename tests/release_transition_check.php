@@ -5,6 +5,14 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
 $fromVersion = '0.3.0';
+$runtimeFiles = [
+    'VERSION',
+    'core/PostAuthRememberToken.php',
+    'core/required-installed-files.txt',
+    'post/index.php',
+    'post/settings/index.php',
+    'post/site-settings.php',
+];
 
 if ($targetVersion !== '0.3.1') {
     throw new RuntimeException('release transition check requires VERSION 0.3.1');
@@ -33,9 +41,10 @@ try {
         . ' ' . escapeshellarg('--from=' . $fromVersion)
         . ' ' . escapeshellarg('--version=' . $targetVersion)
         . ' ' . escapeshellarg('--private-key=' . $keyPath)
-        . ' ' . escapeshellarg('--output=' . $output)
-        . ' ' . escapeshellarg('--file=VERSION')
-        . ' ' . escapeshellarg('--file=core/PostAuthRememberToken.php');
+        . ' ' . escapeshellarg('--output=' . $output);
+    foreach ($runtimeFiles as $runtimeFile) {
+        $command .= ' ' . escapeshellarg('--file=' . $runtimeFile);
+    }
 
     $lines = [];
     $code = 0;
@@ -65,7 +74,7 @@ try {
         if (array_key_exists('minimum_version', $manifest)) {
             throw new RuntimeException('0.3.1 normal update must not contain legacy minimum_version');
         }
-        foreach (['VERSION', 'core/PostAuthRememberToken.php'] as $path) {
+        foreach ($runtimeFiles as $path) {
             $bytes = $zip->getFromName('files/' . $path);
             if (!is_string($bytes)) {
                 throw new RuntimeException('0.3.1 package payload missing: ' . $path);
