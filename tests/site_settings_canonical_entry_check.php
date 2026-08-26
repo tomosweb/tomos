@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $postIndex = (string) file_get_contents($root . '/post/index.php');
+$authReturn = (string) file_get_contents($root . '/core/PostAuthReturnTo.php');
 $flatEntry = $root . '/post/site-settings.php';
 $legacyEntry = $root . '/post/settings/index.php';
 $htaccess = (string) file_get_contents($root . '/.htaccess');
@@ -28,8 +29,8 @@ if (strpos($installedFiles, "post/site-settings.php") === false) {
 $canonical = '/post/site-settings.php';
 $legacy = '/post/settings/';
 
-if (substr_count($postIndex, $canonical) !== 3) {
-    $failures[] = 'Tomos Post must use the canonical flat site settings entrypoint for all three routes';
+if (substr_count($postIndex, $canonical) < 2 || strpos($authReturn, "'/post/site-settings.php'") === false) {
+    $failures[] = 'Tomos Post must use the canonical flat site settings entrypoint and shared auth return contract';
 }
 if (strpos($postIndex, $legacy) !== false) {
     $failures[] = 'Tomos Post still depends on the legacy directory site settings URL';

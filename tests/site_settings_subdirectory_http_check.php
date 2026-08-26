@@ -59,10 +59,40 @@ try {
 
     $unauthenticatedSite = request($baseUrl . '/post/site-settings.php', $testRoot . '/unauthenticated-site-cookies.txt');
     assertSame(302, $unauthenticatedSite['status'], 'unauthenticated Site Settings status');
-    assertContains('location: /theme-labo/post/', strtolower($unauthenticatedSite['headers']), 'unauthenticated Site Settings redirect');
+    assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Fsite-settings.php'), strtolower($unauthenticatedSite['headers']), 'unauthenticated Site Settings redirect');
     $unauthenticatedTheme = request($baseUrl . '/post/theme/', $testRoot . '/unauthenticated-theme-cookies.txt');
     assertSame(302, $unauthenticatedTheme['status'], 'unauthenticated Theme status');
-    assertContains('location: /theme-labo/post/', strtolower($unauthenticatedTheme['headers']), 'unauthenticated Theme redirect');
+    assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Ftheme%2F'), strtolower($unauthenticatedTheme['headers']), 'unauthenticated Theme redirect');
+
+    $siteAuthPage = request($baseUrl . '/post/?section=settings&return_to=%2Fpost%2Fsite-settings.php', $testRoot . '/site-auth-cookies.txt');
+    assertSame(200, $siteAuthPage['status'], 'Site Settings auth page status');
+    assertContains('認証が必要です。', $siteAuthPage['body'], 'Site Settings auth notice');
+    $siteAuth = request($baseUrl . '/post/', $testRoot . '/site-auth-cookies.txt', [
+        'action' => 'site_settings_auth',
+        '_token' => hiddenValue($siteAuthPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/site-settings.php',
+    ]);
+    assertSame(302, $siteAuth['status'], 'Site Settings auth redirect status');
+    assertContains('location: /theme-labo/post/site-settings.php', strtolower($siteAuth['headers']), 'Site Settings auth return');
+    $siteAfterAuth = request($baseUrl . '/post/site-settings.php', $testRoot . '/site-auth-cookies.txt');
+    assertSame(200, $siteAfterAuth['status'], 'Site Settings after auth status');
+    assertSame($baseUrl . '/post/site-settings.php', $siteAfterAuth['url'], 'Site Settings after auth URL');
+
+    $themeAuthPage = request($baseUrl . '/post/?section=settings&return_to=%2Fpost%2Ftheme%2F', $testRoot . '/theme-auth-cookies.txt');
+    assertSame(200, $themeAuthPage['status'], 'Theme auth page status');
+    assertContains('認証が必要です。', $themeAuthPage['body'], 'Theme auth notice');
+    $themeAuth = request($baseUrl . '/post/', $testRoot . '/theme-auth-cookies.txt', [
+        'action' => 'theme_auth',
+        '_token' => hiddenValue($themeAuthPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/theme/',
+    ]);
+    assertSame(302, $themeAuth['status'], 'Theme auth redirect status');
+    assertContains('location: /theme-labo/post/theme/', strtolower($themeAuth['headers']), 'Theme auth return');
+    $themeAfterAuth = request($baseUrl . '/post/theme/', $testRoot . '/theme-auth-cookies.txt');
+    assertSame(200, $themeAfterAuth['status'], 'Theme after auth status');
+    assertSame($baseUrl . '/post/theme/', $themeAfterAuth['url'], 'Theme after auth URL');
 
     $postHome = request($baseUrl . '/post/', $cookie);
     assertSame(200, $postHome['status'], 'Tomos Post initial response');
