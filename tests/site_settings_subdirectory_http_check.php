@@ -40,6 +40,7 @@ try {
     $config['security']['rate_limit_salt'] = bin2hex(random_bytes(16));
     $config['setup_completed'] = true;
     file_put_contents($installRoot . '/config.php', "<?php\nreturn " . var_export($config, true) . ";\n");
+    file_put_contents($installRoot . '/theme-settings.php', "<?php\nreturn ['hero' => ['enabled' => true, 'title' => 'Keep Hero'], 'news' => ['limit' => 3], 'design' => ['key_color' => '#123456']];\n");
 
     $logPath = $testRoot . '/php-server.log';
     $server = proc_open(
@@ -117,7 +118,52 @@ try {
     assertSame(200, $site['status'], 'Site Settings status');
     assertSame($baseUrl . '/post/site-settings.php', $site['url'], 'Site Settings final URL');
     assertContains('サイト設定', $site['body'], 'Site Settings response marker');
+    assertContains('id="navigation-settings"', $site['body'], 'Navigation Settings section');
+    assertContains('name="navigation_mode"', $site['body'], 'Navigation mode controls');
     assertNotContains('Fatal error', $site['body'], 'Site Settings fatal error');
+
+    $navigationSave = request($baseUrl . '/post/site-settings.php', $cookie, [
+        'settings_section' => 'navigation',
+        '_token' => hiddenValue($site['body'], '_token'),
+        'navigation_mode' => 'manual',
+        'navigation_items' => [
+            ['path' => '/diary/', 'label' => 'Journal', 'hidden' => '1'],
+            ['path' => '/about', 'label' => ''],
+        ],
+    ]);
+    assertSame(200, $navigationSave['status'], 'Navigation Settings save status');
+    assertContains('ナビゲーション設定を保存しました。', $navigationSave['body'], 'Navigation Settings save message');
+    $savedThemeSettings = require $installRoot . '/theme-settings.php';
+    assertSame('Keep Hero', $savedThemeSettings['hero']['title'] ?? '', 'Hero setting preservation');
+    assertSame(3, $savedThemeSettings['news']['limit'] ?? 0, 'News setting preservation');
+    assertSame('Journal', $savedThemeSettings['navigation']['items'][0]['label'] ?? '', 'Navigation label save');
+    assertTrue(!empty($savedThemeSettings['navigation']['items'][0]['hidden']), 'Navigation hidden save');
+    $directNavigationTarget = request($baseUrl . '/diary/', $cookie);
+    assertSame(200, $directNavigationTarget['status'], 'hidden navigation target direct status');
+
+    $beforeCsrfFailure = (string) file_get_contents($installRoot . '/theme-settings.php');
+    $navigationCsrfFailure = request($baseUrl . '/post/site-settings.php', $cookie, [
+        'settings_section' => 'navigation',
+        '_token' => 'invalid-token',
+        'navigation_mode' => 'auto',
+        'navigation_items' => [],
+    ]);
+    assertSame(200, $navigationCsrfFailure['status'], 'Navigation CSRF rejection status');
+    assertContains('フォームの有効期限が切れました。', $navigationCsrfFailure['body'], 'Navigation CSRF rejection message');
+    assertSame($beforeCsrfFailure, (string) file_get_contents($installRoot . '/theme-settings.php'), 'Navigation CSRF rejection preservation');
+
+    file_put_contents($installRoot . '/storage/update.lock', "{\"started_at\":\"" . gmdate('c') . "\"}\n");
+    $beforeUpdateLock = (string) file_get_contents($installRoot . '/theme-settings.php');
+    $navigationUpdateLock = request($baseUrl . '/post/site-settings.php', $cookie, [
+        'settings_section' => 'navigation',
+        '_token' => hiddenValue($navigationSave['body'], '_token'),
+        'navigation_mode' => 'auto',
+        'navigation_items' => [],
+    ]);
+    assertSame(200, $navigationUpdateLock['status'], 'Navigation UpdateLock rejection status');
+    assertContains('Tomosの更新中です。', $navigationUpdateLock['body'], 'Navigation UpdateLock rejection message');
+    assertSame($beforeUpdateLock, (string) file_get_contents($installRoot . '/theme-settings.php'), 'Navigation UpdateLock rejection preservation');
+    @unlink($installRoot . '/storage/update.lock');
 
     $theme = request($baseUrl . '/post/theme/', $cookie);
     assertSame(200, $theme['status'], 'Theme status');
