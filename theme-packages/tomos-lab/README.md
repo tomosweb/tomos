@@ -25,3 +25,5 @@ tomos-lab/
 - 研究室の日常更新: `content/` Markdown / Tomos Post
 
 sample-siteは販売デモだけではなく、レスポンシブ、Home News、長文、一覧、画像、日本語/英語を改修後に確認するための基準状態として維持します。
+
+Navigation Settings v1の動作確認では、`sample-site/theme-settings.php`の`navigation`設定を使います。manual modeの並び順、label上書き、label省略時のauto navigation既存ラベル、`hidden`によるナビゲーション非表示と、非表示ページの直接到達性を確認します。auto navigationで解決できないmanual itemは、labelを推測せず無視されます。

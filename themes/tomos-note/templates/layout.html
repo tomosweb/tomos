@@ -30,21 +30,13 @@
       </div>
 
       <nav class="site-links site-links-desktop" aria-label="主要ページ">
-        <a href="{{ nav.home_url }}">Home</a>
-        <a href="{{ nav.about_url }}">About</a>{{{ nav.sections }}}
-        <a href="{{ site.home_url }}search/">Search</a>
-        <a href="{{ site.home_url }}tags/">Tags</a>
-        {{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+        {{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}
       </nav>
 
       <details class="site-menu">
         <summary aria-label="メニューを開く"><span aria-hidden="true"></span></summary>
         <nav class="site-links site-links-mobile" aria-label="主要ページ">
-          <a href="{{ nav.home_url }}">Home</a>
-          <a href="{{ nav.about_url }}">About</a>{{{ nav.sections }}}
-          <a href="{{ site.home_url }}search/">Search</a>
-          <a href="{{ site.home_url }}tags/">Tags</a>
-          {{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+          {{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}
         </nav>
       </details>
     </header>

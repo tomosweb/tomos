@@ -80,7 +80,7 @@ final class PostInboxPreview
             $page['description'] = (string) (($this->config['site']['description'] ?? ''));
         }
 
-        $navigation = new NavigationBuilder($this->publicBasePath);
+        $navigation = new NavigationBuilder($this->publicBasePath, (new ThemeSettings($this->rootDir))->settings()['navigation'] ?? []);
         $renderer = new TemplateRenderer($this->config);
         $required = $renderer->requiredVariablesForPage($page);
         $tree = isset($required['nav.tree']) || isset($required['nav.mobile_tree'])

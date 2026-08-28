@@ -24,6 +24,16 @@ return [
         'logo' => 'logo.svg',
         'key_color' => '#2f6175',
     ],
+    'navigation' => [
+        'mode' => 'manual',
+        'items' => [
+            ['path' => '/research/', 'label' => 'Our Research'],
+            ['path' => '/members/', 'label' => 'People'],
+            ['path' => '/about/'],
+            ['path' => '/publications/', 'hidden' => true],
+            ['path' => '/search/', 'label' => 'Find'],
+        ],
+    ],
     'folders' => [
         'research' => ['title' => 'Research'],
         'members' => ['title' => 'Members'],
