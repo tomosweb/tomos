@@ -57,7 +57,15 @@ final class ThemePackageDeployment
     public function stageUpload(array $upload, string $owner): array
     {
         $summary = $this->installer->stageUpload($upload, $owner);
-        return $this->withInstalledThemeContext($summary);
+        $summary = $this->withInstalledThemeContext($summary);
+        if (($summary['version_relation'] ?? '') === 'older') {
+            $packageId = (string) ($summary['package_id'] ?? '');
+            if ($packageId !== '') {
+                $this->installer->discard($packageId);
+            }
+            throw new ThemePackageException('現在より古いversionのテーマへ更新できません。', 'version_downgrade');
+        }
+        return $summary;
     }
 
     public function apply(string $id, string $owner): array
@@ -93,6 +101,9 @@ final class ThemePackageDeployment
             $candidateValidation = $this->policy->validateExtracted($this->candidateThemesDir, $themeId);
             $version = (string) $candidateValidation['version'];
             $versionRelation = $this->versionRelation($previousVersion, $version);
+            if ($versionRelation === 'older') {
+                throw new ThemePackageException('現在より古いversionのテーマへ更新できません。', 'version_downgrade');
+            }
 
             if ($hadExisting) {
                 $backup = $this->themesDir . DIRECTORY_SEPARATOR . '.tomos-theme-backup-' . bin2hex(random_bytes(12));
@@ -190,8 +201,6 @@ final class ThemePackageDeployment
 
         if ($installed !== null && $summary['version_relation'] === 'same') {
             $summary['warnings'][] = '同じversionのテーマを再インストールします。制作中の調整などで同一versionを再配置する場合は、このまま続行できます。';
-        } elseif ($installed !== null && $summary['version_relation'] === 'older') {
-            $summary['warnings'][] = '現在より古いversionのテーマへ戻そうとしています。内容を確認してから更新してください。';
         }
 
         return $summary;

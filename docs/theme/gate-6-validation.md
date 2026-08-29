@@ -26,7 +26,7 @@ Validated behavior includes:
 - whole-directory replacement,
 - same-version reinstall,
 - newer-version update,
-- downgrade reporting,
+- downgrade rejection,
 - active-theme replacement without changing selection,
 - site-specific resource preservation,
 - deploy locking,

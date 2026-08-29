@@ -82,15 +82,18 @@ function runTests(string $testRoot, int &$passes, array &$failures): void
         assertNoCandidateArtifacts($root);
     }, $passes, $failures);
 
-    check('downgrade is allowed and reported', function () use ($testRoot): void {
+    check('downgrade is rejected before replacement', function () use ($testRoot): void {
         [$root, $deployment] = environment($testRoot, 'downgrade');
         deployPackage($deployment, $root, 'owner-a', themeEntries('2.0.0', 'body{color:#222;}'));
 
         $deployment = new ThemePackageDeployment($root, $root . '/themes', 'owner-a');
-        $result = deployPackage($deployment, $root, 'owner-a', themeEntries('1.0.0', 'body{color:#111;}'));
-        assertSame('update', $result['operation']);
-        assertSame('older', $result['version_relation']);
-        assertSame('1.0.0', $result['version']);
+        [$id] = inspectPackage($deployment, $root, 'owner-a', themeEntries('1.0.0', 'body{color:#111;}'));
+        expectStage(function () use ($deployment, $id): void {
+            $deployment->apply($id, 'owner-a');
+        }, 'version_downgrade');
+        $theme = json_decode((string) file_get_contents($root . '/themes/tomos-test/theme.json'), true);
+        assertSame('2.0.0', $theme['version'] ?? null);
+        assertSame('body{color:#222;}', file_get_contents($root . '/themes/tomos-test/assets/style.css'));
         assertNoCandidateArtifacts($root);
     }, $passes, $failures);
 
