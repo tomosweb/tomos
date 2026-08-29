@@ -154,7 +154,7 @@ html,body{width:100%;overflow-x:hidden}body{background:var(--bg);color:var(--tex
     } else {
         echo '<p>テーマZIPを選択します。テーマIDが未登録なら追加、登録済みなら更新として扱います。検査後の確認画面で確定するまで反映されません。</p>';
         echo '<div class="notice"><ul>';
-        echo '<li>テーマZIPの上限：最大10 MB（実際の上限はサーバー設定により小さくなる場合があります）</li><li>同じテーマIDは安全な置き換え更新として扱います。</li><li>同一versionの再アップロードも可能です。</li><li>古いversionへの更新は確認画面で警告します。</li><li>ZIP検査後に確定操作が必要です。</li>';
+        echo '<li>テーマZIPの上限：最大10 MB（実際の上限はサーバー設定により小さくなる場合があります）</li><li>同じテーマIDは安全な置き換え更新として扱います。</li><li>同一versionの再アップロードも可能です。</li><li>現在より古いversionへの更新は拒否します。</li><li>ZIP検査後に確定操作が必要です。</li>';
         echo '</ul></div>';
         if (!empty($limit['below_tomos_limit'])) {
             echo '<p class="hint">このサーバーでアップロードできる上限は約 ' . e(formatBytes((int) $limit['bytes'])) . ' です。</p>';

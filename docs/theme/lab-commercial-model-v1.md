@@ -284,7 +284,7 @@ At minimum, validate:
 10. invalid or incompatible replacement leaving the previous theme usable,
 11. desktop/tablet/mobile display after repeated deployment.
 
-A downgrade should remain possible with a clear warning and intentional confirmation.
+A downgrade is rejected; same-version and higher-version updates are the supported replacement paths.
 
 ## 12. Release boundary
 
