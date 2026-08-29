@@ -643,9 +643,9 @@ final class App
 
         if (!empty($this->config['security']['content_security_policy'])) {
             if (Ga4::measurementId($this->config) !== '' && $this->ga4Nonce !== '') {
-                header("Content-Security-Policy: default-src 'self'; script-src https://www.googletagmanager.com 'nonce-" . $this->ga4Nonce . "'; connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; style-src 'self'; img-src 'self' data: http: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+                header("Content-Security-Policy: default-src 'self'; script-src https://www.googletagmanager.com 'nonce-" . $this->ga4Nonce . "'; connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; style-src 'self'; img-src 'self' data: http: https:; frame-src https://www.youtube.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
             } else {
-                header("Content-Security-Policy: default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data: http: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+                header("Content-Security-Policy: default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data: http: https:; frame-src https://www.youtube.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
             }
         }
     }

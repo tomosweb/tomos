@@ -105,6 +105,15 @@ final class MarkdownParser
                 continue;
             }
 
+            $youtubeEmbed = $this->youtubeEmbedHtml($trimmed);
+            if ($youtubeEmbed !== null) {
+                $this->flushParagraph($html, $paragraph);
+                $this->flushList($html, $listType);
+                $this->flushBlockquote($html, $blockquote);
+                $html[] = $youtubeEmbed;
+                continue;
+            }
+
             if (preg_match('/^\s*\d+\.\s+(.+)$/', $line, $matches) === 1) {
                 $this->flushParagraph($html, $paragraph);
                 $this->flushBlockquote($html, $blockquote);
@@ -176,6 +185,25 @@ final class MarkdownParser
         }
         $html[] = '<p>' . implode('<br>', $lines) . '</p>';
         $paragraph = [];
+    }
+
+    private function youtubeEmbedHtml(string $line): ?string
+    {
+        $videoId = null;
+        if (preg_match('~\Ahttps://(?:www\.)?youtube\.com/watch\?v=([A-Za-z0-9_-]{11})(?:&[^#\s]*)?(?:#[^\s]*)?\z~', $line, $matches) === 1) {
+            $videoId = $matches[1];
+        } elseif (preg_match('~\Ahttps://youtu\.be/([A-Za-z0-9_-]{11})(?:\?[^#\s]*)?(?:#[^\s]*)?\z~', $line, $matches) === 1) {
+            $videoId = $matches[1];
+        } elseif (preg_match('~\Ahttps://(?:www\.)?youtube\.com/shorts/([A-Za-z0-9_-]{11})(?:\?[^#\s]*)?(?:#[^\s]*)?\z~', $line, $matches) === 1) {
+            $videoId = $matches[1];
+        }
+
+        if ($videoId === null) {
+            return null;
+        }
+
+        $embedUrl = 'https://www.youtube.com/embed/' . $videoId;
+        return '<div class="youtube-embed"><iframe src="' . $this->escape($embedUrl) . '" title="YouTube video player" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>';
     }
 
     private function ensureList(array &$html, ?string &$listType, string $type): void
