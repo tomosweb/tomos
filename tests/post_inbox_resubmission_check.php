@@ -61,6 +61,39 @@ if (strpos($final, 'date: 2026-08-25') === false || strpos($final, 'Corrected bo
     throw new RuntimeException('confirmed update did not change date/body while preserving published metadata');
 }
 
+$alpha = "---\ntitle: Shared name\nfolder: alpha\n---\n# Shared name\n\nAlpha body.\n";
+$beta = "---\ntitle: Shared name\nfolder: beta\n---\n# Shared name\n\nBeta body.\n";
+$folderSourcePath = $inboxPath . DIRECTORY_SEPARATOR . 'sample.md';
+file_put_contents($folderSourcePath, $alpha);
+$alphaFirst = $processor->process('session-e', str_repeat('e', 64));
+if (!is_file($content . DIRECTORY_SEPARATOR . 'alpha' . DIRECTORY_SEPARATOR . 'sample.md') || is_file($folderSourcePath) || $alphaFirst['pending'] !== []) {
+    throw new RuntimeException('alpha folder article was not published to its own path');
+}
+$alphaPublished = (string) file_get_contents($content . DIRECTORY_SEPARATOR . 'alpha' . DIRECTORY_SEPARATOR . 'sample.md');
+
+file_put_contents($folderSourcePath, $beta);
+$betaFirst = $processor->process('session-f', str_repeat('f', 64));
+if (!is_file($content . DIRECTORY_SEPARATOR . 'beta' . DIRECTORY_SEPARATOR . 'sample.md') || is_file($folderSourcePath) || $betaFirst['pending'] !== []) {
+    throw new RuntimeException('beta folder article was incorrectly matched with alpha');
+}
+if ((string) file_get_contents($content . DIRECTORY_SEPARATOR . 'alpha' . DIRECTORY_SEPARATOR . 'sample.md') !== $alphaPublished) {
+    throw new RuntimeException('beta folder submission changed alpha article');
+}
+
+file_put_contents($folderSourcePath, $alpha);
+$alphaSame = $processor->process('session-g', str_repeat('g', 64));
+if (is_file($folderSourcePath) || count($alphaSame['messages']) !== 1 || $alphaSame['pending'] !== []) {
+    throw new RuntimeException('same-folder identical resubmission was not idempotent');
+}
+$alphaChanged = str_replace('Alpha body.', 'Changed alpha body.', $alpha);
+file_put_contents($folderSourcePath, $alphaChanged);
+$alphaCandidate = $processor->process('session-h', str_repeat('h', 64));
+if (!is_file($folderSourcePath) || count($alphaCandidate['pending']) !== 1) {
+    throw new RuntimeException('same-folder changed resubmission was not an update candidate');
+}
+$upload->cancelTemp($alphaCandidate['pending'][0]['temp_id'], 'session-h');
+$inbox->delete('sample.md');
+
 $draftPath = $inboxPath . DIRECTORY_SEPARATOR . 'draft.md';
 file_put_contents($draftPath, "---\ntitle: Draft\ndraft: true\n---\n# Draft\n");
 $draft = $processor->process('session-d', str_repeat('d', 64));
