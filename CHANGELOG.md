@@ -1,5 +1,21 @@
 # 更新履歴
 
+## v0.5.0 - 2026-08-29
+
+### Added
+
+- Markdown本文にYouTube URLを単独行で書くと、公開ページで動画プレイヤーとして表示できるようにしました。
+- `youtube.com/watch?v=`、`youtu.be/`、`youtube.com/shorts/`に対応しました。
+- query stringやfragment付きURLからも動画IDだけを検証して埋め込めるようにしました。
+- 同梱6テーマでYouTube動画を本文幅いっぱいの16:9レスポンシブ表示に対応しました。
+- YouTube埋め込みのcore/theme責務と確認項目をテーマ開発者向けドキュメントへ追加しました。
+
+### Compatibility
+
+- v0.4.0からv0.5.0へは、通常の署名付きTomos Updateで更新できます。`from_version`は`0.4.0`、`version`は`0.5.0`です。
+- Markdown正本は変更せず、対応する単独行URLだけをHTMLレンダリング時にYouTube iframeへ変換します。
+- Markdownリンク、文中URL、コードブロック、blockquote、list、table、プレイリストは自動埋め込みしません。
+
 ## v0.4.0 - 2026-08-29
 
 ### Added
