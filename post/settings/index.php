@@ -28,7 +28,7 @@ if (is_file($configPath)) {
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 if ($config === [] || !$authRemember->restoreSession()) {
-    header('Location: ' . Tomos\Security::publicUrl('/post/', $publicBasePath));
+    header('Location: ' . Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings&return_to=' . rawurlencode('/post/site-settings.php'));
     exit;
 }
 
@@ -39,15 +39,35 @@ if (empty($_SESSION['tomos_post_settings_token'])) {
 $errors = [];
 $messages = [];
 $form = formValues($config);
+$themeSettingsPath = $rootDir . '/theme-settings.php';
+$themeSettings = (new Tomos\ThemeSettings($rootDir))->settings();
+$navigationSettings = is_array($themeSettings['navigation'] ?? null) ? $themeSettings['navigation'] : ['mode' => 'auto', 'items' => []];
+$navigationAutoItems = navigationAutoItems($config, $rootDir);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $form = submittedFormValues($_POST);
     $token = (string) ($_POST['_token'] ?? '');
     if (class_exists(Tomos\UpdateLock::class) && Tomos\UpdateLock::isActive($rootDir)) {
         $errors[] = 'Tomosの更新中です。完了してからもう一度操作してください。';
     } elseif ($token === '' || !hash_equals((string) $_SESSION['tomos_post_settings_token'], $token)) {
         $errors[] = 'フォームの有効期限が切れました。もう一度送信してください。';
+    } elseif (($_POST['settings_section'] ?? '') === 'navigation') {
+        [$currentThemeSettings, $loadErrors] = Tomos\ThemeSettingsConfigWriter::load($themeSettingsPath);
+        if ($loadErrors !== []) {
+            $errors = array_merge($errors, $loadErrors);
+        } else {
+            [$newThemeSettings, $updateErrors] = Tomos\ThemeSettingsConfigWriter::update($currentThemeSettings, $_POST, $navigationAutoItems);
+            if ($updateErrors !== []) {
+                $errors = array_merge($errors, $updateErrors);
+            } elseif (!Tomos\ThemeSettingsConfigWriter::write($themeSettingsPath, $currentThemeSettings, $newThemeSettings, $rootDir)) {
+                $errors[] = 'テーマ設定を保存できませんでした。元の設定は維持されています。theme-settings.php または設置ディレクトリの書き込み権限を確認してください。';
+            } else {
+                $navigationSettings = $newThemeSettings['navigation'];
+                $messages[] = 'ナビゲーション設定を保存しました。';
+                $_SESSION['tomos_post_settings_token'] = bin2hex(random_bytes(32));
+            }
+        }
     } else {
+        $form = submittedFormValues($_POST);
         [$newConfig, $updateErrors] = Tomos\SiteSettingsConfigWriter::update($config, $_POST);
         if ($updateErrors !== []) {
             $errors = array_merge($errors, $updateErrors);
@@ -67,7 +87,9 @@ renderSettingsPage(
     $form,
     $errors,
     $messages,
-    (string) $_SESSION['tomos_post_settings_token']
+    (string) $_SESSION['tomos_post_settings_token'],
+    $navigationSettings,
+    $navigationAutoItems
 );
 
 function formValues(array $config): array
@@ -98,7 +120,7 @@ function submittedFormValues(array $input): array
     ];
 }
 
-function renderSettingsPage(array $config, array $form, array $errors, array $messages, string $token): void
+function renderSettingsPage(array $config, array $form, array $errors, array $messages, string $token, array $navigationSettings, array $navigationAutoItems): void
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
     $postSettingsUrl = Tomos\Security::publicUrl('/post/?section=settings', $publicBasePath);
@@ -118,9 +140,10 @@ html,body{width:100%;overflow-x:hidden}
 body{background:var(--tomos-bg);box-sizing:border-box;color:var(--tomos-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}
 .wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:860px;padding:28px}
 h1{font-size:1.8rem;margin:0 0 0.5rem}h2{border-top:1px solid var(--tomos-border-soft);font-size:1.2rem;margin:2rem 0 1rem;padding-top:1.5rem}
-label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text]{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;box-sizing:border-box;color:var(--tomos-text);font:inherit;font-size:16px;padding:0.65rem;width:100%}input[type=text]:focus{border-color:var(--tomos-accent);box-shadow:0 0 0 3px rgba(164,74,29,0.12);outline:none}
+label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],select{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;box-sizing:border-box;color:var(--tomos-text);font:inherit;font-size:16px;padding:0.65rem;width:100%}input[type=text]:focus,select:focus{border-color:var(--tomos-accent);box-shadow:0 0 0 3px rgba(164,74,29,0.12);outline:none}
 .checkbox{align-items:center;display:flex;font-weight:700;gap:0.55rem;margin:0.75rem 0}.checkbox input{accent-color:var(--tomos-accent);margin:0}.hint{color:var(--tomos-muted);font-size:0.95rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;padding:1rem}
-.actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,input:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);border-color:var(--tomos-border);color:var(--tomos-text)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}
+.actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);border-color:var(--tomos-border);color:var(--tomos-text)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}
+.navigation-item{border:1px solid var(--tomos-border-soft);border-radius:8px;margin:0.8rem 0;padding:1rem}.navigation-item-header{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.navigation-item-header strong{font-size:1rem}.navigation-item-controls{display:flex;gap:0.35rem}.navigation-item-controls button{background:var(--tomos-input);border-color:var(--tomos-border);color:var(--tomos-text);font-size:0.9rem;padding:0.35rem 0.55rem}.navigation-item-controls button:hover{background:var(--tomos-button-hover)}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 </style></head><body><main class="wrap">';
 
@@ -141,6 +164,7 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text]{backg
         echo '</ul><p><a href="' . e($siteUrl) . '">公開サイトを確認する</a></p></div>';
     }
 
+    renderNavigationSettingsSection($token, $navigationSettings, $navigationAutoItems);
     echo '<form method="post" action="">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<h2>サイト情報</h2>';
@@ -182,6 +206,126 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text]{backg
     echo '</div></div>';
 
     echo '</main></body></html>';
+}
+
+function renderNavigationSettingsSection(string $token, array $settings, array $autoItems): void
+{
+    $configured = [];
+    foreach (is_array($settings['items'] ?? null) ? $settings['items'] : [] as $item) {
+        if (is_array($item)) {
+            $key = navigationPathKey($item['path'] ?? '');
+            if ($key !== '') {
+                $configured[$key] = $item;
+            }
+        }
+    }
+
+    $orderedItems = $configured;
+    foreach ($autoItems as $item) {
+        $key = navigationPathKey($item['path'] ?? '');
+        if ($key !== '' && !isset($orderedItems[$key])) {
+            $orderedItems[$key] = ['path' => $item['path'], 'label' => '', 'hidden' => false];
+        }
+    }
+
+    echo '<h2 id="navigation-settings">ナビゲーション</h2>';
+    echo '<p class="hint">現在のauto navigationにある項目だけを、順序・表示名・表示状態として編集できます。外部URLや任意のパスは追加できません。</p>';
+    echo '<form method="post" action="#navigation-settings" id="navigation-settings-form">';
+    echo '<input type="hidden" name="settings_section" value="navigation">';
+    echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+    $mode = ($settings['mode'] ?? 'auto') === 'manual' ? 'manual' : 'auto';
+    echo '<fieldset><legend>表示モード</legend>';
+    echo '<label class="checkbox"><input type="radio" name="navigation_mode" value="auto"' . ($mode === 'auto' ? ' checked' : '') . '>自動（auto navigationの順序・ラベル）</label>';
+    echo '<label class="checkbox"><input type="radio" name="navigation_mode" value="manual"' . ($mode === 'manual' ? ' checked' : '') . '>手動（下の順序・設定を使用）</label></fieldset>';
+    echo '<div id="navigation-items">';
+    $index = 0;
+    foreach ($orderedItems as $item) {
+        $path = navigationPathKey($item['path'] ?? '');
+        $auto = navigationAutoItem($autoItems, $path);
+        if ($path === '' || $auto === null) {
+            continue;
+        }
+        $label = is_string($item['label'] ?? null) ? $item['label'] : '';
+        $hidden = !empty($item['hidden']);
+        echo '<div class="navigation-item" data-navigation-item>';
+        echo '<div class="navigation-item-header"><strong>' . e((string) ($auto['label'] ?? '')) . '</strong><div class="navigation-item-controls">';
+        echo '<button type="button" data-nav-move="up">上へ</button><button type="button" data-nav-move="down">下へ</button></div></div>';
+        echo '<small class="hint"><code>' . e($path) . '</code></small>';
+        echo '<input type="hidden" name="navigation_items[' . $index . '][path]" value="' . e($path) . '">';
+        echo '<label for="navigation-label-' . $index . '">表示ラベル（空欄はauto label）</label>';
+        echo '<input id="navigation-label-' . $index . '" type="text" name="navigation_items[' . $index . '][label]" value="' . e($label) . '" maxlength="120">';
+        echo '<label class="checkbox"><input type="checkbox" name="navigation_items[' . $index . '][hidden]" value="1"' . ($hidden ? ' checked' : '') . '>非表示</label>';
+        echo '</div>';
+        $index++;
+    }
+    echo '</div><p class="hint">非表示にしてもページの公開状態や直接URLへの到達性は変わりません。</p>';
+    echo '<div class="actions"><button type="submit">ナビゲーション設定を保存する</button></div></form>';
+    echo '<script>(function(){var list=document.getElementById("navigation-items"),form=document.getElementById("navigation-settings-form");if(!list||!form)return;list.addEventListener("click",function(event){var button=event.target.closest("[data-nav-move]");if(!button)return;var item=button.closest("[data-navigation-item]");if(!item)return;var sibling=button.getAttribute("data-nav-move")==="up"?item.previousElementSibling:item.nextElementSibling;if(!sibling)return;if(button.getAttribute("data-nav-move")==="up"){list.insertBefore(item,sibling);}else{list.insertBefore(sibling,item);}});form.addEventListener("submit",function(){Array.prototype.forEach.call(list.querySelectorAll("[data-navigation-item]"),function(item,index){Array.prototype.forEach.call(item.querySelectorAll("[name^=\"navigation_items[\"]"),function(field){field.name=field.name.replace(/navigation_items\\[[0-9]+\\]/,"navigation_items["+index+"]");});});});})();</script>';
+}
+
+function navigationAutoItems(array $config, string $rootDir): array
+{
+    try {
+        $contentDir = (string) (($config['paths']['content_dir'] ?? '') ?: ($rootDir . '/content'));
+        $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . '/cache'));
+        $index = new Tomos\MetadataIndex($contentDir, $cacheDir);
+        $pages = $index->loadFresh();
+        if ($pages === null) {
+            $pages = $index->build();
+        }
+        $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+        $items = (new Tomos\NavigationBuilder($publicBasePath))->primaryItems($pages, '/', !empty($config['features']['rss']));
+        foreach ($items as $index => $item) {
+            if (!is_array($item) || isset($item['path'])) {
+                continue;
+            }
+            $items[$index]['path'] = navigationPathForAutoItem($item);
+        }
+        return $items;
+    } catch (Throwable $exception) {
+        return [];
+    }
+}
+
+function navigationPathForAutoItem(array $item): string
+{
+    $type = (string) ($item['type'] ?? '');
+    if ($type === 'home') {
+        return '/';
+    }
+    if ($type === 'about') {
+        return '/about';
+    }
+    if ($type === 'search') {
+        return '/search/';
+    }
+    if ($type === 'tags') {
+        return '/tags/';
+    }
+    return $type === 'rss' ? '/feed.xml' : '';
+}
+
+function navigationPathKey($value): string
+{
+    if (!is_string($value) || $value === '') {
+        return '';
+    }
+    $result = Tomos\Security::validateUrlPath(trim($value));
+    if (empty($result['is_valid'])) {
+        return '';
+    }
+    $path = (string) $result['path'];
+    return $path === '/' ? '/' : rtrim($path, '/');
+}
+
+function navigationAutoItem(array $items, string $path): ?array
+{
+    foreach ($items as $item) {
+        if (is_array($item) && navigationPathKey($item['path'] ?? '') === $path) {
+            return $item;
+        }
+    }
+    return null;
 }
 
 function e(string $value): string

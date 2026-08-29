@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tomos;
 
 use RuntimeException;
+use Throwable;
 
 final class InstalledIntegrityVerifier
 {
@@ -21,10 +22,22 @@ final class InstalledIntegrityVerifier
 
     public function verifyAfterUpdate(array $result): array
     {
-        $missing = $this->missingRequiredFiles();
+        try {
+            $missing = $this->missingRequiredFiles();
+        } catch (Throwable $exception) {
+            $this->rollbackAfterVerificationFailure($result, [], 'verify:required_files_list');
+            throw new UpdateException('更新後の必須ファイル確認に失敗したため、更新前の状態へ復元しました。', 'verify_required_files');
+        }
         if ($missing === []) {
             return $result;
         }
+
+        $this->rollbackAfterVerificationFailure($result, $missing, 'verify:required_files_missing');
+        throw new UpdateException('更新後の必須ファイルを確認できなかったため、更新前の状態へ復元しました。', 'verify_required_files');
+    }
+
+    private function rollbackAfterVerificationFailure(array $result, array $missing, string $stage): void
+    {
 
         $backupId = (string) ($result['backup_id'] ?? '');
         if (preg_match('/\A[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\z/', $backupId) !== 1) {
@@ -42,8 +55,10 @@ final class InstalledIntegrityVerifier
         $failureMeta = $meta;
         $failureMeta['finished_at'] = gmdate('c');
         $failureMeta['result'] = 'failure';
-        $failureMeta['stage'] = 'verify:required_files_missing';
-        $failureMeta['missing_required_files'] = $missing;
+        $failureMeta['stage'] = $stage;
+        if ($missing !== []) {
+            $failureMeta['missing_required_files'] = $missing;
+        }
         $failureMeta['rollback_attempted'] = true;
         $failureMeta['rollback_succeeded'] = $rollbackSucceeded;
         $this->writeMeta($metaPath, $failureMeta);
@@ -52,8 +67,6 @@ final class InstalledIntegrityVerifier
         if (!$rollbackSucceeded) {
             throw new UpdateException('更新後に必須ファイルの欠落を検出し、自動復元も完了できませんでした。バックアップは保存されています。管理者による確認が必要です。', 'verify_required_files', true);
         }
-
-        throw new UpdateException('更新後に必須ファイルの欠落を検出したため、更新前の状態へ復元しました。', 'verify_required_files');
     }
 
     private function missingRequiredFiles(): array

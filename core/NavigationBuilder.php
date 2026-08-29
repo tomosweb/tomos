@@ -9,9 +9,12 @@ final class NavigationBuilder
     private const NAV_FOLDER_PAGE_LIMIT = 30;
 
     private string $publicBasePath;
-    public function __construct(string $publicBasePath = '')
+    private array $navigationSettings;
+
+    public function __construct(string $publicBasePath = '', array $navigationSettings = [])
     {
         $this->publicBasePath = $publicBasePath;
+        $this->navigationSettings = $navigationSettings;
     }
 
     public function tree(array $pages, string $currentUrl = '/', bool $openAllFolders = false, bool $includeFeed = true): string
@@ -51,19 +54,32 @@ final class NavigationBuilder
 
         usort($rootPages, [$this, 'comparePages']);
         ksort($children, SORT_NATURAL);
+        $resolved = $this->resolvedPrimaryItems($this->autoPrimaryItems($pages, $currentUrl, $includeFeed));
+        $resolvedByPath = $this->navigationItemsByPath($resolved);
+        $manual = ($this->navigationSettings['mode'] ?? 'auto') === 'manual';
 
         $html = '<nav class="page-tree" aria-label="サイト内ページ">' . "\n<ul>";
 
         foreach ($rootPages as $page) {
-            $html .= $this->pageListItem($page, $currentUrl);
+            $navigationPath = $this->navigationPathForPage($page);
+            $navigationItem = $navigationPath !== null
+                ? ($resolvedByPath[$this->navigationKey($navigationPath)] ?? null)
+                : null;
+            if ($manual && $navigationPath !== null && ($navigationItem === null || !empty($navigationItem['navigation_hidden']))) {
+                continue;
+            }
+            $html .= $this->pageListItem($page, $currentUrl, $navigationItem['label'] ?? null);
         }
 
+        $children = $this->orderedTreeChildren($children, $resolvedByPath, $manual);
         foreach ($children as $folderGroup) {
             $folder = (string) $folderGroup['folder'];
             $allFolderPages = $folderGroup['pages'];
             usort($allFolderPages, [$this, 'comparePages']);
             $folderIndex = $this->folderIndexPage($allFolderPages, $folder);
-            $folderLabel = $folderIndex !== null ? $this->pageTitle($folderIndex) : $folder;
+            $folderKey = $this->navigationKey('/' . $folder . '/');
+            $folderLabel = $resolvedByPath[$folderKey]['label']
+                ?? ($folderIndex !== null ? $this->pageTitle($folderIndex) : $folder);
             $open = $openAllFolders || $this->folderContainsCurrentPage($allFolderPages, $currentUrl);
             $openAttribute = $open ? ' open' : '';
             $folderPages = $this->limitedFolderPages($allFolderPages, $currentUrl);
@@ -83,10 +99,18 @@ final class NavigationBuilder
             $html .= '</ul></details></li>';
         }
 
-        $html .= $this->systemListItem('/search/', '検索', $currentUrl);
-        $html .= $this->systemListItem('/tags/', 'タグ一覧', $currentUrl);
-        if ($includeFeed) {
-            $html .= $this->systemListItem('/feed.xml', 'RSS', $currentUrl);
+        if ($manual) {
+            foreach ($resolved as $item) {
+                if (in_array(($item['type'] ?? ''), ['search', 'tags', 'rss'], true) && empty($item['navigation_hidden'])) {
+                    $html .= $this->systemListItem((string) $item['path'], (string) $item['label'], $currentUrl);
+                }
+            }
+        } else {
+            $html .= $this->systemListItem('/search/', '検索', $currentUrl);
+            $html .= $this->systemListItem('/tags/', 'タグ一覧', $currentUrl);
+            if ($includeFeed) {
+                $html .= $this->systemListItem('/feed.xml', 'RSS', $currentUrl);
+            }
         }
         $html .= '</ul>' . "\n</nav>";
 
@@ -103,8 +127,10 @@ final class NavigationBuilder
             }
         }
 
+        $resolvedByPath = $this->navigationItemsByPath($this->resolvedPrimaryItems($this->autoPrimaryItems($pages, $currentUrl)));
+        $homeLabel = $resolvedByPath[$this->navigationKey('/')]['label'] ?? 'Home';
         $html = '<nav class="breadcrumbs" aria-label="パンくず">';
-        $html .= '<a href="' . $this->escape(Security::publicUrl('/', $this->publicBasePath)) . '">Home</a>';
+        $html .= '<a href="' . $this->escape(Security::publicUrl('/', $this->publicBasePath)) . '">' . $this->escape((string) $homeLabel) . '</a>';
 
         if ($currentUrl === '/') {
             $html .= '</nav>';
@@ -120,14 +146,19 @@ final class NavigationBuilder
             $candidateUrl = $index < $lastIndex ? $accumulated . '/' : $accumulated;
             $html .= ' <span aria-hidden="true">/</span> ';
 
+            $navigationItem = $resolvedByPath[$this->navigationKey($candidateUrl)] ?? null;
             if ($index === $lastIndex) {
                 $label = $this->breadcrumbLabel($byUrl[$candidateUrl] ?? null, $segment);
+                if ($navigationItem !== null) {
+                    $label = (string) $navigationItem['label'];
+                }
                 $html .= '<span>' . $this->escape($label) . '</span>';
                 continue;
             }
 
             if (isset($byUrl[$candidateUrl]) || $this->folderHasPublicPages($pages, trim($candidateUrl, '/'))) {
-                $html .= '<a href="' . $this->escape(Security::publicUrl($candidateUrl, $this->publicBasePath)) . '">' . $this->escape($segment) . '</a>';
+                $label = $navigationItem !== null ? (string) $navigationItem['label'] : $segment;
+                $html .= '<a href="' . $this->escape(Security::publicUrl($candidateUrl, $this->publicBasePath)) . '">' . $this->escape($label) . '</a>';
             } else {
                 $html .= '<span>' . $this->escape($segment) . '</span>';
             }
@@ -339,7 +370,22 @@ final class NavigationBuilder
             return '';
         }
 
-        ksort($sections, SORT_NATURAL);
+        if (($this->navigationSettings['mode'] ?? 'auto') === 'manual') {
+            $resolved = $this->resolvedPrimaryItems($this->autoPrimaryItems($pages, $currentUrl));
+            $ordered = [];
+            foreach ($resolved as $item) {
+                if (($item['type'] ?? '') !== 'section' || !empty($item['navigation_hidden'])) {
+                    continue;
+                }
+                $folder = ltrim(rtrim((string) ($item['path'] ?? ''), '/'), '/');
+                if (isset($sections[$folder])) {
+                    $ordered[$folder] = $sections[$folder] + ['label' => (string) $item['label']];
+                }
+            }
+            $sections = $ordered;
+        } else {
+            ksort($sections, SORT_NATURAL);
+        }
 
         $html = '';
         foreach ($sections as $section) {
@@ -348,7 +394,7 @@ final class NavigationBuilder
             $href = Security::publicUrl($internalUrl, $this->publicBasePath);
             $active = $this->isCurrentSection($currentUrl, $folder);
             $attributes = $active ? ' class="site-section-link is-active" aria-current="page"' : ' class="site-section-link"';
-            $html .= '<a href="' . $this->escape($href) . '"' . $attributes . '>' . $this->escape($folder) . '</a>';
+            $html .= '<a href="' . $this->escape($href) . '"' . $attributes . '>' . $this->escape((string) ($section['label'] ?? $folder)) . '</a>';
         }
 
         return $html;
@@ -383,6 +429,11 @@ final class NavigationBuilder
 
     public function primaryItems(array $pages, string $currentUrl = '', bool $includeFeed = true): array
     {
+        return $this->resolvedPrimaryItems($this->autoPrimaryItems($pages, $currentUrl, $includeFeed), true);
+    }
+
+    private function autoPrimaryItems(array $pages, string $currentUrl = '', bool $includeFeed = true): array
+    {
         $items = [
             $this->primaryLinkItem('/', 'Home', 'home', $currentUrl, '', false, true),
             $this->primaryLinkItem('/about', 'About', 'about', $currentUrl),
@@ -393,6 +444,7 @@ final class NavigationBuilder
             $items[] = [
                 'label' => $folder,
                 'url' => Security::publicUrl($internalUrl, $this->publicBasePath),
+                'path' => $internalUrl,
                 'type' => 'section',
                 'active' => $this->isCurrentSection($currentUrl, $folder),
                 'slug' => $folder,
@@ -406,6 +458,7 @@ final class NavigationBuilder
             $items[] = [
                 'label' => 'RSS',
                 'url' => Security::publicUrl('/feed.xml', $this->publicBasePath),
+                'path' => '/feed.xml',
                 'type' => 'rss',
                 'active' => false,
                 'slug' => '',
@@ -414,6 +467,83 @@ final class NavigationBuilder
         }
 
         return $items;
+    }
+
+    private function resolvedPrimaryItems(array $items, bool $visibleOnly = false): array
+    {
+        if (($this->navigationSettings['mode'] ?? 'auto') !== 'manual') {
+            return $items;
+        }
+        $autoByPath = [];
+        foreach ($items as $item) {
+            $autoByPath[$this->navigationKey((string) ($item['path'] ?? ''))] = $item;
+        }
+        $manual = [];
+        foreach (is_array($this->navigationSettings['items'] ?? null) ? $this->navigationSettings['items'] : [] as $configured) {
+            $path = $this->normalizeInternalUrl((string) ($configured['path'] ?? ''));
+            if ($path === '') {
+                continue;
+            }
+            $item = $autoByPath[$this->navigationKey($path)] ?? null;
+            if ($item === null) {
+                // Manual navigation may only refer to destinations known to the
+                // existing auto navigation. Never invent a label for an
+                // unresolved path.
+                continue;
+            }
+            $item['navigation_hidden'] = !empty($configured['hidden']);
+            if ($visibleOnly && $item['navigation_hidden']) {
+                continue;
+            }
+            if (($configured['label'] ?? '') !== '') {
+                $item['label'] = (string) $configured['label'];
+            }
+            $manual[] = $item;
+        }
+        return $manual;
+    }
+
+    private function navigationItemsByPath(array $items): array
+    {
+        $byPath = [];
+        foreach ($items as $item) {
+            $path = $this->navigationKey((string) ($item['path'] ?? ''));
+            if ($path !== '') {
+                $byPath[$path] = $item;
+            }
+        }
+        return $byPath;
+    }
+
+    private function navigationPathForPage(array $page): ?string
+    {
+        $path = trim(str_replace('\\', '/', (string) ($page['path'] ?? '')), '/');
+        if ($path === 'index.md') {
+            return '/';
+        }
+        if ($path === 'about.md') {
+            return '/about';
+        }
+        return null;
+    }
+
+    private function orderedTreeChildren(array $children, array $resolvedByPath, bool $manual): array
+    {
+        if (!$manual) {
+            return $children;
+        }
+
+        $ordered = [];
+        foreach ($resolvedByPath as $path => $item) {
+            if (($item['type'] ?? '') !== 'section' || !empty($item['navigation_hidden'])) {
+                continue;
+            }
+            $folderKey = 'folder:' . ltrim(rtrim($path, '/'), '/');
+            if (isset($children[$folderKey])) {
+                $ordered[$folderKey] = $children[$folderKey];
+            }
+        }
+        return $ordered;
     }
 
     private function fallbackTree(string $currentUrl, bool $includeFeed = true): string
@@ -462,6 +592,7 @@ final class NavigationBuilder
         return [
             'label' => $label,
             'url' => Security::publicUrl($normalizedUrl, $this->publicBasePath),
+            'path' => $normalizedUrl,
             'type' => $type,
             'active' => $active,
             'slug' => $slug,
@@ -679,6 +810,12 @@ final class NavigationBuilder
         }
 
         return $url;
+    }
+
+    private function navigationKey(string $path): string
+    {
+        $path = $this->normalizeInternalUrl($path);
+        return $path === '/' ? '/' : rtrim($path, '/');
     }
 
     private function escape(string $value): string

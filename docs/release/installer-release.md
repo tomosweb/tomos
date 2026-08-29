@@ -12,6 +12,24 @@
 - mirrorはlatestとpreviousの2世代を保持する。
 - versioned assetsはimmutableとし、同じversionを上書きしない。
 
+## 正式Releaseの必須条件
+
+Tomos本体の正式Releaseでは、1ファイルInstallerのmirror同期と `latest.json` の対象versionへの切替を必須タスクとする。GitHub Release、通常Distribution、Update、公式サイトの公開が完了していても、公開 `https://tomoswords.org/installer/latest.json` が対象versionを返さない状態では、そのversionのReleaseをCOMPLETEとして扱わない。
+
+Release完了前に必ず以下を満たすこと。
+
+1. 対象versionのInstaller Release Assets 6点を生成・署名・検証し、GitHub Releaseへ公開する。
+2. `tomosweb/tomos-official-site` の `Sync installer mirror` をdry-run、本番の順に実行する。
+3. versioned assetsをHTTPS経由で検証する。
+4. `latest.json` を対象versionへ切り替える。
+5. 公開 `latest.json` が対象versionを返すことをfreshに確認する。
+6. pointerからmanifest、signature、Distribution ZIPを取得・検証できることを確認する。
+7. Installer smoke testをPASSさせる。
+
+`install.php` 自体へTomosのversionを固定記述する必要はない。正式Releaseの判定対象は、固定Installerが参照する `latest.json` が対象versionを指し、その配布経路が正常に機能することである。
+
+上記のいずれかが未完了またはFAILの場合、Release statusはBLOCKEDとし、`PUBLIC RELEASE COMPLETE` と報告しない。
+
 ## 事前条件
 
 - clean checkoutであること。

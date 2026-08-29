@@ -45,6 +45,7 @@ $publishedYear = trim((string) ($_GET['year'] ?? ''));
 $publishedPage = (int) ($_GET['page'] ?? 1);
 $publishedWithdrawTarget = null;
 $activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'), $_GET);
+$returnTo = Tomos\PostAuthReturnTo::normalize($_SERVER['REQUEST_METHOD'] === 'POST' ? ($_POST['return_to'] ?? null) : ($_GET['return_to'] ?? null));
 $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (string) ($_POST['submission_id'] ?? '')
     : Tomos\PostSubmissionGuard::issueId();
@@ -67,6 +68,10 @@ if ($postPasswordHash === '') {
 
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['return_to']) && !empty($_SESSION['tomos_post_authenticated'])) {
+    header('Location: ' . Tomos\PostAuthReturnTo::url($returnTo, (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
+    exit;
+}
 
 $inboxPreviewPath = trim((string) ($_GET['preview_inbox'] ?? ''));
 $inboxDownloadPath = trim((string) ($_GET['download_inbox_markdown'] ?? ($_GET['download_inbox'] ?? '')));
@@ -384,12 +389,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = '下書きの保存先が正しくありません。';
                 }
             } elseif ($action === 'site_settings_auth') {
-                header('Location: ' . Tomos\Security::publicUrl('/post/site-settings.php', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
+                header('Location: ' . Tomos\PostAuthReturnTo::url($returnTo, (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
             }
             if (!in_array($action, ['publish_inbox', 'publish_draft', 'delete_draft'], true)) {
             if ($action === 'theme_auth') {
-                header('Location: ' . Tomos\Security::publicUrl('/post/theme/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
+                header('Location: ' . Tomos\PostAuthReturnTo::url($returnTo, (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
                 exit;
             }
             if ($action === 'analytics_update') {
@@ -654,7 +659,7 @@ function isPostRequestTooLarge(): bool
     return $limit > 0 && $contentLength > $limit;
 }
 
-renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, false, $activeSection, $submissionId);
+renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, false, $activeSection, $submissionId, $returnTo);
 
 function jsonResponse(array $data, int $status = 200): void
 {
@@ -889,7 +894,8 @@ function renderPage(
     ?Tomos\PostContentResolveResult $publishedWithdrawTarget,
     bool $disabled,
     string $activeSection,
-    string $submissionId
+    string $submissionId,
+    string $returnTo = ''
 ): void {
     header('Content-Type: text/html; charset=utf-8');
     $token = (string) ($_SESSION['tomos_post_token'] ?? '');
@@ -958,7 +964,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
         renderDraftSection($token, $config, $submissionId);
     } elseif ($activeSection === 'settings') {
-        renderSettingsHomeSection($token, $config);
+        renderSettingsHomeSection($token, $config, Tomos\PostAuthReturnTo::normalize($returnTo));
     } else {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
@@ -1056,18 +1062,29 @@ function renderUpdateSettingsSection(array $config): void
     echo '<p><a class="button secondary" href="' . e($updateUrl) . '">Tomos Updateを開く</a></p>';
 }
 
-function renderSettingsHomeSection(string $token, array $config): void
+function renderSettingsHomeSection(string $token, array $config, string $returnTo): void
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+    $authenticated = !empty($_SESSION['tomos_post_authenticated']);
+    $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
+    $siteSettingsUrl = Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath);
+    $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
+    if (!$authenticated) {
+        $siteSettingsUrl = $securityUrl . '?return_to=' . rawurlencode('/post/site-settings.php');
+        $themeUrl = $securityUrl . '?return_to=' . rawurlencode('/post/theme/');
+    }
     $links = [
-        [Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath), 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
-        [Tomos\Security::publicUrl('/post/theme/', $publicBasePath), 'テーマ', '公開サイトの見た目を切り替えます。'],
-        [Tomos\Security::publicUrl('/post/security/', $publicBasePath), 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
+        [$siteSettingsUrl, 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
+        [$themeUrl, 'テーマ', '公開サイトの見た目を切り替えます。'],
+        [$securityUrl, 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
         [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', '署名済みの更新を実行します。'],
     ];
 
     echo '<h2 id="post-settings">設定</h2>';
     echo '<p class="hint">Tomos Postの動作や公開サイトに関する設定です。投稿や記事管理とは分けて管理します。</p>';
+    if ($returnTo !== Tomos\PostAuthReturnTo::defaultRoute() && empty($_SESSION['tomos_post_authenticated'])) {
+        echo '<div class="notice"><strong>認証が必要です。</strong><p>管理用合言葉で認証すると、要求された管理画面へ移動します。</p></div>';
+    }
     echo '<div class="settings-links">';
     foreach ($links as [$url, $label, $description]) {
         echo '<a class="settings-link" href="' . e($url) . '"><strong>' . e($label) . '</strong><span>' . e($description) . '</span></a>';
@@ -2447,6 +2464,7 @@ function renderThemeSettingsSection(string $token, array $config): void
         echo '<form method="post" action="">';
         echo '<input type="hidden" name="action" value="theme_auth">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="return_to" value="' . e($returnTo) . '">';
         renderAuthenticationFields('theme_password');
         echo '<div class="actions"><button type="submit">テーマを切り替える</button></div>';
         echo '</form>';
@@ -2470,6 +2488,7 @@ function renderSiteSettingsSection(string $token, array $config): void
         echo '<form method="post" action="">';
         echo '<input type="hidden" name="action" value="site_settings_auth">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<input type="hidden" name="return_to" value="' . e($returnTo) . '">';
         renderAuthenticationFields('site_settings_password');
         echo '<div class="actions"><button type="submit">サイト設定を開く</button></div>';
         echo '</form>';

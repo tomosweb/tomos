@@ -2,7 +2,7 @@
 
 Tomosは、Markdownで書いた文章を自分のWebサイトとして公開するための、軽量なMarkdown公開プログラムです。
 
-現在のバージョンは `v0.3.1` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
+現在のバージョンは `v0.4.0` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
 
 > **v0.1.0-alpha.17から更新する方へ**
 >
@@ -13,7 +13,7 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 >
 > 2まで完了するとalpha.18の新しいUpdaterへ完全に移行します。その後、Tomos Updateからalpha.19、beta.1へ1バージョンずつ更新できます。
 
-詳しくは [v0.3.1の更新案内](docs/releases/v0.3.1.md) を確認してください。過去のalpha/betaからの移行手順は[既存環境の更新手順](docs/install/update.md)に履歴として掲載しています。
+詳しくは [v0.4.0の更新案内](docs/releases/v0.4.0.md) を確認してください。過去のalpha/betaからの移行手順は[既存環境の更新手順](docs/install/update.md)に履歴として掲載しています。
 
 ## 主な機能
 
@@ -26,7 +26,8 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 - 画像表示
 - PCとスマートフォン対応
 - テーマ切り替え
-- Tomos PostからのテーマZIP追加
+- Tomos PostからのテーマZIP追加・同一テーマID更新
+- Navigation Settingsによる表示順、ラベル、非表示設定
 - Tomos PostによるMarkdownと画像の投稿
 - Tomos Postによる `index.md` と `about.md` のダウンロード・再投稿
 - Tomos Postの記事管理から公開記事、下書き、固定ページを検索
@@ -78,7 +79,7 @@ Tomos Updateを今後も安定して提供するため、`v0.1.0-alpha.6`で署�
 
 alpha.6への移行後は、alpha.7以降の署名済み更新ZIPをTomos Updateから利用できます。alpha.6自体の署名済みUpdate ZIPは提供しません。
 
-設置後は、`/post/site-settings.php`からサイト名、サイト説明、タイムゾーン、RSSの有効・無効と対象パス、Sitemapの有効・無効を変更できます。以前の`/post/settings/`も互換用に利用できます。GA4測定IDと使用テーマは、サイト設定画面から移動できる既存の専用画面で変更します。
+設置後は、`/post/site-settings.php`（`/post/settings/`は互換入口）からサイト名、サイト説明、タイムゾーン、RSSの有効・無効と対象パス、Sitemapの有効・無効を変更できます。GA4測定IDと使用テーマは、サイト設定画面から移動できる既存の専用画面で変更します。未認証でThemeまたはSite Settingsへ直接アクセスした場合は、認証要求を表示し、認証成功後に要求元の画面へ戻ります。
 
 パスキーの追加・管理や管理用合言葉の再設定は、Tomos Postの「セキュリティ」から行います。
 
