@@ -237,6 +237,16 @@ content/diary/index.md
 [外部サイト](https://example.com/)
 ```
 
+## YouTube動画
+
+YouTubeのURLを単独の1行として書くと、公開ページでは動画プレイヤーとして表示されます。
+
+```markdown
+https://www.youtube.com/watch?v=XXXXXXXXXXX
+```
+
+対応しているURLは、`youtube.com/watch?v=`、`youtu.be/`、`youtube.com/shorts/` です（`www` は省略できます）。Markdownリンクにした場合は自動埋め込みにならず、通常のリンクとして表示されます。
+
 ## テーブル
 
 GFM形式のテーブルを書けます。
