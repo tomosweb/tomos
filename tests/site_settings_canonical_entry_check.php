@@ -25,6 +25,12 @@ if (strpos($distributionFiles, "post/site-settings.php") === false) {
 if (strpos($installedFiles, "post/site-settings.php") === false) {
     $failures[] = 'flat site settings entrypoint is not required in installed files';
 }
+if (strpos($distributionFiles, "core/PostAuthReturnTo.php") === false) {
+    $failures[] = 'PostAuthReturnTo is not required in the distribution';
+}
+if (strpos($installedFiles, "core/PostAuthReturnTo.php") === false) {
+    $failures[] = 'PostAuthReturnTo is not required in installed files';
+}
 
 $canonical = '/post/site-settings.php';
 $legacy = '/post/settings/';

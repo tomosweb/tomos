@@ -29,6 +29,24 @@ foreach ($targets as $name => $path) {
         fwrite(STDERR, $name . ": RP ID must not be shown in the normal security UI\n");
         exit(1);
     }
+    if ($name === 'security') {
+        foreach (['PostAuthReturnTo::normalize', 'PostAuthReturnTo::url', 'name="return_to"', 'passkeyUrl'] as $needle) {
+            if (strpos($source, $needle) === false) {
+                fwrite(STDERR, $name . ": return_to-aware Security flow is missing: {$needle}\n");
+                exit(1);
+            }
+        }
+    }
+}
+
+$passkeyLogin = file_get_contents($root . '/post/passkey/login/index.php');
+if (!is_string($passkeyLogin)
+    || strpos($passkeyLogin, 'PostAuthReturnTo::normalize') === false
+    || strpos($passkeyLogin, 'returnUrl') === false
+    || strpos($passkeyLogin, 'refreshSessionCookiePath') === false
+) {
+    fwrite(STDERR, "passkey login return flow is missing\n");
+    exit(1);
 }
 
 echo "passkey_security_navigation_check: OK\n";

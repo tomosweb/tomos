@@ -129,6 +129,19 @@ final class PostAuthRememberToken
         return $this->dir;
     }
 
+    /**
+     * Re-issue the current PHP session cookie after session ID rotation.
+     *
+     * PHP's session_regenerate_id() uses the runtime cookie parameters when
+     * it emits the replacement cookie. Re-apply Tomos Post's configured path
+     * so subdirectory installs keep the authenticated session on every Post
+     * screen.
+     */
+    public function refreshSessionCookiePath(): void
+    {
+        $this->ensureSessionCookiePath();
+    }
+
     private function load(string $tokenHash): ?array
     {
         $raw = @file_get_contents($this->path($tokenHash));

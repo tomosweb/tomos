@@ -14,6 +14,7 @@ core/required-installed-files.txt
 core/SetupUrlResolver.php
 core/PostBasicPage.php
 core/PostAuthRememberToken.php
+core/PostAuthReturnTo.php
 core/PostSubmissionGuard.php
 core/PostRateLimiter.php
 core/PostUpload.php

@@ -53,6 +53,16 @@ try {
     assertThemeWriter(($updated['navigation']['items'][0]['path'] ?? '') === '/news/', 'manual order must be preserved');
     assertThemeWriter(!empty($updated['navigation']['items'][0]['hidden']), 'hidden must be preserved');
 
+    [$uiUpdated, $uiErrors] = ThemeSettingsConfigWriter::update($current, [
+        'navigation_mode' => 'manual',
+        'navigation_items' => [
+            ['path' => '/news', 'label' => 'News UI'],
+            ['path' => '/about', 'label' => ''],
+        ],
+    ], $autoItems);
+    assertThemeWriter($uiErrors === [], 'UI navigation paths without trailing slashes must pass');
+    assertThemeWriter(($uiUpdated['navigation']['items'][0]['label'] ?? '') === 'News UI', 'UI navigation label must be accepted');
+
     [, $unsafeErrors] = ThemeSettingsConfigWriter::update($current, [
         'navigation_mode' => 'manual',
         'navigation_items' => [['path' => 'https://example.com/', 'label' => 'External']],
