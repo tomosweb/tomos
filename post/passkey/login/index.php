@@ -121,6 +121,10 @@ $registerUrl = '/' . trim($basePath, '/') . '/post/passkey/register/';
 $registerUrl = preg_replace('#/+#', '/', $registerUrl);
 $securityUrl = '/' . trim($basePath, '/') . '/post/security/';
 $securityUrl = preg_replace('#/+#', '/', $securityUrl);
+$hasReturnTo = array_key_exists('return_to', $_GET);
+$returnTo = $hasReturnTo ? Tomos\PostAuthReturnTo::normalize($_GET['return_to'] ?? null) : null;
+$returnUrl = $returnTo !== null ? Tomos\PostAuthReturnTo::url($returnTo, $basePath) : $postUrl;
+$securityReturnUrl = $returnTo !== null ? $securityUrl . '?return_to=' . rawurlencode($returnTo) : $securityUrl;
 $forgotUrl = '/' . trim($basePath, '/') . ($credentials === [] ? '/post/passkey/recovery/' : '/post/passkey/password-reset/');
 $forgotUrl = preg_replace('#/+#', '/', $forgotUrl);
 ?><!doctype html>
@@ -150,7 +154,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 
 <p id="result" role="status" aria-live="polite"></p>
 <p><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a> <a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">合言葉を忘れた場合</a></p>
-<p><a class="button" href="<?= htmlspecialchars((string) $securityUrl, ENT_QUOTES, 'UTF-8') ?>">セキュリティへ戻る</a></p>
+<p><a class="button" href="<?= htmlspecialchars((string) $securityReturnUrl, ENT_QUOTES, 'UTF-8') ?>">セキュリティへ戻る</a></p>
 
 <script>
 (() => {
@@ -160,6 +164,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 
   const token = <?= json_encode($token, JSON_UNESCAPED_SLASHES) ?>;
   const postUrl = <?= json_encode($postUrl, JSON_UNESCAPED_SLASHES) ?>;
+  const returnUrl = <?= json_encode($returnUrl, JSON_UNESCAPED_SLASHES) ?>;
 
   const base64UrlToBytes = value => {
     const base64 = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
@@ -217,7 +222,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 
       result.className = 'ok';
       result.textContent = '認証しました。Tomos Postを開きます。';
-      window.location.assign(postUrl);
+      window.location.assign(returnUrl);
     } catch (error) {
       result.className = 'ng';
       result.textContent = error && error.message ? error.message : 'パスキー認証に失敗しました。';

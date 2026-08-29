@@ -1065,10 +1065,18 @@ function renderUpdateSettingsSection(array $config): void
 function renderSettingsHomeSection(string $token, array $config, string $returnTo): void
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+    $authenticated = !empty($_SESSION['tomos_post_authenticated']);
+    $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
+    $siteSettingsUrl = Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath);
+    $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
+    if (!$authenticated) {
+        $siteSettingsUrl = $securityUrl . '?return_to=' . rawurlencode('/post/site-settings.php');
+        $themeUrl = $securityUrl . '?return_to=' . rawurlencode('/post/theme/');
+    }
     $links = [
-        [Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath), 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
-        [Tomos\Security::publicUrl('/post/theme/', $publicBasePath), 'テーマ', '公開サイトの見た目を切り替えます。'],
-        [Tomos\Security::publicUrl('/post/security/', $publicBasePath), 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
+        [$siteSettingsUrl, 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
+        [$themeUrl, 'テーマ', '公開サイトの見た目を切り替えます。'],
+        [$securityUrl, 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
         [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', '署名済みの更新を実行します。'],
     ];
 

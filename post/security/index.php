@@ -37,6 +37,12 @@ $publicPath = static function (string $path) use ($basePath): string {
     }
     return preg_replace('#/+#', '/', $prefix . '/' . ltrim($path, '/')) ?: '/';
 };
+$hasReturnTo = array_key_exists('return_to', $_GET) || array_key_exists('return_to', $_POST);
+$returnTo = $hasReturnTo ? Tomos\PostAuthReturnTo::normalize($_GET['return_to'] ?? $_POST['return_to'] ?? null) : null;
+$returnToField = '';
+if ($returnTo !== null) {
+    $returnToField = '<input type="hidden" name="return_to" value="' . htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') . '">';
+}
 
 $messages = [];
 $errors = [];
@@ -96,7 +102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
                 $messages[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
             }
             $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
-            header('Location: ' . $publicPath('post/security/'));
+            $destination = $returnTo !== null
+                ? Tomos\PostAuthReturnTo::url($returnTo, $basePath)
+                : $publicPath('post/security/');
+            header('Location: ' . $destination);
             exit;
         }
     }
@@ -121,6 +130,10 @@ if (!empty($status['available'])) {
 }
 
 $hasPasskey = $credentials !== [];
+$passkeyUrl = $publicPath('post/passkey/login/');
+if ($returnTo !== null) {
+    $passkeyUrl .= '?return_to=' . rawurlencode($returnTo);
+}
 $forgotUrl = $hasPasskey
     ? $publicPath('post/passkey/password-reset/')
     : $publicPath('post/passkey/recovery/');
@@ -169,6 +182,15 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 
 <?php if (empty($status['available'])): ?>
 <div class="result"><p>この環境ではパスキー機能を利用できません。管理用合言葉によるTomos Post認証は引き続き利用できます。</p></div>
+<form method="post" action="">
+<input type="hidden" name="action" value="passphrase_auth">
+<input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
+<?= $returnToField ?>
+<label for="post_password">管理用合言葉</label>
+<input id="post_password" type="password" name="post_password" autocomplete="current-password" required>
+<label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
+<button type="submit">管理用合言葉で認証</button>
+</form>
 <?php else: ?>
 <div class="result">
 <p>登録済みパスキー: <?= count($credentials) ?> 件</p>
@@ -182,10 +204,11 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <a class="button" href="<?= htmlspecialchars($publicPath('post/passkey/register/'), ENT_QUOTES, 'UTF-8') ?>">パスキーを追加</a>
 <?php elseif ($hasPasskey): ?>
 <p class="hint">パスキーを管理するには、先にTomos Postへ認証してください。</p>
-<a class="button primary" href="<?= htmlspecialchars($publicPath('post/passkey/login/'), ENT_QUOTES, 'UTF-8') ?>">パスキーで認証</a>
+<a class="button primary" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで認証</a>
 <form method="post" action="">
 <input type="hidden" name="action" value="passphrase_auth">
 <input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
+<?= $returnToField ?>
 <label for="post_password">管理用合言葉</label>
 <input id="post_password" type="password" name="post_password" autocomplete="current-password" required>
 <label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
@@ -196,6 +219,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <form method="post" action="">
 <input type="hidden" name="action" value="passphrase_auth">
 <input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
+<?= $returnToField ?>
 <label for="post_password">管理用合言葉</label>
 <input id="post_password" type="password" name="post_password" autocomplete="current-password" required>
 <label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>

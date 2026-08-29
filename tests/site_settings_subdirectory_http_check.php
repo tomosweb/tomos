@@ -65,6 +65,12 @@ try {
     assertSame(302, $unauthenticatedTheme['status'], 'unauthenticated Theme status');
     assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Ftheme%2F'), strtolower($unauthenticatedTheme['headers']), 'unauthenticated Theme redirect');
 
+    $unauthenticatedSettings = request($baseUrl . '/post/?section=settings', $testRoot . '/unauthenticated-settings-cookies.txt');
+    assertSame(200, $unauthenticatedSettings['status'], 'unauthenticated settings status');
+    assertSettingsNavigationSemantics($unauthenticatedSettings['body']);
+    assertContains('href="/theme-labo/post/security/?return_to=%2Fpost%2Fsite-settings.php"', $unauthenticatedSettings['body'], 'unauthenticated Site Settings Security href');
+    assertContains('href="/theme-labo/post/security/?return_to=%2Fpost%2Ftheme%2F"', $unauthenticatedSettings['body'], 'unauthenticated Theme Security href');
+
     $siteAuthPage = request($baseUrl . '/post/?section=settings&return_to=%2Fpost%2Fsite-settings.php', $testRoot . '/site-auth-cookies.txt');
     assertSame(200, $siteAuthPage['status'], 'Site Settings auth page status');
     assertContains('認証が必要です。', $siteAuthPage['body'], 'Site Settings auth notice');
@@ -111,8 +117,56 @@ try {
     $settingsHome = request($baseUrl . '/post/?section=settings', $cookie);
     assertSame(200, $settingsHome['status'], 'settings card response');
     assertSettingsNavigationSemantics($settingsHome['body']);
-    assertContains('href="/theme-labo/post/site-settings.php"', $settingsHome['body'], 'rendered Site Settings href');
-    assertContains('href="/theme-labo/post/theme/"', $settingsHome['body'], 'rendered Theme href');
+    assertContains('href="/theme-labo/post/site-settings.php"', $settingsHome['body'], 'authenticated Site Settings href');
+    assertContains('href="/theme-labo/post/theme/"', $settingsHome['body'], 'authenticated Theme href');
+
+    $siteSecurityCookie = $testRoot . '/site-security-cookies.txt';
+    $siteSecurityPage = request($baseUrl . '/post/security/?return_to=%2Fpost%2Fsite-settings.php', $siteSecurityCookie);
+    assertSame(200, $siteSecurityPage['status'], 'Site Settings Security page status');
+    assertContains('name="return_to" value="/post/site-settings.php"', $siteSecurityPage['body'], 'Site Settings Security return_to field');
+    $siteSecurityAuth = request($baseUrl . '/post/security/', $siteSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($siteSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/site-settings.php',
+    ]);
+    assertSame(302, $siteSecurityAuth['status'], 'Site Settings Security auth status');
+    assertContains('location: /theme-labo/post/site-settings.php', strtolower($siteSecurityAuth['headers']), 'Site Settings Security auth return');
+
+    $themeSecurityCookie = $testRoot . '/theme-security-cookies.txt';
+    $themeSecurityPage = request($baseUrl . '/post/security/?return_to=%2Fpost%2Ftheme%2F', $themeSecurityCookie);
+    assertSame(200, $themeSecurityPage['status'], 'Theme Security page status');
+    assertContains('name="return_to" value="/post/theme/"', $themeSecurityPage['body'], 'Theme Security return_to field');
+    $themeSecurityAuth = request($baseUrl . '/post/security/', $themeSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($themeSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/theme/',
+    ]);
+    assertSame(302, $themeSecurityAuth['status'], 'Theme Security auth status');
+    assertContains('location: /theme-labo/post/theme/', strtolower($themeSecurityAuth['headers']), 'Theme Security auth return');
+
+    $normalSecurityCookie = $testRoot . '/normal-security-cookies.txt';
+    $normalSecurityPage = request($baseUrl . '/post/security/', $normalSecurityCookie);
+    $normalSecurityAuth = request($baseUrl . '/post/security/', $normalSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($normalSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+    ]);
+    assertSame(302, $normalSecurityAuth['status'], 'normal Security auth status');
+    assertContains('location: /theme-labo/post/security/', strtolower($normalSecurityAuth['headers']), 'normal Security auth destination');
+
+    $invalidSecurityCookie = $testRoot . '/invalid-security-cookies.txt';
+    $invalidSecurityPage = request($baseUrl . '/post/security/?return_to=https%3A%2F%2Fevil.example%2F', $invalidSecurityCookie);
+    assertContains('name="return_to" value="/post/?section=settings"', $invalidSecurityPage['body'], 'invalid Security return_to fallback');
+    $invalidSecurityAuth = request($baseUrl . '/post/security/', $invalidSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($invalidSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/?section=settings',
+    ]);
+    assertSame(302, $invalidSecurityAuth['status'], 'invalid Security auth status');
+    assertContains('location: /theme-labo/post/?section=settings', strtolower($invalidSecurityAuth['headers']), 'invalid Security safe destination');
 
     $site = request($baseUrl . '/post/site-settings.php', $cookie);
     assertSame(200, $site['status'], 'Site Settings status');
