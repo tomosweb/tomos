@@ -91,12 +91,29 @@ try {
             throw new RuntimeException('0.4.0 normal update must not contain legacy minimum_version');
         }
         foreach ($runtimeFiles as $path) {
-            $bytes = $zip->getFromName('files/' . $path);
+            $payloadPath = $path === 'core/UpdateService.php'
+                ? 'core/updater-pending/update-service.php'
+                : $path;
+            $bytes = $zip->getFromName('files/' . $payloadPath);
             if (!is_string($bytes)) {
                 throw new RuntimeException('0.4.0 package payload missing: ' . $path);
             }
-            if (($manifest['files'][$path] ?? null) !== hash('sha256', $bytes)) {
+            if (($manifest['files'][$payloadPath] ?? null) !== hash('sha256', $bytes)) {
                 throw new RuntimeException('0.4.0 manifest hash mismatch: ' . $path);
+            }
+            if ($path === 'core/UpdateService.php') {
+                $metadataPath = 'core/updater-pending/update-service.json';
+                $metadataBytes = $zip->getFromName('files/' . $metadataPath);
+                if (!is_string($metadataBytes)) {
+                    throw new RuntimeException('0.4.0 package pending updater metadata missing');
+                }
+                $metadata = json_decode($metadataBytes, true);
+                if (!is_array($metadata) || ($metadata['target'] ?? null) !== $path) {
+                    throw new RuntimeException('0.4.0 pending updater metadata target mismatch');
+                }
+                if (($manifest['files'][$metadataPath] ?? null) !== hash('sha256', $metadataBytes)) {
+                    throw new RuntimeException('0.4.0 pending updater metadata hash mismatch');
+                }
             }
         }
         $versionBytes = $zip->getFromName('files/VERSION');
