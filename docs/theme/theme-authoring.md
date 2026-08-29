@@ -42,11 +42,30 @@ Tomos のテーマは、HTML テンプレート、CSS、theme.json で構成し�
 - テーマに PHP は書かない
 - テーマ内に `.php` ファイルを置かない
 - Markdown 変換は core が行う
+- Markdown から生成される標準本文HTML（`.youtube-embed` を含む）は core が生成する
+- `.youtube-embed` の表示はテーマの CSS で整え、テーマ側で YouTube URL の解析や JavaScript による iframe 生成は行わない
 - URL 解決やファイル読み込みは core が行う
 - 通常変数 `{{ variable }}` は HTML エスケープされる
 - HTML 出力 `{{{ variable }}}` は core が許可した変数だけ使える
 - 外部 script は標準で読み込まない
 - 未定義変数は使わない
+
+YouTube動画の標準HTMLは core が生成します。テーマでは本文コンテナに合わせて `.prose` などのセレクターを調整し、次のようなCSSでレスポンシブな16:9表示にできます。
+
+```css
+.prose .youtube-embed {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 1.5em 0;
+}
+
+.prose .youtube-embed iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+```
 
 ## テーマを置く場所
 
