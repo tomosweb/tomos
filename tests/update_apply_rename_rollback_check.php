@@ -13,7 +13,7 @@ namespace Tomos {
             && strpos(basename($from), '.tomos-update-') === 0
         ) {
             $GLOBALS['tomos_update_target_rename_calls'] = (int) ($GLOBALS['tomos_update_target_rename_calls'] ?? 0) + 1;
-            if ($GLOBALS['tomos_update_target_rename_calls'] === 2) {
+            if ($GLOBALS['tomos_update_target_rename_calls'] === (int) ($GLOBALS['tomos_update_fail_on_call'] ?? 2)) {
                 return false;
             }
         }
@@ -69,41 +69,46 @@ namespace {
     ]);
 
     try {
-        $service = new UpdateService($root);
-        $summary = $service->stageDownloadedPackage($zipPath, 'rename-rollback-owner', $oldVersion, $newVersion);
+        foreach ([1, 2, 3] as $failureAt) {
+            $service = new UpdateService($root);
+            $summary = $service->stageDownloadedPackage($zipPath, 'rename-rollback-owner', $oldVersion, $newVersion);
 
-        $GLOBALS['tomos_update_target_rename_calls'] = 0;
-        $GLOBALS['tomos_update_inject_rename_failure'] = true;
+            $GLOBALS['tomos_update_target_rename_calls'] = 0;
+            $GLOBALS['tomos_update_fail_on_call'] = $failureAt;
+            $GLOBALS['tomos_update_inject_rename_failure'] = true;
 
-        $caught = null;
-        try {
-            $service->apply((string) $summary['id'], 'rename-rollback-owner');
-        } catch (UpdateException $exception) {
-            $caught = $exception;
-        }
+            $caught = null;
+            try {
+                $service->apply((string) $summary['id'], 'rename-rollback-owner');
+            } catch (UpdateException $exception) {
+                $caught = $exception;
+            }
 
-        if (!$caught instanceof UpdateException) {
-            throw new RuntimeException('mid-apply rename failure was not surfaced');
-        }
-        if ($caught->stage() !== 'replace') {
-            throw new RuntimeException('expected replace stage, got ' . $caught->stage());
-        }
-        if ($caught->rollbackFailed()) {
-            throw new RuntimeException('rollback unexpectedly reported failure');
-        }
-        if (($GLOBALS['tomos_update_target_rename_calls'] ?? 0) < 2) {
-            throw new RuntimeException('second target rename was not reached');
-        }
+            if (!$caught instanceof UpdateException) {
+                throw new RuntimeException('rename failure was not surfaced at call ' . $failureAt);
+            }
+            if ($caught->stage() !== 'replace') {
+                throw new RuntimeException('expected replace stage, got ' . $caught->stage());
+            }
+            if ($caught->rollbackFailed()) {
+                throw new RuntimeException('rollback unexpectedly reported failure at call ' . $failureAt);
+            }
+            if (($GLOBALS['tomos_update_target_rename_calls'] ?? 0) < $failureAt) {
+                throw new RuntimeException('target rename was not reached at call ' . $failureAt);
+            }
 
-        assertFileBytes($root . '/index.php', $oldIndex, 'first updated file was not rolled back');
-        assertFileBytes($root . '/assets/a.txt', $oldAsset, 'second target changed despite rename failure');
-        assertFileBytes($root . '/VERSION', $oldVersion . "\n", 'VERSION changed after failed update');
+            assertFileBytes($root . '/index.php', $oldIndex, 'first updated file was not rolled back');
+            assertFileBytes($root . '/assets/a.txt', $oldAsset, 'asset was not rolled back');
+            assertFileBytes($root . '/VERSION', $oldVersion . "\n", 'VERSION changed after failed update');
 
-        if (file_exists($root . '/storage/update.lock')) {
-            throw new RuntimeException('update lock remained after rollback');
-        }
-        if ((glob($root . '/storage/update-tmp/*') ?: []) !== []) {
-            throw new RuntimeException('update staging remained after rollback');
+            if (file_exists($root . '/storage/update.lock')) {
+                throw new RuntimeException('update lock remained after rollback');
+            }
+            if ((glob($root . '/storage/update-tmp/*') ?: []) !== []) {
+                throw new RuntimeException('update staging remained after rollback');
+            }
+
+            $GLOBALS['tomos_update_inject_rename_failure'] = false;
         }
 
         echo "update_apply_rename_rollback_check: OK\n";
