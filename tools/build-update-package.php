@@ -11,7 +11,7 @@ if (!class_exists(ZipArchive::class) || !function_exists('openssl_sign')) {
     exit(1);
 }
 
-$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'private-key:', 'output:', 'file:']);
+$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'private-key:', 'output:', 'file:', 'from-ref:', 'to-ref:']);
 $from = trim((string) ($options['from'] ?? ''));
 $version = trim((string) ($options['version'] ?? ''));
 $legacyBridge = array_key_exists('legacy-bridge', $options);
@@ -19,12 +19,27 @@ $privateKeyPath = (string) ($options['private-key'] ?? '');
 $outputPath = (string) ($options['output'] ?? '');
 $files = $options['file'] ?? [];
 $files = is_array($files) ? $files : [$files];
+$fromRef = trim((string) ($options['from-ref'] ?? ''));
+$toRef = trim((string) ($options['to-ref'] ?? 'HEAD'));
 $rootDir = dirname(__DIR__);
+$updateFileSetPath = __DIR__ . DIRECTORY_SEPARATOR . 'UpdateFileSet.php';
+if (!is_file($updateFileSetPath)) {
+    fwrite(STDERR, "Missing update file set helper.\n");
+    exit(1);
+}
+require_once $updateFileSetPath;
 $requiredFilesPath = __DIR__ . DIRECTORY_SEPARATOR . 'required-source-files.txt';
 
-if ($from === '' || $version === '' || $privateKeyPath === '' || $outputPath === '' || $files === []) {
-    fwrite(STDERR, "Usage: php tools/build-update-package.php --from=0.1.0-alpha.17 --version=0.1.0-alpha.18 [--legacy-bridge] --private-key=/safe/private.pem --output=/path/update.zip --file=core/File.php --file=VERSION\n");
+if ($from === '' || $version === '' || $privateKeyPath === '' || $outputPath === '' || ($files === [] && $fromRef === '') || ($files !== [] && $fromRef !== '')) {
+    fwrite(STDERR, "Usage: php tools/build-update-package.php --from=0.1.0-alpha.17 --version=0.1.0-alpha.18 [--legacy-bridge] --private-key=/safe/private.pem --output=/path/update.zip --file=core/File.php --file=VERSION OR --from-ref=v0.3.1 [--to-ref=HEAD]\n");
     exit(1);
+}
+if ($fromRef !== '') {
+    $files = UpdateFileSet::fromGitDiff($rootDir, $fromRef, $toRef);
+    if ($files === []) {
+        fwrite(STDERR, "The selected source refs contain no updateable runtime changes.\n");
+        exit(1);
+    }
 }
 if (!isValidTomosVersion($from) || !isValidTomosVersion($version)) {
     fwrite(STDERR, "Both --from and --version must use a valid Tomos version.\n");

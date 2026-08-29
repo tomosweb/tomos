@@ -5,30 +5,8 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
 $fromVersion = '0.3.1';
-$runtimeFiles = [
-    'VERSION',
-    'core/App.php',
-    'core/NavigationBuilder.php',
-    'core/PostAuthRememberToken.php',
-    'core/PostAuthReturnTo.php',
-    'core/PostInboxPreview.php',
-    'core/InstalledIntegrityVerifier.php',
-    'core/ThemePackageDeployment.php',
-    'core/ThemeSettings.php',
-    'core/ThemeSettingsConfigWriter.php',
-    'core/UpdateService.php',
-    'core/required-installed-files.txt',
-    'post/index.php',
-    'post/passkey/login/index.php',
-    'post/security/index.php',
-    'post/settings/index.php',
-    'post/theme/add/index.php',
-    'post/theme/index.php',
-    'themes/tomos-dark/templates/layout.html',
-    'themes/tomos-journal/templates/layout.html',
-    'themes/tomos-minimal/templates/layout.html',
-    'themes/tomos-note/templates/layout.html',
-];
+require_once $root . '/tools/UpdateFileSet.php';
+$runtimeFiles = UpdateFileSet::fromGitDiff($root, 'v0.3.1', 'HEAD');
 
 if ($targetVersion !== '0.4.0') {
     throw new RuntimeException('release transition check requires VERSION 0.4.0');
@@ -57,10 +35,8 @@ try {
         . ' ' . escapeshellarg('--from=' . $fromVersion)
         . ' ' . escapeshellarg('--version=' . $targetVersion)
         . ' ' . escapeshellarg('--private-key=' . $keyPath)
-        . ' ' . escapeshellarg('--output=' . $output);
-    foreach ($runtimeFiles as $runtimeFile) {
-        $command .= ' ' . escapeshellarg('--file=' . $runtimeFile);
-    }
+        . ' ' . escapeshellarg('--output=' . $output)
+        . ' ' . escapeshellarg('--from-ref=v0.3.1');
 
     $lines = [];
     $code = 0;
@@ -90,10 +66,17 @@ try {
         if (array_key_exists('minimum_version', $manifest)) {
             throw new RuntimeException('0.4.0 normal update must not contain legacy minimum_version');
         }
+        $manifestPaths = array_keys(is_array($manifest['files'] ?? null) ? $manifest['files'] : []);
+        sort($manifestPaths);
+        $expectedPaths = UpdateFileSet::packagePaths($runtimeFiles);
+        sort($expectedPaths);
+        if ($manifestPaths !== $expectedPaths) {
+            throw new RuntimeException('manifest does not exactly cover the derived runtime update set');
+        }
         foreach ($runtimeFiles as $path) {
-            $payloadPath = $path === 'core/UpdateService.php'
-                ? 'core/updater-pending/update-service.php'
-                : $path;
+            $packagePaths = UpdateFileSet::packagePaths([$path]);
+            $payloadCandidates = array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -4) === '.php'));
+            $payloadPath = $payloadCandidates[0] ?? $path;
             $bytes = $zip->getFromName('files/' . $payloadPath);
             if (!is_string($bytes)) {
                 throw new RuntimeException('0.4.0 package payload missing: ' . $path);
@@ -101,8 +84,9 @@ try {
             if (($manifest['files'][$payloadPath] ?? null) !== hash('sha256', $bytes)) {
                 throw new RuntimeException('0.4.0 manifest hash mismatch: ' . $path);
             }
-            if ($path === 'core/UpdateService.php') {
-                $metadataPath = 'core/updater-pending/update-service.json';
+            if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php'], true)) {
+                $metadataCandidates = array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'));
+                $metadataPath = (string) ($metadataCandidates[0] ?? '');
                 $metadataBytes = $zip->getFromName('files/' . $metadataPath);
                 if (!is_string($metadataBytes)) {
                     throw new RuntimeException('0.4.0 package pending updater metadata missing');
@@ -119,6 +103,15 @@ try {
         $versionBytes = $zip->getFromName('files/VERSION');
         if (!is_string($versionBytes) || trim($versionBytes) !== $targetVersion) {
         throw new RuntimeException('0.4.0 package VERSION payload mismatch');
+        }
+
+        foreach (['post/security/index.php', 'post/passkey/login/index.php', 'core/PostAuthRememberToken.php'] as $requiredAuthFile) {
+            if (!in_array($requiredAuthFile, $runtimeFiles, true)) {
+                throw new RuntimeException('required authentication runtime was not derived: ' . $requiredAuthFile);
+            }
+            if (!isset($manifest['files'][$requiredAuthFile])) {
+                throw new RuntimeException('required authentication runtime is missing from manifest: ' . $requiredAuthFile);
+            }
         }
     } finally {
         $zip->close();
