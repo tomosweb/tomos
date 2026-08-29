@@ -1,5 +1,17 @@
 # 更新履歴
 
+## v0.5.1 - 2026-08-29
+
+### Fixed
+
+- Installerのpointer検証を公式mirrorの正規URLである`/installer/releases/<VERSION>/`に合わせました。
+- v0.5.0で確認されたInstaller配布経路のpointer検証不整合を修正しました。v0.5.0の通常利用やYouTube埋め込みには影響ありません。
+
+### Compatibility
+
+- v0.5.0からv0.5.1へは、通常の署名付きTomos Updateで更新できます。`from_version`は`0.5.0`、`version`は`0.5.1`です。
+- v0.4.0からは、v0.5.0を経由してv0.5.1へ更新します。
+
 ## v0.5.0 - 2026-08-29
 
 ### Added
