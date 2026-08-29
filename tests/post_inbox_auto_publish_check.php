@@ -49,7 +49,7 @@ if (is_file($falsePath) || is_file($missingPath)) {
 if (!is_file($conflictPath) || is_file($content . DIRECTORY_SEPARATOR . 'conflict.md') && file_get_contents($content . DIRECTORY_SEPARATOR . 'conflict.md') !== "# Existing\n") {
     throw new RuntimeException('conflicting file must remain without overwriting existing content');
 }
-if (count($result['messages']) !== 2 || count($result['warnings']) !== 1) {
+if (count($result['messages']) !== 2 || count($result['warnings']) !== 0 || count($result['pending']) !== 1) {
     throw new RuntimeException('auto publish result messages do not match expected outcomes');
 }
 

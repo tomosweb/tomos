@@ -58,15 +58,15 @@ try {
     chmod($inboxPath, 0755);
     $second = $processor->process('auto-session-2', str_repeat('b', 64));
 
-    if (!is_file($sourcePath)) {
-        throw new RuntimeException('retry conflict must leave the inbox source for manual resolution');
+    if (is_file($sourcePath)) {
+        throw new RuntimeException('identical retry must remove the already-processed inbox source');
     }
     $publishedAfterRetry = (string) file_get_contents($publishedPath);
     if (!hash_equals($hashBeforeRetry, hash('sha256', $publishedAfterRetry))) {
         throw new RuntimeException('retry after delete failure must not overwrite already-published content');
     }
-    if (count($second['messages']) !== 0 || count($second['warnings']) !== 1) {
-        throw new RuntimeException('retry must stop at conflict without reporting a second publication');
+    if (count($second['messages']) !== 1 || count($second['warnings']) !== 0) {
+        throw new RuntimeException('identical retry must be reported as an idempotent success');
     }
 
     echo "post_inbox_delete_failure_idempotency_check: OK\n";

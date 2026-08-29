@@ -27,6 +27,7 @@ core/PostDrafts.php
 core/PostPublished.php
 core/PostInboxApi.php
 core/PostInboxAutoPublisher.php
+core/PostMarkdownComparator.php
 core/PostPublisher.php
 core/PostImageUploadSessionStore.php
 core/ConfigWriteLock.php

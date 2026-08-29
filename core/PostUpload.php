@@ -22,6 +22,7 @@ foreach ([
     'PostSubmissionPreparer' => 'PostSubmissionPreparer.php',
     'PostPublisher' => 'PostPublisher.php',
     'PostConflictManager' => 'PostConflictManager.php',
+    'PostMarkdownComparator' => 'PostMarkdownComparator.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -381,14 +382,15 @@ final class PostUpload
         }
         $targetPath = $validated->targetPath;
         $current = $validated->currentMarkdown;
+        $updatedMarkdown = PublishedMetadata::preserveExisting($current, $record->markdown);
 
         $contentPath = (string) ($record->meta['content_path'] ?? '');
         $oldImageRefs = $this->managedImageReferences($current, $contentPath);
-        $newImageRefs = $this->managedImageReferences($record->markdown, $contentPath);
+        $newImageRefs = $this->managedImageReferences($updatedMarkdown, $contentPath);
 
         $publish = $this->publisher->updateExisting(
             $targetPath,
-            $record->markdown,
+            $updatedMarkdown,
             $record->imagePaths,
             (string) ($record->meta['folder'] ?? '')
         );
@@ -426,6 +428,23 @@ final class PostUpload
         );
         $result->isDraft = $this->isDraftMarkdown($record->markdown);
         return $result;
+    }
+
+    public function isPublishedContentEquivalent(string $contentPath, string $markdown): bool
+    {
+        if (!Security::isSafeRelativePath($contentPath) || !Security::hasAllowedExtension($contentPath, ['md'])) {
+            return false;
+        }
+
+        $contentBase = realpath($this->contentDir);
+        $candidate = rtrim($this->contentDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $contentPath);
+        $current = realpath($candidate);
+        if ($contentBase === false || $current === false || is_link($current) || !is_file($current) || !Security::isPathInside($current, $contentBase)) {
+            return false;
+        }
+
+        $existing = @file_get_contents($current);
+        return $existing !== false && PostMarkdownComparator::equivalent($existing, $markdown);
     }
 
     public function updateEditableFromTemp(

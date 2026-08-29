@@ -609,6 +609,16 @@ if (
     $autoPublishResult = $autoPublisher->process(session_id(), $submissionId);
     $messages = array_merge($messages, $autoPublishResult['messages']);
     $warnings = array_merge($warnings, $autoPublishResult['warnings']);
+    foreach ($autoPublishResult['pending'] as $pending) {
+        rememberInboxTemp($pending['temp_id'], $pending['path']);
+    }
+    if ($autoPublishResult['pending'] !== []) {
+        $pendingRecord = (new Tomos\PostUpload($config, $rootDir))->loadTemp($autoPublishResult['pending'][0]['temp_id'], session_id());
+        if ($pendingRecord instanceof Tomos\PostUploadTempRecord) {
+            $uploadResult = uploadConflictResultFromRecord($pendingRecord);
+            $activeSection = 'upload';
+        }
+    }
 }
 
 if (
