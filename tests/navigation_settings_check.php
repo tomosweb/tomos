@@ -50,6 +50,7 @@ try {
         ['path' => 'research/index.md', 'url' => '/research/', 'title' => 'Research', 'draft' => false],
         ['path' => 'members/index.md', 'url' => '/members/', 'title' => 'Members', 'draft' => false],
         ['path' => 'publications/index.md', 'url' => '/publications/', 'title' => 'Publications', 'draft' => false],
+        ['path' => 'research/project-a.md', 'url' => '/research/project-a', 'title' => 'Article A', 'draft' => false],
     ];
     $auto = new NavigationBuilder('');
     $autoItems = $auto->primaryItems($pages, '/');
@@ -65,6 +66,33 @@ try {
     assertNavigation(($manualItems[0]['url'] ?? '') === '/research/', 'manual order must render the configured URL');
     assertNavigation(array_search('/members/', array_column($pages, 'url'), true) !== false, 'hidden destination must remain publicly reachable');
     assertNavigation(strpos($manual->primaryLinks($pages, '/'), 'Our Research') !== false, 'primary_links must use manual settings');
+
+    $tree = $manual->tree($pages, '/research/project-a');
+    assertNavigation(strpos($tree, '<summary>Our Research</summary>') !== false, 'tree must use the manual section label');
+    assertNavigation(strpos($tree, 'Publications') === false, 'tree must omit manual-unlisted sections');
+    assertNavigation(strpos($tree, 'Members') === false, 'tree must omit hidden sections');
+    assertNavigation(strpos($tree, 'Article A') !== false, 'tree must preserve child page titles');
+
+    $sections = $manual->sectionLinks($pages, '/research/');
+    assertNavigation(strpos($sections, 'Our Research') !== false, 'section links must use the manual section label');
+    assertNavigation(strpos($sections, 'Publications') === false, 'section links must omit manual-unlisted sections');
+    assertNavigation($manual->breadcrumbs($pages, '/research/project-a') === '<nav class="breadcrumbs" aria-label="パンくず"><a href="/">Home</a> <span aria-hidden="true">/</span> <a href="/research/">Our Research</a> <span aria-hidden="true">/</span> <span>Article A</span></nav>', 'breadcrumb must apply only the top-level label');
+
+    $orderedSettings = [
+        'mode' => 'manual',
+        'items' => [
+            ['path' => '/publications/', 'label' => 'Pubs'],
+            ['path' => '/research/', 'label' => 'Research'],
+        ],
+    ];
+    $orderedTree = (new NavigationBuilder('', $orderedSettings))->tree($pages);
+    assertNavigation(strpos($orderedTree, '<summary>Pubs</summary>') < strpos($orderedTree, '<summary>Research</summary>'), 'tree must preserve manual section order');
+    $orderedSections = (new NavigationBuilder('', $orderedSettings))->sectionLinks($pages);
+    assertNavigation(strpos($orderedSections, 'Pubs') < strpos($orderedSections, 'Research'), 'section links must preserve manual section order');
+
+    $subdirectory = new NavigationBuilder('/theme-labo', $settings);
+    assertNavigation(strpos($subdirectory->tree($pages, '/research/project-a'), 'href="/theme-labo/research/"') !== false, 'tree must preserve the public subdirectory');
+    assertNavigation(strpos($subdirectory->breadcrumbs($pages, '/research/project-a'), 'href="/theme-labo/research/"') !== false, 'breadcrumbs must preserve the public subdirectory');
 
     echo "navigation_settings_check: auto compatibility, manual order, labels, hidden, invalid paths, and reachability passed\n";
 } finally {
