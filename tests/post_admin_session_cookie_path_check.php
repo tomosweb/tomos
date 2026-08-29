@@ -40,7 +40,9 @@ $config = [
         'cache_dir' => __CACHE_PATH__,
     ],
 ];
-new Tomos\PostAuthRememberToken($config, dirname(__DIR__));
+$remember = new Tomos\PostAuthRememberToken($config, dirname(__DIR__));
+session_regenerate_id(true);
+$remember->refreshSessionCookiePath();
 header('Content-Type: text/plain');
 echo 'ok';
 PHP;
@@ -87,7 +89,7 @@ PHP;
         throw new RuntimeException('PHP session cookie was not scoped to the Tomos Post subtree: ' . $sessionCookie);
     }
 
-    echo "post_admin_session_cookie_path_check: explicit Post subtree session cookie path passed\n";
+    echo "post_admin_session_cookie_path_check: explicit Post subtree session cookie path survives session rotation\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
     if (is_file($temp . '/server.log')) {

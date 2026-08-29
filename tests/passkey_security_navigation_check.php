@@ -40,7 +40,11 @@ foreach ($targets as $name => $path) {
 }
 
 $passkeyLogin = file_get_contents($root . '/post/passkey/login/index.php');
-if (!is_string($passkeyLogin) || strpos($passkeyLogin, 'PostAuthReturnTo::normalize') === false || strpos($passkeyLogin, 'returnUrl') === false) {
+if (!is_string($passkeyLogin)
+    || strpos($passkeyLogin, 'PostAuthReturnTo::normalize') === false
+    || strpos($passkeyLogin, 'returnUrl') === false
+    || strpos($passkeyLogin, 'refreshSessionCookiePath') === false
+) {
     fwrite(STDERR, "passkey login return flow is missing\n");
     exit(1);
 }

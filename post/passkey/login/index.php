@@ -61,6 +61,7 @@ function requireCsrf(array $payload): void
 }
 
 $environment = new Tomos\PasskeyEnvironment($config);
+$authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $store = new Tomos\PasskeyCredentialStore($config, $rootDir);
 $challenges = new Tomos\PasskeyChallengeStore();
 $client = new Tomos\LbuchsPasskeyWebAuthnClient();
@@ -85,6 +86,7 @@ if ($api !== '') {
             $credential = $authentication->complete($_SESSION, $payload);
             if (session_status() === PHP_SESSION_ACTIVE) {
                 session_regenerate_id(true);
+                $authRemember->refreshSessionCookiePath();
             }
             jsonResponse([
                 'ok' => true,
