@@ -1,5 +1,27 @@
 # 更新履歴
 
+## v0.4.0 - 2026-08-29
+
+### Added
+
+- Theme Platform v1拡張を完成させ、テーマ設定、ナビゲーション、News、サイト固有資産の責務境界を整理しました。
+- Navigation Settings v1に対応し、auto/manual切替、manual順序、label上書き、hidden設定を利用できるようにしました。
+- Tomos PostのSite SettingsへNavigation Settings UI v1を追加しました。既存の認証、CSRF、UpdateLock境界を維持したまま、既存のHero、News、Design、Folders等の設定を保持します。
+- 同一テーマIDのTheme ZIPを安全に反復更新できるようにしました。same-versionおよびhigher-version更新、active themeの選択維持、directory単位の置換、削除済みファイルのcleanup、失敗時rollbackに対応します。
+- downgradeは拒否し、サイト固有の`theme-settings.php`、`theme-assets/`、`content/`、`config.php`をTheme ZIP更新の対象外として保持します。
+- `tomos-lab`商用Themeの制作工程と、同一version反復更新を含むPhase 6 / Gate 6検証を追加しました。
+
+### Compatibility
+
+- v0.3.1からv0.4.0へは、通常の署名付きTomos Updateで更新できます。`from_version`は`0.3.1`、`version`は`0.4.0`です。
+- v0.3.1の認証導線改善を継承し、サブディレクトリ設置でのTomos Post認証引き継ぎを維持します。
+- `config.php`、`content/`、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
+### Scope
+
+- 本節はv0.4.0 RC準備時点の変更を整理したものです。正式Release、Browser Update公開、Installer公開、mirror同期、公式サイトdeployは別工程です。
+- Issue #90およびIssue #95由来のOPEN PR変更は含みません。
+
 ## v0.3.1 - 2026-08-23
 
 ### Fixed
