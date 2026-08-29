@@ -314,7 +314,17 @@ final class UpdateService
             }
             $stage = 'replace';
             $extractRoot = $this->storageDir . DIRECTORY_SEPARATOR . 'update-tmp' . DIRECTORY_SEPARATOR . $id . DIRECTORY_SEPARATOR . 'extracted' . DIRECTORY_SEPARATOR . 'files';
-            foreach ($summary['files'] as $relative) {
+            $files = $summary['files'];
+            usort($files, static function (string $left, string $right): int {
+                if ($left === 'VERSION') {
+                    return $right === 'VERSION' ? 0 : 1;
+                }
+                if ($right === 'VERSION') {
+                    return -1;
+                }
+                return 0;
+            });
+            foreach ($files as $relative) {
                 $source = $extractRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
                 $target = $this->targetPath($relative);
                 $parent = dirname($target);
