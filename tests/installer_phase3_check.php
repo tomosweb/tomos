@@ -10,7 +10,7 @@ require_once dirname(__DIR__) . '/tools/installer/InstallerPlacement.php';
 $repo = dirname(__DIR__);
 $version = trim((string) file_get_contents($repo . '/VERSION'));
 $zip = $repo . '/build/tomos-' . $version . '.zip';
-$manifest = InstallManifest::buildFromZip($zip, $repo . '/VERSION', 'https://fixture.test/v' . $version . '/tomos-' . $version . '.zip');
+$manifest = InstallManifest::buildFromZip($zip, $repo . '/VERSION', 'https://fixture.test/installer/releases/' . $version . '/tomos-' . $version . '.zip');
 $passes = 0;
 $failures = [];
 

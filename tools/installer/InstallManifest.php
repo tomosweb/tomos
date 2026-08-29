@@ -371,10 +371,10 @@ final class InstallManifest
         self::validatePointerUrl($signatureUrl);
         $manifestPath = (string) parse_url($manifestUrl, PHP_URL_PATH);
         $signaturePath = (string) parse_url($signatureUrl, PHP_URL_PATH);
-        if (strpos($manifestPath, '/v' . $version . '/') === false
-            || strpos($signaturePath, '/v' . $version . '/') === false
-            || substr($manifestPath, -strlen('/install-manifest.json')) !== '/install-manifest.json'
-            || substr($signaturePath, -strlen('/install-manifest.sig')) !== '/install-manifest.sig'
+        $expectedManifestPath = '/installer/releases/' . $version . '/install-manifest.json';
+        $expectedSignaturePath = '/installer/releases/' . $version . '/install-manifest.sig';
+        if ($manifestPath !== $expectedManifestPath
+            || $signaturePath !== $expectedSignaturePath
         ) {
             self::fail('pointer_schema', 'Pointer URLs do not match the versioned asset structure.');
         }

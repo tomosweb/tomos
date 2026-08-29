@@ -18,7 +18,7 @@ $output = (string) ($options['output'] ?? '');
 $expectedVersion = isset($options['version']) ? (string) $options['version'] : null;
 
 if ($zip === '' || $assetUrl === '' || $output === '') {
-    fwrite(STDERR, "Usage: php tools/build-install-manifest.php --zip=build/tomos-0.1.0-alpha.15.zip --asset-url=https://example.invalid/download/install/v0.1.0-alpha.15/tomos-0.1.0-alpha.15.zip --output=build/install-manifest.json [--version-file=VERSION]\n");
+    fwrite(STDERR, "Usage: php tools/build-install-manifest.php --zip=build/tomos-0.1.0-alpha.15.zip --asset-url=https://tomoswords.org/installer/releases/0.1.0-alpha.15/tomos-0.1.0-alpha.15.zip --output=build/install-manifest.json [--version-file=VERSION]\n");
     exit(1);
 }
 
