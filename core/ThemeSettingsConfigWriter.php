@@ -49,7 +49,7 @@ final class ThemeSettingsConfigWriter
             }
             $path = self::normalizePath($item['path'] ?? null);
             if ($path !== '') {
-                $allowed[$path] = (string) ($item['label'] ?? '');
+                $allowed[self::navigationKey($path)] = (string) ($item['label'] ?? '');
             }
         }
 
@@ -61,13 +61,14 @@ final class ThemeSettingsConfigWriter
             }
 
             $path = self::normalizePath($submitted['path'] ?? null);
-            if ($path === '' || !isset($allowed[$path])) {
+            $navigationKey = self::navigationKey($path);
+            if ($navigationKey === '' || !isset($allowed[$navigationKey])) {
                 return [$currentSettings, ['利用できないナビゲーション先が指定されています。']];
             }
-            if (isset($seen[$path])) {
+            if (isset($seen[$navigationKey])) {
                 return [$currentSettings, ['同じナビゲーション先を複数登録できません。']];
             }
-            $seen[$path] = true;
+            $seen[$navigationKey] = true;
 
             $label = $submitted['label'] ?? '';
             if (!is_string($label)) {
@@ -140,6 +141,11 @@ final class ThemeSettingsConfigWriter
         }
         $path = (string) $result['path'];
         return $path === '/' || substr($path, -1) !== '/' ? $path : rtrim($path, '/') . '/';
+    }
+
+    private static function navigationKey(string $path): string
+    {
+        return $path === '/' ? '/' : rtrim($path, '/');
     }
 
     private static function cleanText(string $value, int $limit): string
