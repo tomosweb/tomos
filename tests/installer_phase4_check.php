@@ -118,7 +118,7 @@ function makeApplication(string $repo, string $root, string $zipPath, string $ve
 {
     $artifact = $root . '/fixture';
     mkdir($artifact, 0700, true);
-    $base = 'https://fixture.test/v' . $version;
+    $base = 'https://fixture.test/installer/releases/' . $version;
     $manifest = InstallManifest::buildFromZip($zipPath, $repo . '/VERSION', $base . '/tomos-' . $version . '.zip');
     $raw = InstallManifest::encode($manifest);
     $private = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);

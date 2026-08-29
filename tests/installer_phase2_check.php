@@ -20,7 +20,7 @@ $failures = [];
 try {
     $version = trim((string) file_get_contents($root . '/VERSION'));
     $zipPath = $root . '/build/tomos-' . $version . '.zip';
-    $baseUrl = 'https://fixture.test/download/install/v' . $version;
+    $baseUrl = 'https://fixture.test/installer/releases/' . $version;
     $assetUrl = $baseUrl . '/tomos-' . $version . '.zip';
     $manifest = InstallManifest::buildFromZip($zipPath, $root . '/VERSION', $assetUrl);
     $manifestRaw = InstallManifest::encode($manifest);
@@ -103,7 +103,7 @@ try {
     file_put_contents($artifactDir . '/bad-manifest.json', $badRaw, LOCK_EX);
     file_put_contents($artifactDir . '/bad-manifest.sig', $badSignature, LOCK_EX);
     $badMap = $map;
-    $badBaseUrl = 'https://fixture.test/bad/v' . $version;
+    $badBaseUrl = 'https://fixture.test/installer/releases/' . $version;
     $badMap[$badBaseUrl . '/install-manifest.json'] = $artifactDir . '/bad-manifest.json';
     $badMap[$badBaseUrl . '/install-manifest.sig'] = $artifactDir . '/bad-manifest.sig';
     $badPointer = InstallManifest::encodePointer(InstallManifest::buildPointer($version, $badBaseUrl . '/install-manifest.json', $badBaseUrl . '/install-manifest.sig'));

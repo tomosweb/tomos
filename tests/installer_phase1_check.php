@@ -21,7 +21,7 @@ try {
         throw new RuntimeException('normal distribution ZIP is missing: ' . $normalZip);
     }
     $version = trim((string) file_get_contents($versionFile));
-    $assetUrl = 'https://example.invalid/download/install/v' . $version . '/tomos-' . $version . '.zip';
+    $assetUrl = 'https://example.invalid/installer/releases/' . $version . '/tomos-' . $version . '.zip';
     $manifestPath = $tmp . '/install-manifest.json';
     $signaturePath = $tmp . '/install-manifest.sig';
     $publicKeyPath = $tmp . '/TEST-ONLY-public.pem';
@@ -161,8 +161,8 @@ try {
 
     $pointer = InstallManifest::buildPointer(
         $version,
-        'https://example.invalid/download/install/v' . $version . '/install-manifest.json',
-        'https://example.invalid/download/install/v' . $version . '/install-manifest.sig'
+        'https://example.invalid/installer/releases/' . $version . '/install-manifest.json',
+        'https://example.invalid/installer/releases/' . $version . '/install-manifest.sig'
     );
     InstallManifest::validatePointer($pointer);
     check(InstallManifest::encodePointer($pointer) === InstallManifest::encodePointer($pointer), 'pointer output is reproducible');

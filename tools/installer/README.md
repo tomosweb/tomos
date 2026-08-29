@@ -7,7 +7,7 @@
 ```bash
 php tools/build-install-manifest.php \
   --zip=build/tomos-0.1.0-alpha.15.zip \
-  --asset-url=https://example.invalid/download/install/v0.1.0-alpha.15/tomos-0.1.0-alpha.15.zip \
+  --asset-url=https://tomoswords.org/installer/releases/0.1.0-alpha.15/tomos-0.1.0-alpha.15.zip \
   --output=build/install-manifest.json
 
 php tools/sign-install-manifest.php \
@@ -24,8 +24,8 @@ php tools/verify-install-package.php \
 
 php tools/build-install-latest-pointer.php \
   --version=0.1.0-alpha.15 \
-  --manifest-url=https://example.invalid/download/install/v0.1.0-alpha.15/install-manifest.json \
-  --signature-url=https://example.invalid/download/install/v0.1.0-alpha.15/install-manifest.sig \
+  --manifest-url=https://tomoswords.org/installer/releases/0.1.0-alpha.15/install-manifest.json \
+  --signature-url=https://tomoswords.org/installer/releases/0.1.0-alpha.15/install-manifest.sig \
   --output=build/latest.json
 ```
 

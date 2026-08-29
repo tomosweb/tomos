@@ -198,16 +198,22 @@ function addInstallerMirrorReleaseContract(string $source): string
             || strpos($signaturePath, '/v' . $version . '/') === false
 PHP;
     $replacement = <<<'PHP'
-        $manifestVersioned = strpos($manifestPath, '/installer/releases/' . $version . '/') !== false
-            || strpos($manifestPath, '/v' . $version . '/') !== false;
-        $signatureVersioned = strpos($signaturePath, '/installer/releases/' . $version . '/') !== false
-            || strpos($signaturePath, '/v' . $version . '/') !== false;
-        if (!$manifestVersioned
-            || !$signatureVersioned
+        $expectedManifestPath = '/installer/releases/' . $version . '/install-manifest.json';
+        $expectedSignaturePath = '/installer/releases/' . $version . '/install-manifest.sig';
+        if ($manifestPath !== $expectedManifestPath
+            || $signaturePath !== $expectedSignaturePath
 PHP;
-    $updated = str_replace($legacy, $replacement, $source, $count);
-    if ($count !== 1) {
-        fail('Could not add installer mirror release contract to bundled manifest validator.');
+    if (strpos($source, $legacy) !== false) {
+        $updated = str_replace($legacy, $replacement, $source, $count);
+        if ($count !== 1) {
+            fail('Could not add installer mirror release contract to bundled manifest validator.');
+        }
+        return $updated;
     }
-    return $updated;
+    if (strpos($source, "\$expectedManifestPath = '/installer/releases/' . \$version . '/install-manifest.json';") === false
+        || strpos($source, "\$expectedSignaturePath = '/installer/releases/' . \$version . '/install-manifest.sig';") === false
+    ) {
+        fail('Installer manifest validator does not use the canonical mirror release contract.');
+    }
+    return $source;
 }
