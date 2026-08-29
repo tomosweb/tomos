@@ -199,7 +199,9 @@
 ## Tomos Post内テーマ切替チェック
 
 - [ ] `/post/` の最下部にサイト設定とテーマ切り替え入口がある
-- [ ] 未認証で `/post/theme/` にアクセスすると `/post/` へ戻る
+- [ ] 未認証で `/post/theme/` または `/post/site-settings.php` にアクセスすると、認証要求を表示したTomos Postへ移動する
+- [ ] 認証成功後に要求元の管理画面へ戻る
+- [ ] `return_to` は許可されたTomos内部画面だけを受け付け、不正値は安全な設定画面へfallbackする
 - [ ] `/post/theme/` で現在テーマと有効テーマ一覧が表示される
 - [ ] `/post/theme/confirm/` で変更前に確認できる
 - [ ] テーマ変更後に `config.php` の `theme.name` だけが変わる

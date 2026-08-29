@@ -29,9 +29,7 @@
       </div>
 
       <nav class="site-links" aria-label="主要ページ">
-        <a href="{{ nav.home_url }}">Home</a>
-        <a href="{{ nav.about_url }}">About</a>
-        {{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+        {{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}
       </nav>
 
       <details class="mobile-menu">
@@ -41,7 +39,7 @@
         </summary>
 
         <div class="mobile-menu-panel">
-          {{{ nav.mobile_tree }}}
+          {{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}
         </div>
       </details>
     </header>

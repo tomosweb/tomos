@@ -1,7 +1,8 @@
 # Tomos Theme Contract v1
 
 対象: Tomos v0.2.0以降
-策定日: 2026-08-18
+策定日: 2026-08-18  
+開発計画: `docs/theme-platform-development-plan.md`
 
 ## 現在位置
 

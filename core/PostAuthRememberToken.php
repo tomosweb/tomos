@@ -29,6 +29,7 @@ final class PostAuthRememberToken
         $this->secure = $secure ?? $this->requestIsSecure($config);
         $this->now = $now ?? time();
 
+        $this->ensureSessionCookiePath();
         $this->maybeCleanup();
     }
 
@@ -128,6 +129,19 @@ final class PostAuthRememberToken
         return $this->dir;
     }
 
+    /**
+     * Re-issue the current PHP session cookie after session ID rotation.
+     *
+     * PHP's session_regenerate_id() uses the runtime cookie parameters when
+     * it emits the replacement cookie. Re-apply Tomos Post's configured path
+     * so subdirectory installs keep the authenticated session on every Post
+     * screen.
+     */
+    public function refreshSessionCookiePath(): void
+    {
+        $this->ensureSessionCookiePath();
+    }
+
     private function load(string $tokenHash): ?array
     {
         $raw = @file_get_contents($this->path($tokenHash));
@@ -163,6 +177,33 @@ final class PostAuthRememberToken
             @file_put_contents($rules, "Options -Indexes\n\nOrder allow,deny\nDeny from all\nRequire all denied\n", LOCK_EX);
         }
         return true;
+    }
+
+    private function ensureSessionCookiePath(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE || headers_sent()) {
+            return;
+        }
+
+        $sessionName = session_name();
+        $sessionId = session_id();
+        if ($sessionName === '' || $sessionId === '') {
+            return;
+        }
+
+        $params = session_get_cookie_params();
+        $options = [
+            'expires' => 0,
+            'path' => $this->cookiePath,
+            'secure' => !empty($params['secure']) || $this->secure,
+            'httponly' => array_key_exists('httponly', $params) ? (bool) $params['httponly'] : true,
+            'samesite' => (string) (($params['samesite'] ?? '') !== '' ? $params['samesite'] : 'Lax'),
+        ];
+        if ((string) ($params['domain'] ?? '') !== '') {
+            $options['domain'] = (string) $params['domain'];
+        }
+
+        setcookie($sessionName, $sessionId, $options);
     }
 
     private function clearCookie(): void

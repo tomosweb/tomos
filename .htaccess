@@ -24,6 +24,11 @@ Options -Indexes
 RewriteEngine On
 # RewriteBase /tomos/
 
+# `/post/site-settings.php` is the canonical Site Settings entrypoint.
+# Keep the former directory URL only as a compatibility redirect so normal
+# Tomos Post navigation never depends on shared-hosting DirectoryIndex behavior.
+RewriteRule ^post/settings/?$ post/site-settings.php [R=302,L]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [L]

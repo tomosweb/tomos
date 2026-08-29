@@ -54,7 +54,7 @@ final class App
         $performance->lap('route_resolve');
         $pages = $metadataIndex !== null ? $this->loadPages($metadataIndex, $performance) : [];
         $performance->lap('pages_ready');
-        $navigation = new NavigationBuilder($publicBasePath);
+        $navigation = new NavigationBuilder($publicBasePath, $this->themeSettings()->settings()['navigation'] ?? []);
 
         if ($route->isValid && $this->isFeedRoute($route->urlPath)) {
             if (empty($this->config['features']['rss'])) {

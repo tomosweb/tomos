@@ -50,6 +50,7 @@ final class ThemeSettings
         $news = is_array($loaded['news'] ?? null) ? $loaded['news'] : [];
         $design = is_array($loaded['design'] ?? null) ? $loaded['design'] : [];
         $folders = is_array($loaded['folders'] ?? null) ? $loaded['folders'] : [];
+        $navigation = is_array($loaded['navigation'] ?? null) ? $loaded['navigation'] : [];
 
         $settings = $defaults;
         $settings['hero']['enabled'] = $this->boolValue($hero, 'enabled', $defaults['hero']['enabled']);
@@ -74,6 +75,7 @@ final class ThemeSettings
         $settings['design']['logo'] = $this->assetPath((string) ($design['logo'] ?? ''));
         $settings['design']['key_color'] = $this->colorValue((string) ($design['key_color'] ?? ''));
         $settings['folders'] = $this->folderTitles($folders);
+        $settings['navigation'] = $this->navigationSettings($navigation);
 
         return $this->settings = $settings;
     }
@@ -136,6 +138,10 @@ final class ThemeSettings
                 'logo' => '',
                 'key_color' => '',
             ],
+            'navigation' => [
+                'mode' => 'auto',
+                'items' => [],
+            ],
             'folders' => [],
         ];
     }
@@ -155,6 +161,44 @@ final class ThemeSettings
         }
 
         return $normalized;
+    }
+
+    private function navigationSettings(array $navigation): array
+    {
+        $mode = ($navigation['mode'] ?? 'auto') === 'manual' ? 'manual' : 'auto';
+        $items = [];
+        foreach (is_array($navigation['items'] ?? null) ? $navigation['items'] : [] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $path = $this->navigationPath($item['path'] ?? null);
+            if ($path === '') {
+                continue;
+            }
+            $items[] = [
+                'path' => $path,
+                'label' => is_string($item['label'] ?? null) ? $this->cleanText($item['label'], 120) : '',
+                'hidden' => is_bool($item['hidden'] ?? null) ? $item['hidden'] : false,
+            ];
+        }
+        return ['mode' => $mode, 'items' => $items];
+    }
+
+    private function navigationPath(mixed $value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+        $value = trim($value);
+        if ($value === '' || strpos($value, '?') !== false || strpos($value, '#') !== false) {
+            return '';
+        }
+        $result = Security::validateUrlPath($value);
+        if (empty($result['is_valid'])) {
+            return '';
+        }
+        $path = (string) $result['path'];
+        return $path === '/' ? '/' : rtrim($path, '/') . '/';
     }
 
     private function boolValue(array $values, string $key, bool $default): bool
