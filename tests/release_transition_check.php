@@ -5,8 +5,12 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
 $fromVersion = '0.5.1';
+$fromRef = 'e4d459a2a2618969d90e4b7998a9036d3e3c365b';
 require_once $root . '/tools/UpdateFileSet.php';
-$runtimeFiles = UpdateFileSet::fromGitDiff($root, 'v0.5.1', 'HEAD');
+// v0.5.1 is maintained in the public distribution repository. Use its
+// immutable peeled commit because the dev repository intentionally does not
+// publish the public release tag.
+$runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
 if ($targetVersion !== '0.5.2') {
     throw new RuntimeException('release transition check requires VERSION 0.5.2');
@@ -36,7 +40,7 @@ try {
         . ' ' . escapeshellarg('--version=' . $targetVersion)
         . ' ' . escapeshellarg('--private-key=' . $keyPath)
         . ' ' . escapeshellarg('--output=' . $output)
-        . ' ' . escapeshellarg('--from-ref=v0.5.1');
+        . ' ' . escapeshellarg('--from-ref=' . $fromRef);
 
     $lines = [];
     $code = 0;
