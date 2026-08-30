@@ -1,5 +1,26 @@
 # 更新履歴
 
+## v0.5.3 - 2026-08-30
+
+### Added
+
+- Tomos Publisher 0.2.4からの画像付き投稿を非公開stagingで受信し、全画像の受信完了後に既存の投稿処理へ引き渡すフローを追加しました。
+- 自動公開に失敗したPublisher画像付き投稿を通常のTomos Post下書きへ変換し、「下書き」から確認・公開・削除できるようにしました。
+- Publisher由来の未変更な失敗下書きを、完全な再送時に安全に置き換える復旧処理を追加しました。
+
+### Fixed
+
+- Publisherの画像chunk送信がTomos Coreで完結できず、Markdownだけが内部保存領域に残る問題を修正しました。
+- PHP 8.5でdeprecatedとなった`imagedestroy()`の呼び出しを整理し、PHP 7.4以下のresourceだけを明示解放するようにしました。
+- PHP 8.5でdeprecatedとなった`curl_close()`をPHP 8.5では実行しないようにしました。
+
+### Compatibility
+
+- PHP compatibility matrixへPHP 8.5を追加し、PHP 7.4 / 8.0 / 8.2 / 8.5をCI対象としました。
+- CIへGDを追加し、`E_ALL`でのImageProcessor互換性テストを追加しました。
+- v0.5.2からv0.5.3へは、通常の署名付きTomos Updateで更新します。`from_version`は`0.5.2`、`version`は`0.5.3`です。
+- `config.php`、`content/`、サイト固有Theme、運用データは更新対象に含めません。
+
 ## v0.5.2 - 2026-08-30
 
 ### Fixed
