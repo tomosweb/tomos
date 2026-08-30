@@ -2,7 +2,7 @@
 
 Tomosは、Markdownで書いた文章を自分のWebサイトとして公開するための、軽量なMarkdown公開プログラムです。
 
-現在のバージョンは `v0.5.2` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
+現在のバージョンは `v0.5.3` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
 
 > **v0.1.0-alpha.17から更新する方へ**
 >
@@ -13,7 +13,7 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 >
 > 2まで完了するとalpha.18の新しいUpdaterへ完全に移行します。その後、Tomos Updateからalpha.19、beta.1へ1バージョンずつ更新できます。
 
-詳しくは [v0.5.2の更新案内](docs/releases/v0.5.2.md) を確認してください。過去のalpha/betaからの移行手順は[既存環境の更新手順](docs/install/update.md)に履歴として掲載しています。
+詳しくは [v0.5.3の更新案内](docs/releases/v0.5.3.md) を確認してください。過去のalpha/betaからの移行手順は[既存環境の更新手順](docs/install/update.md)に履歴として掲載しています。
 
 ## 主な機能
 
@@ -48,6 +48,8 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 - `config.php` と `cache/` への書き込み権限
 - Tomos Updateを使う場合はPHP ZipArchive / OpenSSL拡張と `storage/` への書き込み権限
 - 画像処理を行う場合はPHP GD拡張を推奨
+
+PHP 7.4 / 8.0 / 8.2 / 8.5を互換CIの対象としています。
 
 パスキー機能を利用する場合は、上記に加えて次が必要です。
 
