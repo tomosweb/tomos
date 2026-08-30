@@ -174,7 +174,7 @@ final class UpdatePackageDownloader
         $ok = curl_exec($curl);
         $error = curl_error($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-        curl_close($curl);
+        $this->closeCurlHandle($curl);
         fclose($handle);
         if ($invalidContentLength) {
             $this->fail('content_length', 'Content-Lengthが不正です。');
@@ -290,6 +290,13 @@ final class UpdatePackageDownloader
             $this->fail('destination', '更新ZIPの保存先を開けません。');
         }
         fclose($handle);
+    }
+
+    private function closeCurlHandle($curl): void
+    {
+        if (PHP_VERSION_ID < 80500) {
+            curl_close($curl);
+        }
     }
 
     private function resolveUrl(string $base, string $location): string
