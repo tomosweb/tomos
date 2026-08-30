@@ -25,6 +25,11 @@ if (strpos($renderPage, 'renderEditableMarkdownSection(') !== false) {
 if (strpos($renderPage, 'renderSettingsHomeSection(') === false) {
     throw new RuntimeException('settings home must be rendered as a separate entry page');
 }
+foreach (['.result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}'] as $needle) {
+    if (strpos($renderPage, $needle) === false) {
+        throw new RuntimeException('published result URL wrapping styles are missing: ' . $needle);
+    }
+}
 if (strpos($source, "return 'published';") === false || strpos($source, "return 'drafts';") === false) {
     throw new RuntimeException('section compatibility routing is missing');
 }
