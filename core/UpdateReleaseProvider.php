@@ -129,7 +129,6 @@ final class UpdateReleaseProvider
         $ok = curl_exec($curl);
         $error = curl_error($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-        curl_close($curl);
         if ($ok === false && strlen($body) <= self::CATALOG_MAX_BYTES) {
             $this->fail('transport', $error !== '' ? $error : '更新カタログの取得に失敗しました。');
         }
