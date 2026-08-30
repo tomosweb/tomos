@@ -20,8 +20,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch public v0.5.1 baseline
-        run: git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.1:refs/tags/tomos-public-v0.5.1
+      - name: Fetch public v0.5.2 baseline
+        run: git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/tags/tomos-public-v0.5.2
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
