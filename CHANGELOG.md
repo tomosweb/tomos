@@ -1,32 +1,19 @@
 # 更新履歴
 
-## v0.5.1 - 2026-08-29
+## v0.5.2 - 2026-08-30
 
 ### Fixed
 
-- Installerのpointer検証を公式mirrorの正規URLである`/installer/releases/<VERSION>/`に合わせました。
-- v0.5.0で確認されたInstaller配布経路のpointer検証不整合を修正しました。v0.5.0の通常利用やYouTube埋め込みには影響ありません。
+- Obsidian Inboxから公開済み記事を同じ保存先・同じファイル名で再送した場合、同一内容は重複原稿として安全に整理できるようにしました。
+- 内容が異なる再送は自動上書きせず、既存の競合確認・更新フローへ接続するようにしました。
+- 更新承認時は再送Markdownの`date`を反映し、既存記事の初回公開日時を示す`published`を維持します。
+- 保存先folderが異なる同名ファイルを別記事として判定するようにしました。
 
 ### Compatibility
 
-- v0.5.0からv0.5.1へは、通常の署名付きTomos Updateで更新できます。`from_version`は`0.5.0`、`version`は`0.5.1`です。
-- v0.4.0からは、v0.5.0を経由してv0.5.1へ更新します。
-
-## v0.5.0 - 2026-08-29
-
-### Added
-
-- Markdown本文にYouTube URLを単独行で書くと、公開ページで動画プレイヤーとして表示できるようにしました。
-- `youtube.com/watch?v=`、`youtu.be/`、`youtube.com/shorts/`に対応しました。
-- query stringやfragment付きURLからも動画IDだけを検証して埋め込めるようにしました。
-- 同梱6テーマでYouTube動画を本文幅いっぱいの16:9レスポンシブ表示に対応しました。
-- YouTube埋め込みのcore/theme責務と確認項目をテーマ開発者向けドキュメントへ追加しました。
-
-### Compatibility
-
-- v0.4.0からv0.5.0へは、通常の署名付きTomos Updateで更新できます。`from_version`は`0.4.0`、`version`は`0.5.0`です。
-- Markdown正本は変更せず、対応する単独行URLだけをHTMLレンダリング時にYouTube iframeへ変換します。
-- Markdownリンク、文中URL、コードブロック、blockquote、list、table、プレイリストは自動埋め込みしません。
+- v0.5.1からv0.5.2へは、通常の署名付きTomos Updateで更新します。`from_version`は`0.5.1`、`version`は`0.5.2`です。
+- v0.4.0からは、v0.5.0、v0.5.1を経由してv0.5.2へ更新します。
+- `config.php`、`content/`、サイト固有Theme、運用データは更新対象に含めません。
 
 ## v0.4.0 - 2026-08-29
 

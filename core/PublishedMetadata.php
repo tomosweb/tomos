@@ -75,4 +75,42 @@ final class PublishedMetadata
         $updated = "---\n" . $frontMatter . "\n---" . substr($normalized, strlen($matches[0]));
         return self::addIfMissing($updated, $published);
     }
+
+    public static function preserveExisting(string $existing, string $updated): string
+    {
+        $existing = str_replace(["\r\n", "\r"], "\n", $existing);
+        $updated = str_replace(["\r\n", "\r"], "\n", $updated);
+        if (preg_match('/\A---\n(.*?)\n---(?=\n|\z)/s', $existing, $existingMatch) !== 1) {
+            return $updated;
+        }
+        if (preg_match('/^([ \t]*published[ \t]*:)[ \t]*(.+)$/mi', $existingMatch[1], $publishedMatch) !== 1) {
+            return $updated;
+        }
+
+        $publishedLine = $publishedMatch[1] . ' ' . trim($publishedMatch[2]);
+        if (preg_match('/\A---\n(.*?)\n---(?=\n|\z)/s', $updated, $updatedMatch) !== 1) {
+            return "---\n" . $publishedLine . "\n---\n" . $updated;
+        }
+
+        $frontMatter = preg_replace(
+            '/^[ \t]*published[ \t]*:.*$/mi',
+            $publishedLine,
+            $updatedMatch[1],
+            1,
+            $count
+        );
+        if (!is_string($frontMatter)) {
+            return $updated;
+        }
+        if ($count === 0) {
+            if (preg_match('/^date[ \t]*:.*$/mi', $frontMatter, $dateMatch, PREG_OFFSET_CAPTURE) === 1) {
+                $offset = $dateMatch[0][1] + strlen($dateMatch[0][0]);
+                $frontMatter = substr($frontMatter, 0, $offset) . "\n" . $publishedLine . substr($frontMatter, $offset);
+            } else {
+                $frontMatter .= ($frontMatter === '' ? '' : "\n") . $publishedLine;
+            }
+        }
+
+        return "---\n" . $frontMatter . "\n---" . substr($updated, strlen($updatedMatch[0]));
+    }
 }

@@ -27,18 +27,19 @@ final class PostInboxAutoPublisher
     }
 
     /**
-     * @return array{messages: string[], warnings: string[]}
+     * @return array{messages: string[], warnings: string[], pending: array<int,array{temp_id:string,path:string}>}
      */
     public function process(?string $sessionId, string $submissionId): array
     {
         $messages = [];
         $warnings = [];
+        $pending = [];
         $lockHandle = @fopen($this->inbox->autoPublishLockPath(), 'c');
         if ($lockHandle === false || !@flock($lockHandle, LOCK_EX | LOCK_NB)) {
             if (is_resource($lockHandle)) {
                 @fclose($lockHandle);
             }
-            return ['messages' => [], 'warnings' => []];
+            return ['messages' => [], 'warnings' => [], 'pending' => []];
         }
 
         try {
@@ -73,6 +74,19 @@ final class PostInboxAutoPublisher
             }
 
             if ($result->conflict && $result->tempId !== '') {
+                $temp = $this->upload()->loadTemp($result->tempId, $sessionId);
+                if ($temp !== null && $this->upload()->isPublishedContentEquivalent($result->contentPath, $temp->markdown)) {
+                    $this->upload()->cancelTemp($result->tempId, $sessionId);
+                    if ($this->inbox->delete($read->path)) {
+                        $messages[] = '「' . $item->fileName . '」はすでに公開済みのため、重複原稿を整理しました。';
+                    } else {
+                        $warnings[] = '「' . $item->fileName . '」はすでに公開済みですが、受信箱から削除できませんでした。';
+                    }
+                    continue;
+                } elseif ($sessionId !== null && $temp !== null) {
+                    $pending[] = ['temp_id' => $result->tempId, 'path' => $read->path];
+                    continue;
+                }
                 $this->upload()->cancelTemp($result->tempId, $sessionId);
             }
             $warnings[] = '「' . $item->fileName . '」は自動公開できなかったため受信箱に残しています。';
@@ -82,7 +96,7 @@ final class PostInboxAutoPublisher
             @fclose($lockHandle);
         }
 
-        return ['messages' => $messages, 'warnings' => $warnings];
+        return ['messages' => $messages, 'warnings' => $warnings, 'pending' => $pending];
     }
 
     private function upload(): PostUpload
