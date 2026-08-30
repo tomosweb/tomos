@@ -46,7 +46,7 @@ final class PostInboxAutoPublisher
         foreach ($this->inbox->list() as $item) {
             $read = $this->inbox->read($item->path);
             if (!$read->ok) {
-                $warnings[] = '「' . $item->fileName . '」は自動公開できなかったため受信箱に残しています。';
+                $warnings[] = '「' . $item->fileName . '」を下書きとして保存できませんでした。';
                 continue;
             }
             if ($this->inbox->isDraft($read->content, $read->fileName)) {
@@ -66,9 +66,9 @@ final class PostInboxAutoPublisher
             );
             if ($result->ok) {
                 if ($this->inbox->delete($read->path)) {
-                    $messages[] = '受信箱から「' . $item->fileName . '」を自動公開しました。';
+                    $messages[] = '「' . $item->fileName . '」を自動公開しました。';
                 } else {
-                    $warnings[] = '「' . $item->fileName . '」は公開されましたが、受信箱から削除できませんでした。';
+                    $warnings[] = '「' . $item->fileName . '」は公開されましたが、原稿を整理できませんでした。';
                 }
                 continue;
             }
@@ -80,7 +80,7 @@ final class PostInboxAutoPublisher
                     if ($this->inbox->delete($read->path)) {
                         $messages[] = '「' . $item->fileName . '」はすでに公開済みのため、重複原稿を整理しました。';
                     } else {
-                        $warnings[] = '「' . $item->fileName . '」はすでに公開済みですが、受信箱から削除できませんでした。';
+                        $warnings[] = '「' . $item->fileName . '」はすでに公開済みですが、重複原稿を整理できませんでした。';
                     }
                     continue;
                 } elseif ($sessionId !== null && $temp !== null) {
@@ -89,7 +89,11 @@ final class PostInboxAutoPublisher
                 }
                 $this->upload()->cancelTemp($result->tempId, $sessionId);
             }
-            $warnings[] = '「' . $item->fileName . '」は自動公開できなかったため受信箱に残しています。';
+            if ($this->inbox->markPublisherAutoPublishFailure($read->path)) {
+                $messages[] = '「' . $item->fileName . '」は自動公開できなかったため、下書きとして保存しました。Tomos Postの「下書き」から確認できます。';
+            } else {
+                $warnings[] = '「' . $item->fileName . '」を下書きとして保存できませんでした。';
+            }
         }
         } finally {
             @flock($lockHandle, LOCK_UN);

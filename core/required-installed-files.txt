@@ -3,6 +3,7 @@ index.php
 VERSION
 post/index.php
 post/inbox/api/index.php
+post/inbox/image/index.php
 post/update-finalize/index.php
 update/index.php
 update/public-key.pem
@@ -22,6 +23,7 @@ core/PostUploadInput.php
 core/PostSubmissionPreparer.php
 core/PostConflictManager.php
 core/PostInbox.php
+core/PostInboxImageStore.php
 core/PostInboxPreview.php
 core/PostDrafts.php
 core/PostPublished.php

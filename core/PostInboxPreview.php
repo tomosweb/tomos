@@ -44,6 +44,8 @@ final class PostInboxPreview
             (string) ($metadata['title'] ?? '')
         );
 
+        $contentRaw = $this->replaceStagedImageReferences($contentRaw, $sourcePath);
+
         $wikiLinks = new WikiLinkParser($pages, $this->publicBasePath, $this->readLinkAliases());
         $images = new ImageEmbedParser(
             (string) (($this->config['paths']['content_dir'] ?? '') ?: ($this->rootDir . '/content')),
@@ -120,6 +122,23 @@ final class PostInboxPreview
         } catch (\Throwable $exception) {
             return [];
         }
+    }
+
+    private function replaceStagedImageReferences(string $markdown, string $sourcePath): string
+    {
+        if ($sourcePath === '' || strpos($sourcePath, '/') !== false) return $markdown;
+        $staged = (new PostInbox($this->config, $this->rootDir))->stagedImageFiles($sourcePath);
+        foreach ((array) ($staged['name'] ?? []) as $name) {
+            $name = strtolower((string) $name);
+            if ($name === '') continue;
+            $url = Security::publicUrl('/post/inbox/image/?file=' . rawurlencode($sourcePath) . '&image=' . rawurlencode($name), $this->publicBasePath);
+            $markdown = preg_replace(
+                '/(\]\()images\/' . preg_quote($name, '/') . '(\))/i',
+                '$1' . $url . '$2',
+                $markdown
+            ) ?? $markdown;
+        }
+        return $markdown;
     }
 
     private function readLinkAliases(): array

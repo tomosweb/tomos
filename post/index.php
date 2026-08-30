@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($inboxPreviewPath !== '' || $inboxD
     if (!$read->ok) {
         http_response_code(404);
         header('Cache-Control: no-store, private');
-        echo '受信箱の原稿を確認できませんでした。';
+        echo '下書き原稿を確認できませんでした。';
         exit;
     }
     if ($inboxDownloadPath !== '' || $postDraftDownloadPath !== '') {
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($inboxPreviewPath !== '' || $inboxD
     }
 
     try {
-        $preview = (new Tomos\PostInboxPreview($config, $rootDir))->render($read->content, $read->fileName, $isPostDraft ? $read->path : '');
+        $preview = (new Tomos\PostInboxPreview($config, $rootDir))->render($read->content, $read->fileName, $isPostDraft ? $read->path : $read->fileName);
     } catch (Throwable $exception) {
         http_response_code(500);
         header('Cache-Control: no-store, private');
@@ -325,7 +325,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($uploadResult->ok) {
                         $messages[] = uploadSuccessMessage($uploadResult);
                         if (!$inbox->delete($inboxRead->path)) {
-                            $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+                            $warnings[] = '公開は完了しましたが、下書き原稿を削除できませんでした。手動で確認してください。';
                         }
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                         $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -366,7 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($uploadResult->ok) {
                             $messages[] = uploadSuccessMessage($uploadResult);
                             if (!$drafts->inbox()->delete($inboxRead->path)) {
-                                $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+                                $warnings[] = '公開は完了しましたが、下書き原稿を削除できませんでした。手動で確認してください。';
                             }
                             $warnings = array_merge($warnings, $uploadResult->warnings);
                             $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -2305,7 +2305,7 @@ function renderDraftSection(string $token, array $config, string $submissionId):
     $drafts = new Tomos\PostDrafts($config, dirname(__DIR__));
     $items = $drafts->list();
     echo '<h2 id="post-inbox">下書き</h2>';
-    echo '<p class="hint">InboxやTomos Postから保存された下書きを確認し、必要な原稿だけ公開します。</p>';
+    echo '<p class="hint">外部投稿やTomos Postから保存された下書きを確認し、必要な原稿だけ公開します。</p>';
     if ($items === []) {
         echo '<div class="result"><p>下書きはありません。</p></div>';
         return;
@@ -2315,7 +2315,7 @@ function renderDraftSection(string $token, array $config, string $submissionId):
     foreach ($items as $index => $item) {
         $timestamp = formatInboxTimestamp($item->modifiedAt, $config);
         echo '<article class="editable-result">';
-        echo '<p class="editable-status">' . e($item->source === 'inbox' ? '投稿元: Inbox' : '投稿元: Tomos Post') . '</p>';
+        echo '<p class="editable-status">' . e($item->source === 'inbox' ? '投稿元: 外部投稿' : '投稿元: Tomos Post') . '</p>';
         echo '<h3>' . e($item->title !== '' ? $item->title : $item->fileName) . '</h3>';
         echo '<p><code>' . e($item->fileName) . '</code></p>';
         echo '<p class="hint">更新：' . e($timestamp) . ' / サイズ：' . e(formatInboxBytes($item->size)) . '</p>';
@@ -2606,7 +2606,7 @@ function publishPendingInbox(string $tempId, array $config, string $rootDir, arr
     }
     $inbox = new Tomos\PostInbox($config, $rootDir);
     if (!$inbox->delete($path)) {
-        $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+        $warnings[] = '公開は完了しましたが、下書き原稿を削除できませんでした。手動で確認してください。';
         return;
     }
     forgetInboxTemp($tempId);
