@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.5.1';
-$fromRef = 'e4d459a2a2618969d90e4b7998a9036d3e3c365b';
+$fromVersion = '0.5.2';
+$fromRef = '2dc3ce590bc8bd8305eb6c7733519ea5b9cd1591';
 require_once $root . '/tools/UpdateFileSet.php';
-// v0.5.1 is maintained in the public distribution repository. Use its
+// v0.5.2 is maintained in the public distribution repository. Use its
 // immutable peeled commit because the dev repository intentionally does not
 // publish the public release tag.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.5.2') {
-    throw new RuntimeException('release transition check requires VERSION 0.5.2');
+if ($targetVersion !== '0.5.3') {
+    throw new RuntimeException('release transition check requires VERSION 0.5.3');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
-    throw new RuntimeException('0.5.1 must compare older than 0.5.2');
+    throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
 }
 
 $tmp = sys_get_temp_dir() . '/tomos-release-transition-' . bin2hex(random_bytes(8));
@@ -33,7 +33,7 @@ try {
     $keyPath = $tmp . '/private.pem';
     file_put_contents($keyPath, $privateKey, LOCK_EX);
 
-    $output = $tmp . '/tomos-update-0.5.1-to-0.5.2.zip';
+    $output = $tmp . '/tomos-update-' . $fromVersion . '-to-' . $targetVersion . '.zip';
     $command = escapeshellarg(PHP_BINARY)
         . ' ' . escapeshellarg($root . '/tools/build-update-package.php')
         . ' ' . escapeshellarg('--from=' . $fromVersion)
@@ -46,29 +46,29 @@ try {
     $code = 0;
     exec($command . ' 2>&1', $lines, $code);
     if ($code !== 0) {
-        throw new RuntimeException('0.5.1 -> 0.5.2 update package build failed: ' . implode("\n", $lines));
+        throw new RuntimeException($fromVersion . ' -> ' . $targetVersion . ' update package build failed: ' . implode("\n", $lines));
     }
 
     $zip = new ZipArchive();
     if ($zip->open($output) !== true) {
-        throw new RuntimeException('0.5.1 -> 0.5.2 update package is not readable');
+        throw new RuntimeException($fromVersion . ' -> ' . $targetVersion . ' update package is not readable');
     }
     try {
         $manifest = json_decode((string) $zip->getFromName('manifest.json'), true);
         if (!is_array($manifest)) {
-            throw new RuntimeException('0.5.2 manifest is not valid JSON');
+            throw new RuntimeException($targetVersion . ' manifest is not valid JSON');
         }
         if (($manifest['product'] ?? null) !== 'Tomos') {
-            throw new RuntimeException('0.5.2 manifest product mismatch');
+            throw new RuntimeException($targetVersion . ' manifest product mismatch');
         }
         if (($manifest['from_version'] ?? null) !== $fromVersion) {
-            throw new RuntimeException('0.5.2 manifest from_version mismatch');
+            throw new RuntimeException($targetVersion . ' manifest from_version mismatch');
         }
         if (($manifest['version'] ?? null) !== $targetVersion) {
-            throw new RuntimeException('0.5.2 manifest version mismatch');
+            throw new RuntimeException($targetVersion . ' manifest version mismatch');
         }
         if (array_key_exists('minimum_version', $manifest)) {
-            throw new RuntimeException('0.5.2 normal update must not contain legacy minimum_version');
+            throw new RuntimeException($targetVersion . ' normal update must not contain legacy minimum_version');
         }
         $manifestPaths = array_keys(is_array($manifest['files'] ?? null) ? $manifest['files'] : []);
         sort($manifestPaths);
@@ -83,38 +83,51 @@ try {
             $payloadPath = $payloadCandidates[0] ?? $path;
             $bytes = $zip->getFromName('files/' . $payloadPath);
             if (!is_string($bytes)) {
-                throw new RuntimeException('0.5.2 package payload missing: ' . $path);
+                throw new RuntimeException($targetVersion . ' package payload missing: ' . $path);
             }
             if (($manifest['files'][$payloadPath] ?? null) !== hash('sha256', $bytes)) {
-                throw new RuntimeException('0.5.2 manifest hash mismatch: ' . $path);
+                throw new RuntimeException($targetVersion . ' manifest hash mismatch: ' . $path);
             }
             if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php'], true)) {
                 $metadataCandidates = array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'));
                 $metadataPath = (string) ($metadataCandidates[0] ?? '');
                 $metadataBytes = $zip->getFromName('files/' . $metadataPath);
                 if (!is_string($metadataBytes)) {
-                    throw new RuntimeException('0.5.2 package pending updater metadata missing');
+                    throw new RuntimeException($targetVersion . ' package pending updater metadata missing');
                 }
                 $metadata = json_decode($metadataBytes, true);
                 if (!is_array($metadata) || ($metadata['target'] ?? null) !== $path) {
-                    throw new RuntimeException('0.5.2 pending updater metadata target mismatch');
+                    throw new RuntimeException($targetVersion . ' pending updater metadata target mismatch');
                 }
                 if (($manifest['files'][$metadataPath] ?? null) !== hash('sha256', $metadataBytes)) {
-                    throw new RuntimeException('0.5.2 pending updater metadata hash mismatch');
+                    throw new RuntimeException($targetVersion . ' pending updater metadata hash mismatch');
                 }
             }
         }
         $versionBytes = $zip->getFromName('files/VERSION');
         if (!is_string($versionBytes) || trim($versionBytes) !== $targetVersion) {
-        throw new RuntimeException('0.5.2 package VERSION payload mismatch');
+            throw new RuntimeException($targetVersion . ' package VERSION payload mismatch');
         }
 
-        foreach (['core/PostInboxAutoPublisher.php', 'core/PostMarkdownComparator.php', 'core/PostUpload.php', 'core/PublishedMetadata.php', 'post/index.php'] as $requiredResubmissionFile) {
-            if (!in_array($requiredResubmissionFile, $runtimeFiles, true)) {
-                throw new RuntimeException('required resubmission runtime was not derived: ' . $requiredResubmissionFile);
+        foreach ([
+            'core/PostDrafts.php',
+            'core/PostInbox.php',
+            'core/PostInboxApi.php',
+            'core/PostInboxAutoPublisher.php',
+            'core/PostInboxImageStore.php',
+            'core/PostInboxPreview.php',
+            'core/PostUpload.php',
+            'core/ImageProcessor.php',
+            'core/UpdatePackageDownloader.php',
+            'post/inbox/image/index.php',
+            'post/index.php',
+            'post/security/index.php',
+        ] as $requiredV053Runtime) {
+            if (!in_array($requiredV053Runtime, $runtimeFiles, true)) {
+                throw new RuntimeException('required v0.5.3 runtime was not derived: ' . $requiredV053Runtime);
             }
-            if (!isset($manifest['files'][$requiredResubmissionFile])) {
-                throw new RuntimeException('required resubmission runtime is missing from manifest: ' . $requiredResubmissionFile);
+            if (!isset($manifest['files'][$requiredV053Runtime])) {
+                throw new RuntimeException('required v0.5.3 runtime is missing from manifest: ' . $requiredV053Runtime);
             }
         }
     } finally {
@@ -123,7 +136,7 @@ try {
 
     $releaseNote = (string) file_get_contents($root . '/docs/releases/v' . $targetVersion . '.md');
     if (strpos($releaseNote, 'v' . $fromVersion . 'からv' . $targetVersion) === false) {
-        throw new RuntimeException('0.5.2 release note must document the exact update transition');
+        throw new RuntimeException($targetVersion . ' release note must document the exact update transition');
     }
 
     echo "release_transition_check: OK\n";
