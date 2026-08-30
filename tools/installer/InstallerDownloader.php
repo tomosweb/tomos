@@ -115,7 +115,6 @@ final class InstallerDownloader
         $ok = curl_exec($curl);
         $error = curl_error($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-        curl_close($curl);
         fclose($handle);
         if ($ok === false) {
             @unlink($destination);
