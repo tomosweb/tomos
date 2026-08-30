@@ -116,7 +116,7 @@ final class PostDrafts
         if ($source === 'inbox') {
             $read = $this->read('inbox', $path);
             if (!$read->ok || !$this->inbox->delete($read->path)) {
-                return ['ok' => false, 'errors' => ['Inbox下書きを削除できませんでした。']];
+                return ['ok' => false, 'errors' => ['外部投稿の下書きを削除できませんでした。']];
             }
             return ['ok' => true, 'errors' => []];
         }

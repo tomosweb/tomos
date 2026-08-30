@@ -19,7 +19,8 @@ if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
 
 $fromVersion = '0.5.1';
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$runtimeFiles = UpdateFileSet::fromGitDiff($root, 'v0.5.1', 'HEAD');
+$fromRef = 'e4d459a2a2618969d90e4b7998a9036d3e3c365b';
+$runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-runtime-parity-' . bin2hex(random_bytes(8));
 if (!mkdir($tmp, 0700, true)) {
     throw new RuntimeException('could not create runtime parity fixture');
@@ -28,7 +29,7 @@ if (!mkdir($tmp, 0700, true)) {
 try {
     $fixture = $tmp . '/fixture';
     mkdir($fixture, 0700, true);
-    $archiveCommand = 'git -C ' . escapeshellarg($root) . ' archive v0.5.1 | tar -x -C ' . escapeshellarg($fixture);
+    $archiveCommand = 'git -C ' . escapeshellarg($root) . ' archive ' . escapeshellarg($fromRef) . ' | tar -x -C ' . escapeshellarg($fixture);
     $archiveOutput = [];
     $archiveCode = 0;
     exec($archiveCommand, $archiveOutput, $archiveCode);
@@ -68,7 +69,7 @@ try {
         . ' ' . escapeshellarg('--version=' . $targetVersion)
         . ' ' . escapeshellarg('--private-key=' . $keyPath)
         . ' ' . escapeshellarg('--output=' . $packagePath)
-        . ' ' . escapeshellarg('--from-ref=v0.5.1');
+        . ' ' . escapeshellarg('--from-ref=' . $fromRef);
     $lines = [];
     $code = 0;
     exec($command . ' 2>&1', $lines, $code);

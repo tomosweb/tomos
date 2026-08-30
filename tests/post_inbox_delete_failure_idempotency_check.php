@@ -48,7 +48,7 @@ try {
     if (count($first['messages']) !== 0 || count($first['warnings']) !== 1) {
         throw new RuntimeException('delete failure must be reported as one warning');
     }
-    if (strpos((string) $first['warnings'][0], '公開されましたが、受信箱から削除できませんでした') === false) {
+    if (strpos((string) $first['warnings'][0], '公開されましたが、原稿を整理できませんでした') === false) {
         throw new RuntimeException('delete-failure warning must distinguish publish success from cleanup failure');
     }
 
