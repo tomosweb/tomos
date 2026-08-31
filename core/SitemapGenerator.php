@@ -86,9 +86,6 @@ final class SitemapGenerator
             if (!isset($byUrl[$url])) {
                 $byUrl[$url] = [
                     'url' => $url,
-                    'date' => (string) ($page['date'] ?? ''),
-                    'published' => (string) ($page['published'] ?? ''),
-                    'updated' => (string) ($page['updated'] ?? ''),
                 ];
             }
         }

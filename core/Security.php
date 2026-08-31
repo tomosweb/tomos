@@ -209,8 +209,21 @@ final class Security
 
     public static function absolutePublicUrl(string $siteUrl, string $internalUrl, string $publicBasePath = ''): string
     {
-        $path = parse_url($internalUrl, PHP_URL_PATH);
-        $path = is_string($path) && $path !== '' ? $path : '/';
+        // Do not pass the internal path through parse_url(): PHP can corrupt
+        // raw UTF-8 path segments while parsing a URL-like string. The public
+        // URL encoder is the single place that handles both raw and encoded
+        // path segments.
+        $path = $internalUrl;
+        $queryPosition = strpos($path, '?');
+        $fragmentPosition = strpos($path, '#');
+        $positions = array_filter([$queryPosition, $fragmentPosition], static function ($position): bool {
+            return $position !== false;
+        });
+        if ($positions !== []) {
+            $path = substr($path, 0, min($positions));
+        }
+
+        $path = $path !== '' ? $path : '/';
         if ($path[0] !== '/') {
             $path = '/' . $path;
         }
@@ -270,10 +283,30 @@ final class Security
         $hasTrailingSlash = substr($url, -1) === '/';
         $segments = explode('/', trim($url, '/'));
         $encodedSegments = array_map(static function (string $segment): string {
-            return rawurlencode($segment);
+            return self::encodeUrlSegment($segment);
         }, $segments);
 
         return '/' . implode('/', $encodedSegments) . ($hasTrailingSlash ? '/' : '') . $suffix;
+    }
+
+    private static function encodeUrlSegment(string $segment): string
+    {
+        $matches = [];
+        if (preg_match_all('/%(?:[0-9A-Fa-f]{2})|./us', $segment, $matches) === false) {
+            return rawurlencode($segment);
+        }
+
+        $encoded = '';
+        foreach ($matches[0] as $part) {
+            if (preg_match('/\A%[0-9A-Fa-f]{2}\z/', $part) === 1) {
+                $encoded .= strtoupper($part);
+                continue;
+            }
+
+            $encoded .= rawurlencode($part);
+        }
+
+        return $encoded;
     }
 
     private static function invalidPath(string $reason): array

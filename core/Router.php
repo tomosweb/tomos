@@ -65,8 +65,18 @@ final class Router
 
     private function normalizeRequestPath(string $requestUri): ?string
     {
-        $rawPath = parse_url($requestUri, PHP_URL_PATH);
-        $rawPath = is_string($rawPath) ? $rawPath : '/';
+        // Keep raw UTF-8 request paths intact. parse_url() may replace
+        // multibyte characters when the request target is not percent-encoded.
+        $rawPath = $requestUri;
+        $queryPosition = strpos($rawPath, '?');
+        $fragmentPosition = strpos($rawPath, '#');
+        $positions = array_filter([$queryPosition, $fragmentPosition], static function ($position): bool {
+            return $position !== false;
+        });
+        if ($positions !== []) {
+            $rawPath = substr($rawPath, 0, min($positions));
+        }
+        $rawPath = $rawPath !== '' ? $rawPath : '/';
         $rawPath = $this->stripBasePath($rawPath);
         if ($rawPath === null) {
             return null;
