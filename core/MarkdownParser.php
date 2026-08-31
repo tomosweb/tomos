@@ -18,129 +18,108 @@ final class MarkdownParser
     public function toHtml(string $markdown): string
     {
         $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
-        $lines = explode("\n", $markdown);
+        return implode("\n", $this->renderBlocks(explode("\n", $markdown)));
+    }
+
+    private function renderBlocks(array $lines): array
+    {
         $html = [];
         $paragraph = [];
-        $inCodeBlock = false;
-        $codeLines = [];
-        $listType = null;
-        $blockquote = [];
-
         $lineCount = count($lines);
-        for ($i = 0; $i < $lineCount; $i++) {
-            $line = $lines[$i];
-            if (preg_match('/^\s*```/', $line) === 1) {
-                if ($inCodeBlock) {
-                    $html[] = '<pre><code>' . $this->escape(implode("\n", $codeLines)) . '</code></pre>';
-                    $codeLines = [];
-                    $inCodeBlock = false;
-                } else {
-                    $this->flushParagraph($html, $paragraph);
-                    $this->flushList($html, $listType);
-                    $this->flushBlockquote($html, $blockquote);
-                    $inCodeBlock = true;
-                }
-                continue;
-            }
+        $index = 0;
 
-            if ($inCodeBlock) {
-                $codeLines[] = $line;
-                continue;
-            }
-
+        while ($index < $lineCount) {
+            $line = $lines[$index];
             $trimmed = trim($line);
+
             if ($trimmed === '') {
                 $this->flushParagraph($html, $paragraph);
-                $this->flushList($html, $listType);
-                $this->flushBlockquote($html, $blockquote);
+                $index++;
                 continue;
             }
 
-            if ($i + 1 < $lineCount && $this->isTableHeader($line, $lines[$i + 1])) {
+            if (preg_match('/^\s*```([A-Za-z0-9_-]+)?\s*$/', $line, $openingFence) === 1) {
                 $this->flushParagraph($html, $paragraph);
-                $this->flushList($html, $listType);
-                $this->flushBlockquote($html, $blockquote);
-
-                $tableLines = [$line, $lines[$i + 1]];
-                $i += 2;
-                while ($i < $lineCount && $this->isTableBodyLine($lines[$i])) {
-                    $tableLines[] = $lines[$i];
-                    $i++;
+                $language = $openingFence[1] ?? '';
+                $index++;
+                $codeLines = [];
+                while ($index < $lineCount && preg_match('/^\s*```\s*$/', $lines[$index]) !== 1) {
+                    $codeLines[] = $lines[$index];
+                    $index++;
                 }
-                $i--;
+                if ($index < $lineCount) {
+                    $index++;
+                }
+                $class = $language !== '' ? ' class="language-' . $this->escape($language) . '"' : '';
+                $html[] = '<pre><code' . $class . '>' . $this->escape(implode("\n", $codeLines)) . '</code></pre>';
+                continue;
+            }
 
+            if ($index + 1 < $lineCount && $this->isTableHeader($line, $lines[$index + 1])) {
+                $this->flushParagraph($html, $paragraph);
+                $tableLines = [$line, $lines[$index + 1]];
+                $index += 2;
+                while ($index < $lineCount && $this->isTableBodyLine($lines[$index])) {
+                    $tableLines[] = $lines[$index];
+                    $index++;
+                }
                 $html[] = $this->tableHtml($tableLines);
                 continue;
             }
 
             if (preg_match('/^(#{1,6})\s+(.+)$/', $trimmed, $matches) === 1) {
                 $this->flushParagraph($html, $paragraph);
-                $this->flushList($html, $listType);
-                $this->flushBlockquote($html, $blockquote);
                 $level = strlen($matches[1]);
                 $html[] = '<h' . $level . '>' . $this->inline($matches[2]) . '</h' . $level . '>';
+                $index++;
                 continue;
             }
 
             if (preg_match('/^(-{3,}|\*{3,}|_{3,})$/', $trimmed) === 1) {
                 $this->flushParagraph($html, $paragraph);
-                $this->flushList($html, $listType);
-                $this->flushBlockquote($html, $blockquote);
                 $html[] = '<hr>';
+                $index++;
                 continue;
             }
 
-            if (preg_match('/^>\s?(.*)$/', $line, $matches) === 1) {
+            if (preg_match('/^>\s?(.*)$/', $line) === 1) {
                 $this->flushParagraph($html, $paragraph);
-                $this->flushList($html, $listType);
-                $blockquote[] = $matches[1];
+                $quoteLines = [];
+                while ($index < $lineCount && preg_match('/^>\s?(.*)$/', $lines[$index], $quoteMatch) === 1) {
+                    $quoteLines[] = $quoteMatch[1];
+                    $index++;
+                }
+                $html[] = '<blockquote><p>' . $this->inline(implode(' ', $quoteLines)) . '</p></blockquote>';
                 continue;
             }
 
-            if (preg_match('/^\s*[-*+]\s+(.+)$/', $line, $matches) === 1) {
+            $list = $this->listMatch($line);
+            if ($list !== null) {
                 $this->flushParagraph($html, $paragraph);
-                $this->flushBlockquote($html, $blockquote);
-                $this->ensureList($html, $listType, 'ul');
-                $html[] = '<li>' . $this->inline($matches[1]) . '</li>';
+                $html[] = $this->renderList($lines, $index, $list['indent'], $list['type']);
                 continue;
             }
 
             $youtubeEmbed = $this->youtubeEmbedHtml($trimmed);
             if ($youtubeEmbed !== null) {
                 $this->flushParagraph($html, $paragraph);
-                $this->flushList($html, $listType);
-                $this->flushBlockquote($html, $blockquote);
                 $html[] = $youtubeEmbed;
+                $index++;
                 continue;
             }
 
-            if (preg_match('/^\s*\d+\.\s+(.+)$/', $line, $matches) === 1) {
-                $this->flushParagraph($html, $paragraph);
-                $this->flushBlockquote($html, $blockquote);
-                $this->ensureList($html, $listType, 'ol');
-                $html[] = '<li>' . $this->inline($matches[1]) . '</li>';
-                continue;
-            }
-
-            $this->flushList($html, $listType);
-            $this->flushBlockquote($html, $blockquote);
             $paragraph[] = $trimmed;
-        }
-
-        if ($inCodeBlock) {
-            $html[] = '<pre><code>' . $this->escape(implode("\n", $codeLines)) . '</code></pre>';
+            $index++;
         }
 
         $this->flushParagraph($html, $paragraph);
-        $this->flushList($html, $listType);
-        $this->flushBlockquote($html, $blockquote);
-
-        return implode("\n", $html);
+        return $html;
     }
 
     private function inline(string $text): string
     {
-        $codeParts = preg_split('/(`[^`]+`)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $placeholders = [];
+        $codeParts = preg_split('/(`[^`\n]+`)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
         if ($codeParts === false) {
             return $this->allowRawHtml ? $text : $this->escape($text);
         }
@@ -152,17 +131,39 @@ final class MarkdownParser
                 continue;
             }
 
-            $part = $this->allowRawHtml ? $part : $this->escape($part);
+            if (!$this->allowRawHtml) {
+                $part = preg_replace_callback(
+                    '/<!--.*?-->|<\/?[A-Za-z][A-Za-z0-9:-]*(?:\s[^>]*|\/?)>/s',
+                    function (array $matches) use (&$placeholders): string {
+                        $token = 'TOMOSINLINE' . count($placeholders) . 'TOKEN';
+                        $placeholders[$token] = $this->escape($matches[0]);
+                        return $token;
+                    },
+                    $part
+                ) ?? $part;
+                $part = $this->escape($part);
+            }
 
-            $part = preg_replace_callback('/\[([^\]]+)\]\(([^)\s]+)\)/', function (array $matches): string {
-                $label = $matches[1];
+            $part = preg_replace_callback('/\[([^\]\n]+)\]\(([^)\s]+)\)/', function (array $matches) use (&$placeholders): string {
                 $url = Security::safeHref($matches[2]);
                 if (strpos($url, '/') === 0) {
                     $url = Security::publicUrl($url, $this->publicBasePath);
                 }
-                return '<a href="' . $this->escape($url) . '">' . $label . '</a>';
+                $token = 'TOMOSINLINE' . count($placeholders) . 'TOKEN';
+                $placeholders[$token] = '<a href="' . $this->escape($url) . '">' . $matches[1] . '</a>';
+                return $token;
             }, $part) ?? $part;
 
+            $part = preg_replace_callback('/(?:&lt;|<)(https?:\/\/[^\s>&]+)(?:&gt;|>)/i', function (array $matches) use (&$placeholders): string {
+                return $this->autolinkPlaceholder($matches[1], $placeholders);
+            }, $part) ?? $part;
+
+            $part = preg_replace_callback('~(?<![A-Za-z0-9_\/"\'=])(https?://[^\s<]+)~i', function (array $matches) use (&$placeholders): string {
+                return $this->autolinkPlaceholder($matches[1], $placeholders);
+            }, $part) ?? $part;
+
+            $part = preg_replace('/(\*\*\*|___)(.+?)\1/s', '<em><strong>$2</strong></em>', $part) ?? $part;
+            $part = preg_replace('/~~(.+?)~~/s', '<del>$1</del>', $part) ?? $part;
             $part = preg_replace('/(\*\*|__)(.+?)\1/s', '<strong>$2</strong>', $part) ?? $part;
             $part = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '<em>$1</em>', $part) ?? $part;
             $part = preg_replace('/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/s', '<em>$1</em>', $part) ?? $part;
@@ -170,7 +171,25 @@ final class MarkdownParser
             $output .= $part;
         }
 
-        return $output;
+        return strtr($output, $placeholders);
+    }
+
+    private function autolinkPlaceholder(string $source, array &$placeholders): string
+    {
+        $source = html_entity_decode($source, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $trailing = '';
+        while ($source !== '' && preg_match('/[.,!?;:]$/', $source) === 1) {
+            $trailing = substr($source, -1) . $trailing;
+            $source = substr($source, 0, -1);
+        }
+        $safe = Security::safeHref($source);
+        if ($safe === '#') {
+            return $this->escape($source . $trailing);
+        }
+
+        $token = 'TOMOSINLINE' . count($placeholders) . 'TOKEN';
+        $placeholders[$token] = '<a href="' . $this->escape($safe) . '">' . $this->escape($safe) . '</a>' . $this->escape($trailing);
+        return $token;
     }
 
     private function flushParagraph(array &$html, array &$paragraph): void
@@ -185,6 +204,62 @@ final class MarkdownParser
         }
         $html[] = '<p>' . implode('<br>', $lines) . '</p>';
         $paragraph = [];
+    }
+
+    private function listMatch(string $line): ?array
+    {
+        if (preg_match('/^(\s*)[-*+]\s+(.+)$/', $line, $matches) === 1) {
+            return ['indent' => strlen($matches[1]), 'type' => 'ul', 'text' => $matches[2]];
+        }
+        if (preg_match('/^(\s*)\d+[.)]\s+(.+)$/', $line, $matches) === 1) {
+            return ['indent' => strlen($matches[1]), 'type' => 'ol', 'text' => $matches[2]];
+        }
+
+        return null;
+    }
+
+    private function renderList(array $lines, int &$index, int $indent, string $type): string
+    {
+        $items = [];
+        $lineCount = count($lines);
+        while ($index < $lineCount) {
+            $match = $this->listMatch($lines[$index]);
+            if ($match === null || $match['indent'] !== $indent || $match['type'] !== $type) {
+                break;
+            }
+
+            $item = '<li>' . $this->listItemInline($match['text']);
+            $index++;
+
+            while (true) {
+                $lookahead = $index;
+                while ($lookahead < $lineCount && trim($lines[$lookahead]) === '') {
+                    $lookahead++;
+                }
+                $child = $lookahead < $lineCount ? $this->listMatch($lines[$lookahead]) : null;
+                if ($child === null || $child['indent'] <= $indent) {
+                    break;
+                }
+
+                $index = $lookahead;
+                $item .= $this->renderList($lines, $index, $child['indent'], $child['type']);
+            }
+
+            $item .= '</li>';
+            $items[] = $item;
+        }
+
+        return '<' . $type . '>' . implode("\n", $items) . '</' . $type . '>';
+    }
+
+    private function listItemInline(string $text): string
+    {
+        if (preg_match('/^\[([ xX])\]\s+(.+)$/s', $text, $matches) === 1) {
+            $checked = strtolower($matches[1]) === 'x' ? ' checked' : '';
+            return '<input type="checkbox" disabled' . $checked . '> ' . $this->inline($matches[2]);
+        }
+
+        return $this->inline($text);
     }
 
     private function youtubeEmbedHtml(string $line): ?string
@@ -204,37 +279,6 @@ final class MarkdownParser
 
         $embedUrl = 'https://www.youtube.com/embed/' . $videoId;
         return '<div class="youtube-embed"><iframe src="' . $this->escape($embedUrl) . '" title="YouTube video player" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>';
-    }
-
-    private function ensureList(array &$html, ?string &$listType, string $type): void
-    {
-        if ($listType === $type) {
-            return;
-        }
-
-        $this->flushList($html, $listType);
-        $listType = $type;
-        $html[] = '<' . $type . '>';
-    }
-
-    private function flushList(array &$html, ?string &$listType): void
-    {
-        if ($listType === null) {
-            return;
-        }
-
-        $html[] = '</' . $listType . '>';
-        $listType = null;
-    }
-
-    private function flushBlockquote(array &$html, array &$blockquote): void
-    {
-        if ($blockquote === []) {
-            return;
-        }
-
-        $html[] = '<blockquote><p>' . $this->inline(implode(' ', $blockquote)) . '</p></blockquote>';
-        $blockquote = [];
     }
 
     private function isTableHeader(string $headerLine, string $separatorLine): bool
@@ -257,11 +301,7 @@ final class MarkdownParser
 
     private function isTableBodyLine(string $line): bool
     {
-        if (trim($line) === '') {
-            return false;
-        }
-
-        return strpos($line, '|') !== false;
+        return trim($line) !== '' && strpos($line, '|') !== false;
     }
 
     private function tableHtml(array $lines): string
@@ -269,12 +309,8 @@ final class MarkdownParser
         $headers = $this->splitTableRow($lines[0]);
         $alignments = $this->tableAlignments($this->splitTableRow($lines[1]));
         $columnCount = count($headers);
+        $html = ['<div class="table-scroll">', '<table>', '<thead>', '<tr>'];
 
-        $html = [];
-        $html[] = '<div class="table-scroll">';
-        $html[] = '<table>';
-        $html[] = '<thead>';
-        $html[] = '<tr>';
         foreach ($headers as $index => $header) {
             $html[] = '<th' . $this->alignmentAttribute($alignments[$index] ?? '') . '>' . $this->inline(trim($header)) . '</th>';
         }
@@ -294,7 +330,6 @@ final class MarkdownParser
         $html[] = '</tbody>';
         $html[] = '</table>';
         $html[] = '</div>';
-
         return implode("\n", $html);
     }
 
@@ -313,9 +348,7 @@ final class MarkdownParser
             return [];
         }
 
-        return array_map(static function (string $cell): string {
-            return str_replace('\\|', '|', $cell);
-        }, $cells);
+        return array_map(static fn (string $cell): string => str_replace('\\|', '|', $cell), $cells);
     }
 
     private function tableAlignments(array $separatorCells): array
@@ -325,15 +358,7 @@ final class MarkdownParser
             $cell = trim($cell);
             $left = strpos($cell, ':') === 0;
             $right = substr($cell, -1) === ':';
-            if ($left && $right) {
-                $alignments[] = 'center';
-            } elseif ($right) {
-                $alignments[] = 'right';
-            } elseif ($left) {
-                $alignments[] = 'left';
-            } else {
-                $alignments[] = '';
-            }
+            $alignments[] = $left && $right ? 'center' : ($right ? 'right' : ($left ? 'left' : ''));
         }
 
         return $alignments;
@@ -344,11 +369,9 @@ final class MarkdownParser
         if (count($cells) > $columnCount) {
             return array_slice($cells, 0, $columnCount);
         }
-
         while (count($cells) < $columnCount) {
             $cells[] = '';
         }
-
         return $cells;
     }
 
@@ -357,7 +380,6 @@ final class MarkdownParser
         if (!in_array($alignment, ['left', 'center', 'right'], true)) {
             return '';
         }
-
         return ' class="align-' . $alignment . '"';
     }
 

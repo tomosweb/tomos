@@ -132,7 +132,7 @@ assertContainsText('<strong>太字</strong>', $regression, 'paragraph regression
 assertContainsText('<a href="https://example.com/">リンク</a>', $regression, 'link regression');
 assertContainsText('<ul>', $regression, 'list regression');
 assertContainsText('<blockquote><p>引用</p></blockquote>', $regression, 'blockquote regression');
-assertContainsText('<pre><code>echo &#039;&lt;script&gt;alert(1)&lt;/script&gt;&#039;;</code></pre>', $regression, 'code block regression');
+assertContainsText('<pre><code class="language-php">echo &#039;&lt;script&gt;alert(1)&lt;/script&gt;&#039;;</code></pre>', $regression, 'code block regression');
 assertContainsText('<table>', $regression, 'table regression');
 assertContainsText('&lt;script&gt;alert(1)&lt;/script&gt;', $regression, 'raw HTML was not suppressed');
 assertNotContainsText('<script>', $regression, 'raw HTML unexpectedly executed');
