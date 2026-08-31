@@ -33,8 +33,9 @@ final class SeoMetadata
             $documentTitle .= ' - ' . $siteName;
         }
 
+        $isNotFound = !empty($page['is_not_found']) || (int) ($page['status'] ?? 0) === 404;
         $internalUrl = self::pathOnly((string) ($page['internal_url'] ?? $page['url'] ?? '/'));
-        $canonicalUrl = Security::absolutePublicUrl(
+        $canonicalUrl = $isNotFound ? '' : Security::absolutePublicUrl(
             (string) ($site['url'] ?? ''),
             $internalUrl,
             $publicBasePath
@@ -55,7 +56,7 @@ final class SeoMetadata
             'document_title' => $documentTitle,
             'description' => $description,
             'canonical_url' => $canonicalUrl,
-            'public_url' => Security::publicUrl($internalUrl, $publicBasePath),
+            'public_url' => $isNotFound ? '' : Security::publicUrl($internalUrl, $publicBasePath),
             'page_type' => $pageType === 'article' ? 'article' : 'website',
             'site_name' => $siteName,
             'social_image_url' => $socialImageUrl,
@@ -242,8 +243,19 @@ final class SeoMetadata
 
     private static function pathOnly(string $url): string
     {
-        $path = parse_url($url, PHP_URL_PATH);
-        $path = is_string($path) && $path !== '' ? $path : '/';
+        // Keep raw UTF-8 intact until Security performs the canonical path
+        // encoding. parse_url() is not safe for raw multibyte path strings.
+        $path = $url;
+        $queryPosition = strpos($path, '?');
+        $fragmentPosition = strpos($path, '#');
+        $positions = array_filter([$queryPosition, $fragmentPosition], static function ($position): bool {
+            return $position !== false;
+        });
+        if ($positions !== []) {
+            $path = substr($path, 0, min($positions));
+        }
+
+        $path = $path !== '' ? $path : '/';
         if ($path === '/index.php' || $path === '/index.php/') {
             return '/';
         }

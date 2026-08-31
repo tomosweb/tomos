@@ -183,6 +183,8 @@ try {
     seoCheck(substr_count($homeHtml, '<title>') === 1, 'SEO head must have one title');
     $notFoundHtml = seoRun($app, '/tomos/not-found');
     seoCheck(strpos($notFoundHtml, '<meta property="og:type" content="website">') !== false, '404 page must not be an article');
+    seoCheck(strpos($notFoundHtml, '<link rel="canonical"') === false, '404 page must not expose a canonical URL');
+    seoCheck(strpos($notFoundHtml, '<meta property="og:url"') === false, '404 page must not expose og:url');
 
     $validator = new ThemeValidator($themes);
     $valid = $validator->validate('test-theme');

@@ -261,6 +261,12 @@ final class FrontMatterParser
                 : $text;
         }
 
-        return strlen($text) > $limit ? substr($text, 0, $limit) : $text;
+        if (preg_match_all('/./us', $text, $matches) === false) {
+            return $text;
+        }
+
+        return count($matches[0]) > $limit
+            ? implode('', array_slice($matches[0], 0, $limit))
+            : $text;
     }
 }

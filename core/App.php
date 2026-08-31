@@ -399,6 +399,8 @@ final class App
             'tags_html' => '',
             'content' => $content,
             'internal_url' => $currentUrl,
+            'status' => 404,
+            'is_not_found' => true,
             'breadcrumbs' => $navigation->notFoundBreadcrumbs($title),
             'track_page' => false,
         ]);
@@ -451,6 +453,7 @@ final class App
                 'tags_html' => '',
                 'content' => '<p>指定されたタグのページはありません。</p>',
                 'internal_url' => $urlPath,
+                'is_not_found' => true,
                 'breadcrumbs' => $navigation->notFoundBreadcrumbs('タグが見つかりません'),
                 'track_page' => false,
             ]);
