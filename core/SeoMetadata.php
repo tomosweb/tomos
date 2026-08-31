@@ -21,12 +21,15 @@ final class SeoMetadata
         $rawPageType = (string) ($page['page_type'] ?? '');
         $pageType = self::pageType($page);
         $pageTitle = trim((string) ($page['title'] ?? ''));
-        if ($pageTitle === '' || ($rawPageType === 'home' && empty($page['title_explicit']))) {
+        $homeFallback = $rawPageType === 'home'
+            && empty($page['title_explicit'])
+            && ($pageTitle === '' || strtolower($pageTitle) === 'index');
+        if ($pageTitle === '' || $homeFallback) {
             $pageTitle = $siteName;
         }
 
         $documentTitle = $pageTitle;
-        if ($rawPageType !== 'home' || !empty($page['title_explicit'])) {
+        if ($rawPageType !== 'home' || !$homeFallback) {
             $documentTitle .= ' - ' . $siteName;
         }
 

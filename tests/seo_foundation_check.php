@@ -128,6 +128,8 @@ try {
     seoCheck($indexSeo['document_title'] === 'Home title - Example Site', 'home title mismatch');
     $fallbackHomeSeo = SeoMetadata::build(['title' => 'index', 'title_explicit' => false, 'internal_url' => '/', 'page_type' => 'home'], $site, '/tomos', $defaultImage, $content);
     seoCheck($fallbackHomeSeo['document_title'] === 'Example Site', 'home title fallback mismatch');
+    $headingHomeSeo = SeoMetadata::build(['title' => 'Derived home heading', 'title_explicit' => false, 'internal_url' => '/', 'page_type' => 'home'], $site, '/tomos', $defaultImage, $content);
+    seoCheck($headingHomeSeo['document_title'] === 'Derived home heading - Example Site', 'derived home title must be preserved');
     $querySeo = SeoMetadata::build(['title' => 'Entry', 'internal_url' => '/index.php/articles/entry?utm=1#top', 'page_type' => 'markdown_page'], $site, '/tomos', $defaultImage, $content);
     seoCheck($querySeo['canonical_url'] === 'https://example.test/tomos/articles/entry', 'canonical must omit index.php, query, and fragment');
     $unsafeSeo = SeoMetadata::build($byPath['articles/unsafe.md'], $site, '/tomos', $defaultImage, $content);
