@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(tr -d '[:space:]' < "${ROOT_DIR}/VERSION")"
 OUTPUT_DIR="${ROOT_DIR}/build/release-candidate"
 ASSET_BASE_URL="https://tomoswords.org/installer/releases"
+PUBLIC_RELEASE_GUARD="${ROOT_DIR}/tools/verify-public-release-target.sh"
 PRIVATE_KEY=""
 PUBLIC_KEY="${ROOT_DIR}/update/public-key.pem"
 SKIP_DEPENDENCIES=0
@@ -42,6 +43,11 @@ if [[ ! -f "${PUBLIC_KEY}" ]]; then
   echo "Error: verification public key is missing: ${PUBLIC_KEY}" >&2
   exit 1
 fi
+if [[ ! -x "${PUBLIC_RELEASE_GUARD}" ]]; then
+  echo "Error: public release target guard is missing or not executable." >&2
+  exit 1
+fi
+"${PUBLIC_RELEASE_GUARD}"
 if [[ "${ASSET_BASE_URL}" != https://* || "${ASSET_BASE_URL}" == *\?* || "${ASSET_BASE_URL}" == *'#'* ]]; then
   echo "Error: asset base URL must be an HTTPS URL without query or fragment." >&2
   exit 1
