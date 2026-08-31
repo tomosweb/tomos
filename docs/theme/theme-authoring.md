@@ -11,6 +11,8 @@ Tomos のテーマは、HTML テンプレート、CSS、theme.json で構成し�
 - [multilingual-v1.md](multilingual-v1.md): ページ言語と多言語ページの公開契約
 - [theme-validation.md](theme-validation.md): ThemeValidatorとテーマZIP検査
 
+SEO Foundation 1.0対応テーマでは、`templates/layout.html` の `<head>` 内に `{{{ page.seo_head_html }}}` を1つ配置します。canonical、OGP、Twitter metadataの値やURLはCoreが生成するため、テーマ内で独自実装しません。placeholderがない既存Themeはwarning付きで従来互換されます。
+
 テーマは、サイトの見た目を決めるファイル一式です。setup画面では、検証に通ったテーマだけを選べます。
 
 この文書は、HTML/CSSが少し分かる人、AIにテーマ作成を依頼したい人、FTP等で `themes/` にテーマを置ける人向けです。

@@ -22,8 +22,9 @@ assertIssue54(strpos($pageTemplate, '<h1 class="page-title">{{ page.title }}</h1
 assertIssue54(strpos($pageTemplate, '{{{ page.meta_html }}}') !== false, 'article metadata was removed');
 assertIssue54(strpos($pageTemplate, '{{{ page.content }}}') !== false, 'article content was removed');
 assertIssue54(strpos($pageTemplate, '<p class="page-description">{{ page.description }}</p>') === false, 'article detail still displays page.description');
-assertIssue54(strpos($layoutTemplate, 'name="description" content="{{ page.description }}"') !== false, 'meta description was changed');
-assertIssue54(strpos($layoutTemplate, 'property="og:description" content="{{ page.description }}"') !== false, 'OGP description was changed');
+assertIssue54(strpos($layoutTemplate, '{{{ page.seo_head_html }}}') !== false, 'SEO head placeholder was removed');
+assertIssue54(strpos($layoutTemplate, 'name="description" content="{{ page.description }}"') === false, 'legacy meta description was not centralized');
+assertIssue54(strpos($layoutTemplate, 'property="og:description" content="{{ page.description }}"') === false, 'legacy OGP description was not centralized');
 assertIssue54(strpos($listTemplate, '<p class="page-description">{{ page.description }}</p>') !== false, 'list description was changed');
 
 echo "issue_54_tomos_blog_description_check: OK\n";

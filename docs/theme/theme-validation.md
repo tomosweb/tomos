@@ -155,6 +155,16 @@ assets/ogp.png
 
 SVGファイルがある場合、`<script>` や外部参照が検出されるとエラーになります。
 
+## SEO head placeholder
+
+SEO Foundation 1.0対応テーマは、`templates/layout.html` の `<head>` 内に次のplaceholderを配置します。
+
+```html
+{{{ page.seo_head_html }}}
+```
+
+このplaceholderにはCoreが生成したtrustedなSEO head fragmentだけが入ります。テーマがcanonical、OGP、Twitter metadataの値やURLを独自に組み立てる必要はありません。placeholderがない既存のcustom Themeは従来どおり利用できますが、ThemeValidatorでwarningになります。
+
 ## 外部テーマZIPの追加検査
 
 Tomos Postから追加するテーマZIPは、通常の `ThemeValidator` に加えて `ThemePackagePolicy` と `ThemePackageInstaller` で検査します。

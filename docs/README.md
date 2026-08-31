@@ -45,6 +45,7 @@ Tomos Postには、合言葉の連続失敗をIP単位で一時停止する軽�
 - `features/images.md`: 画像
 - `features/themes.md`: テーマ
 - `features/rss-sitemap.md`: RSS / sitemap
+- `features/seo-foundation.md`: SEO Foundation 1.0
 - `features/cache.md`: HTMLキャッシュ
 
 ## テーマを扱うとき

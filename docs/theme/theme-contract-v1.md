@@ -22,6 +22,7 @@ coreが担当するもの:
 - navigation / index生成
 - セキュリティ
 - template context生成
+- SEO metadataの正規化とtrusted SEO head fragmentの生成
 
 テーマが担当するもの:
 
@@ -29,6 +30,16 @@ coreが担当するもの:
 - CSS
 - 静的asset
 - `theme.json`によるtheme package metadata
+- `<head>`内の`{{{ page.seo_head_html }}}` placeholderの配置
+- `html lang`、charset、viewport、favicon、RSS discovery等のTheme構造
+
+SEO Foundation 1.0以降のTheme Contractでは、同梱ThemeはCoreが生成した
+`page.seo_head_html`を`<head>`内へ一度だけ配置する。canonical、OGP、Twitter
+Card、descriptionの値やURLをTheme側で再実装しない。
+
+既存のcustom Themeにplaceholderがない場合は直ちに無効化せず、ThemeValidatorが
+warningを出す。従来のTheme固有head記述は互換のため動作し得るが、Core SEO head
+placeholderを持たないThemeはSEO Foundation 1.0の完全保証対象外である。
 
 テーマ内PHPは禁止する。テーマがcoreの責務を再実装しない。
 
