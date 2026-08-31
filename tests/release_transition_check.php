@@ -108,24 +108,18 @@ try {
         }
 
         foreach ([
-            'core/PostDrafts.php',
-            'core/PostInbox.php',
-            'core/PostInboxApi.php',
-            'core/PostInboxAutoPublisher.php',
-            'core/PostInboxImageStore.php',
-            'core/PostInboxPreview.php',
-            'core/PostUpload.php',
-            'core/ImageProcessor.php',
-            'core/UpdatePackageDownloader.php',
-            'post/inbox/image/index.php',
-            'post/index.php',
-            'post/security/index.php',
-        ] as $requiredPreviousRuntime) {
-            if (!in_array($requiredPreviousRuntime, $runtimeFiles, true)) {
-                throw new RuntimeException('required previous-release runtime was not derived: ' . $requiredPreviousRuntime);
+            'VERSION',
+            'core/App.php',
+            'core/MarkdownParser.php',
+            'core/SeoMetadata.php',
+            'core/TemplateRenderer.php',
+            'themes/tomos-minimal/templates/layout.html',
+        ] as $requiredCurrentRuntime) {
+            if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
+                throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
             }
-            if (!isset($manifest['files'][$requiredPreviousRuntime])) {
-                throw new RuntimeException('required previous-release runtime is missing from manifest: ' . $requiredPreviousRuntime);
+            if (!isset($manifest['files'][$requiredCurrentRuntime])) {
+                throw new RuntimeException('required current-release runtime is missing from manifest: ' . $requiredCurrentRuntime);
             }
         }
     } finally {
