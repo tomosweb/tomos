@@ -11,8 +11,9 @@
 PHP 8.0以上、OpenSSL、mbstring、ZipArchive、Composer 2、rsync、zipを用意する。
 
 ```bash
-git clone https://github.com/tomosweb/tomos-dev.git
-cd tomos-dev
+管理されたrelease-build checkoutへ移動する。公開利用者が通常配布ZIPを作成する必要はない。
+
+cd /path/to/release-build-checkout
 
 bash tools/prepare-distribution-dependencies.sh
 bash tools/build-distribution.sh

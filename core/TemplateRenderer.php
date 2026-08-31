@@ -147,6 +147,7 @@ final class TemplateRenderer
             'updated' => '',
             'content' => '<p>' . $this->escape($message) . '</p>',
             'status' => $status,
+            'is_not_found' => $status === 404,
             'track_page' => false,
         ]);
     }
