@@ -57,8 +57,10 @@ final class FrontMatterParser
     {
         $frontMatterKeys = is_array($metadata['__frontmatter_keys'] ?? null) ? $metadata['__frontmatter_keys'] : [];
         $descriptionExplicit = in_array('description', $frontMatterKeys, true);
+        $titleExplicit = in_array('title', $frontMatterKeys, true);
         $metadata = $this->normalizeMetadata($metadata);
         $metadata['description_explicit'] = $descriptionExplicit;
+        $metadata['title_explicit'] = $titleExplicit;
 
         if ($metadata['date'] === null) {
             $metadata['date'] = $this->dateFromPath($contentPath);
@@ -68,7 +70,7 @@ final class FrontMatterParser
             $metadata['title'] = $this->extractFirstHeading($body) ?? $this->titleFromPath($contentPath);
         }
 
-        if ($metadata['description'] === '' && !$descriptionExplicit) {
+        if ($metadata['description'] === '') {
             $metadata['description'] = $this->excerptFromMarkdown($body);
         }
 
@@ -148,6 +150,7 @@ final class FrontMatterParser
             'updated' => $this->cleanNullableScalar($metadata['updated'] ?? null),
             'tags' => $this->normalizeTags($metadata['tags'] ?? []),
             'description' => $this->cleanScalar($metadata['description'] ?? ''),
+            'image' => $this->cleanScalar($metadata['image'] ?? ''),
             'draft' => $this->toBoolean($metadata['draft'] ?? false),
             'language' => LanguageTag::normalizeOrNull($metadata['language'] ?? null),
         ];
