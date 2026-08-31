@@ -23,6 +23,7 @@ foreach ([
     'PostPublisher' => 'PostPublisher.php',
     'PostConflictManager' => 'PostConflictManager.php',
     'PostMarkdownComparator' => 'PostMarkdownComparator.php',
+    'PostInbox' => 'PostInbox.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -121,6 +122,7 @@ final class PostUpload
     private PostSubmissionPreparer $submissionPreparer;
     private PostPublisher $publisher;
     private PostConflictManager $conflictManager;
+    private PostInbox $inbox;
 
     public function __construct(array $config, string $rootDir)
     {
@@ -133,6 +135,7 @@ final class PostUpload
         $tempStore = new PostUploadTempStore($this->cacheDir);
         $this->editableMarkdown = new PostEditableMarkdown($config, $rootDir);
         $this->submissionPreparer = new PostSubmissionPreparer($this->editableMarkdown);
+        $this->inbox = new PostInbox($config, $rootDir);
         $this->conflictManager = new PostConflictManager(
             $this->contentDir,
             $this->site,
@@ -273,6 +276,14 @@ final class PostUpload
         $content = $this->applyImageOmissions($content, $omittedImages, $errors, $warnings);
         if ($errors !== []) {
             return new PostUploadResult(false, $errors);
+        }
+
+        if (!$this->hasUploadedImages($imageFiles)) {
+            $staged = $this->inbox->stagedImageFiles($originalFileName);
+            if ($staged !== []) {
+                $imageFiles = $staged;
+                $trustedStagedImages = true;
+            }
         }
 
         $existingImageReferences = $isEditable

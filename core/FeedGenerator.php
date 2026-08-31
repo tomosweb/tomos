@@ -101,7 +101,7 @@ final class FeedGenerator
             return Security::absoluteUrl($siteUrl, $internalUrl);
         }
 
-        return Security::absoluteUrl($siteUrl, Security::publicUrl($internalUrl, $this->publicBasePath));
+        return Security::absolutePublicUrl($siteUrl, $internalUrl, $this->publicBasePath);
     }
 
     private function comparePages(array $a, array $b): int
@@ -111,13 +111,13 @@ final class FeedGenerator
 
     private function rssDate(array $page): ?string
     {
-        $timestamp = $this->timestamp($page, ['date', 'updated']);
+        $timestamp = $this->timestamp($page, ['date', 'published']);
         return $timestamp === null ? null : date('r', $timestamp);
     }
 
     private function sortDate(array $page): string
     {
-        $timestamp = $this->timestamp($page, ['date', 'updated']);
+        $timestamp = $this->timestamp($page, ['date', 'published']);
         return str_pad((string) ($timestamp ?? 0), 10, '0', STR_PAD_LEFT);
     }
 
@@ -135,8 +135,7 @@ final class FeedGenerator
             }
         }
 
-        $mtime = $page['mtime'] ?? null;
-        return is_numeric($mtime) ? (int) $mtime : null;
+        return null;
     }
 
     private function pageTitle(array $page): string

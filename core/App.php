@@ -56,6 +56,12 @@ final class App
         $performance->lap('pages_ready');
         $navigation = new NavigationBuilder($publicBasePath, $this->themeSettings()->settings()['navigation'] ?? []);
 
+        if ($route->isValid && $this->isRobotsRoute($route->urlPath)) {
+            header('Content-Type: text/plain; charset=utf-8');
+            echo $this->robotsTxt($publicBasePath);
+            return;
+        }
+
         if ($route->isValid && $this->isFeedRoute($route->urlPath)) {
             if (empty($this->config['features']['rss'])) {
                 http_response_code(404);
@@ -153,18 +159,20 @@ final class App
 
         echo $this->renderPage($renderer, $navigation, $pages, [
             'title' => $page['title'],
-            'description' => $page['description'] !== '' || !empty($page['description_explicit'])
-                ? $page['description']
-                : $this->config['site']['description'],
+            'description' => SeoMetadata::description($page, $this->config['site']),
             'url' => Security::publicUrl($page['url'], $publicBasePath),
+            'page_type' => $page['page_type'] ?? 'markdown_page',
+            'title_explicit' => $page['title_explicit'] ?? false,
             'date' => $page['date'],
+            'published' => $page['published'] ?? '',
             'updated' => $page['updated'],
+            'image' => $page['image'] ?? '',
+            'excerpt' => $page['excerpt'] ?? '',
             'tags' => $page['tags'],
             'language' => $page['language'] ?? null,
             'tags_html' => $this->pageTagsHtml(is_array($page['tags']) ? $page['tags'] : [], $publicBasePath),
             'content' => $contentHtml,
             'path' => $page['path'],
-            'page_type' => $page['page_type'] ?? 'markdown_page',
             'folder_path' => $page['folder_path'] ?? '',
             'folder_page_number' => $this->positivePageNumber($requestUri),
             'internal_url' => $page['url'],
@@ -380,8 +388,13 @@ final class App
             'title' => $title,
             'description' => $description,
             'url' => '',
+            'page_type' => 'website',
+            'title_explicit' => true,
             'date' => '',
+            'published' => '',
             'updated' => '',
+            'image' => '',
+            'excerpt' => $description,
             'tags' => [],
             'tags_html' => '',
             'content' => $content,
@@ -404,8 +417,13 @@ final class App
                 'title' => 'タグ一覧',
                 'description' => 'タグからページを探します。',
                 'url' => Security::publicUrl('/tags/', $publicBasePath),
+                'page_type' => 'website',
+                'title_explicit' => true,
                 'date' => '',
+                'published' => '',
                 'updated' => '',
+                'image' => '',
+                'excerpt' => 'タグからページを探します。',
                 'tags' => [],
                 'tags_html' => '',
                 'content' => $tagIndex->indexHtml(),
@@ -422,8 +440,13 @@ final class App
                 'title' => 'タグが見つかりません',
                 'description' => '指定されたタグのページはありません。',
                 'url' => '',
+                'page_type' => 'website',
+                'title_explicit' => true,
                 'date' => '',
+                'published' => '',
                 'updated' => '',
+                'image' => '',
+                'excerpt' => '指定されたタグのページはありません。',
                 'tags' => [],
                 'tags_html' => '',
                 'content' => '<p>指定されたタグのページはありません。</p>',
@@ -437,8 +460,13 @@ final class App
             'title' => 'タグ: ' . $tag,
             'description' => 'タグ「' . $tag . '」のページ一覧です。',
             'url' => $tagIndex->tagUrl($tag),
+            'page_type' => 'website',
+            'title_explicit' => true,
             'date' => '',
+            'published' => '',
             'updated' => '',
+            'image' => '',
+            'excerpt' => 'タグ「' . $tag . '」のページ一覧です。',
             'tags' => [],
             'tags_html' => '',
             'content' => $tagIndex->tagPageHtml($tag),
@@ -461,8 +489,13 @@ final class App
             'title' => '検索',
             'description' => 'サイト内を検索します。',
             'url' => Security::publicUrl('/search/', $publicBasePath),
+            'page_type' => 'website',
+            'title_explicit' => true,
             'date' => '',
+            'published' => '',
             'updated' => '',
+            'image' => '',
+            'excerpt' => 'サイト内を検索します。',
             'tags' => [],
             'tags_html' => '',
             'content' => $searchIndex->pageHtml($query),
@@ -572,6 +605,26 @@ final class App
     private function isSitemapRoute(string $urlPath): bool
     {
         return $urlPath === '/sitemap.xml';
+    }
+
+    private function isRobotsRoute(string $urlPath): bool
+    {
+        return $urlPath === '/robots.txt';
+    }
+
+    private function robotsTxt(string $publicBasePath): string
+    {
+        $lines = ['User-agent: *', 'Allow: /'];
+        $siteUrl = (string) ($this->config['site']['url'] ?? '');
+        if (!empty($this->config['features']['sitemap'])) {
+            $sitemapUrl = Security::absolutePublicUrl($siteUrl, '/sitemap.xml', $publicBasePath);
+            if ($sitemapUrl !== '') {
+                $lines[] = '';
+                $lines[] = 'Sitemap: ' . $sitemapUrl;
+            }
+        }
+
+        return implode("\n", $lines) . "\n";
     }
 
     private function queryParam(string $requestUri, string $name): string

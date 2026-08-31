@@ -143,12 +143,16 @@ final class PageRepository
         return new PageLookupResult('ok', [
             'path' => $contentPath,
             'url' => $this->urlFromContentPath($contentPath),
+            'page_type' => $this->pageTypeFromContentPath($contentPath),
             'title' => $metadata['title'],
+            'title_explicit' => $metadata['title_explicit'] ?? false,
             'description' => $metadata['description'],
             'description_explicit' => $metadata['description_explicit'] ?? false,
+            'excerpt' => $this->frontMatterParser->excerptFromMarkdown($parsed['body']),
             'date' => $metadata['date'],
             'published' => $metadata['published'],
             'updated' => $metadata['updated'],
+            'image' => $metadata['image'],
             'tags' => $metadata['tags'],
             'draft' => $metadata['draft'],
             'file' => $realPath,
@@ -171,5 +175,18 @@ final class PageRepository
         }
 
         return '/' . substr($contentPath, 0, -3);
+    }
+
+    public function pageTypeFromContentPath(string $contentPath): string
+    {
+        if ($contentPath === 'index.md') {
+            return 'home';
+        }
+
+        if ($contentPath === 'about.md') {
+            return 'fixed_page';
+        }
+
+        return 'markdown_page';
     }
 }

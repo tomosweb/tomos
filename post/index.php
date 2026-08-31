@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($inboxPreviewPath !== '' || $inboxD
     if (!$read->ok) {
         http_response_code(404);
         header('Cache-Control: no-store, private');
-        echo '受信箱の原稿を確認できませんでした。';
+        echo '下書き原稿を確認できませんでした。';
         exit;
     }
     if ($inboxDownloadPath !== '' || $postDraftDownloadPath !== '') {
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($inboxPreviewPath !== '' || $inboxD
     }
 
     try {
-        $preview = (new Tomos\PostInboxPreview($config, $rootDir))->render($read->content, $read->fileName, $isPostDraft ? $read->path : '');
+        $preview = (new Tomos\PostInboxPreview($config, $rootDir))->render($read->content, $read->fileName, $isPostDraft ? $read->path : $read->fileName);
     } catch (Throwable $exception) {
         http_response_code(500);
         header('Cache-Control: no-store, private');
@@ -325,7 +325,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($uploadResult->ok) {
                         $messages[] = uploadSuccessMessage($uploadResult);
                         if (!$inbox->delete($inboxRead->path)) {
-                            $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+                            $warnings[] = '公開は完了しましたが、下書き原稿を削除できませんでした。手動で確認してください。';
                         }
                         $warnings = array_merge($warnings, $uploadResult->warnings);
                         $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -366,7 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($uploadResult->ok) {
                             $messages[] = uploadSuccessMessage($uploadResult);
                             if (!$drafts->inbox()->delete($inboxRead->path)) {
-                                $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+                                $warnings[] = '公開は完了しましたが、下書き原稿を削除できませんでした。手動で確認してください。';
                             }
                             $warnings = array_merge($warnings, $uploadResult->warnings);
                             $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -934,6 +934,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 .image-status-list{list-style:none;margin:0.75rem 0;padding:0}.image-status-item{border-top:1px solid var(--tomos-border-soft);padding:0.75rem 0}.image-status-item:first-child{border-top:0}.image-status-line{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.image-status-ok{color:#2f6131;font-weight:700}.image-status-missing,.image-match-warning{color:var(--tomos-danger-text);font-weight:700}.image-omit-label,.remember-auth{align-items:flex-start;display:flex;font-weight:400;gap:0.5rem;margin:0.65rem 0}.image-omit-label input,.remember-auth input{margin-top:0.35rem}.auth-actions{align-items:center;display:flex;justify-content:flex-end;margin:-0.25rem 0 1rem}.auth-actions form{margin:0}
 .nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
+.result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}
 </style></head><body><main class="wrap">';
 
     echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}</style>';
@@ -2305,7 +2306,7 @@ function renderDraftSection(string $token, array $config, string $submissionId):
     $drafts = new Tomos\PostDrafts($config, dirname(__DIR__));
     $items = $drafts->list();
     echo '<h2 id="post-inbox">下書き</h2>';
-    echo '<p class="hint">InboxやTomos Postから保存された下書きを確認し、必要な原稿だけ公開します。</p>';
+    echo '<p class="hint">外部投稿やTomos Postから保存された下書きを確認し、必要な原稿だけ公開します。</p>';
     if ($items === []) {
         echo '<div class="result"><p>下書きはありません。</p></div>';
         return;
@@ -2315,7 +2316,7 @@ function renderDraftSection(string $token, array $config, string $submissionId):
     foreach ($items as $index => $item) {
         $timestamp = formatInboxTimestamp($item->modifiedAt, $config);
         echo '<article class="editable-result">';
-        echo '<p class="editable-status">' . e($item->source === 'inbox' ? '投稿元: Inbox' : '投稿元: Tomos Post') . '</p>';
+        echo '<p class="editable-status">' . e($item->source === 'inbox' ? '投稿元: 外部投稿' : '投稿元: Tomos Post') . '</p>';
         echo '<h3>' . e($item->title !== '' ? $item->title : $item->fileName) . '</h3>';
         echo '<p><code>' . e($item->fileName) . '</code></p>';
         echo '<p class="hint">更新：' . e($timestamp) . ' / サイズ：' . e(formatInboxBytes($item->size)) . '</p>';
@@ -2606,7 +2607,7 @@ function publishPendingInbox(string $tempId, array $config, string $rootDir, arr
     }
     $inbox = new Tomos\PostInbox($config, $rootDir);
     if (!$inbox->delete($path)) {
-        $warnings[] = '公開は完了しましたが、受信箱からファイルを削除できませんでした。手動で確認してください。';
+        $warnings[] = '公開は完了しましたが、下書き原稿を削除できませんでした。手動で確認してください。';
         return;
     }
     forgetInboxTemp($tempId);
