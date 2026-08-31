@@ -122,14 +122,14 @@ final class ImageProcessor
         $width = imagesx($source);
         $height = imagesy($source);
         if ($width <= 0 || $height <= 0) {
-            imagedestroy($source);
+            $this->releaseGdImage($source);
             return new ImageProcessResult(false, '', '画像サイズを確認できませんでした。');
         }
 
         [$targetWidth, $targetHeight] = $this->targetSize($width, $height);
         $canvas = imagecreatetruecolor($targetWidth, $targetHeight);
         if (!$this->isGdImage($canvas)) {
-            imagedestroy($source);
+            $this->releaseGdImage($source);
             return new ImageProcessResult(false, '', '画像を加工できませんでした。');
         }
 
@@ -143,14 +143,14 @@ final class ImageProcessor
         }
 
         if (!imagecopyresampled($canvas, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height)) {
-            imagedestroy($source);
-            imagedestroy($canvas);
+            $this->releaseGdImage($source);
+            $this->releaseGdImage($canvas);
             return new ImageProcessResult(false, '', '画像を加工できませんでした。');
         }
 
         $saved = $this->saveImage($canvas, $targetPath, $extension);
-        imagedestroy($source);
-        imagedestroy($canvas);
+        $this->releaseGdImage($source);
+        $this->releaseGdImage($canvas);
 
         if (!$saved) {
             @unlink($targetPath);
@@ -244,14 +244,14 @@ final class ImageProcessor
 
         $working = @imagecreatetruecolor(imagesx($image), imagesy($image));
         if (!$this->isGdImage($working) || !@imagecopy($working, $image, 0, 0, 0, 0, imagesx($image), imagesy($image))) {
-            if ($this->isGdImage($working)) imagedestroy($working);
+            if ($this->isGdImage($working)) $this->releaseGdImage($working);
             return false;
         }
 
         if (in_array($orientation, [2, 4, 5, 7], true)) {
             $flipMode = $orientation === 4 ? IMG_FLIP_VERTICAL : IMG_FLIP_HORIZONTAL;
             if (!@imageflip($working, $flipMode)) {
-                imagedestroy($working);
+                $this->releaseGdImage($working);
                 return false;
             }
         }
@@ -266,16 +266,16 @@ final class ImageProcessor
         }
 
         if ($degrees === 0) {
-            imagedestroy($image);
+            $this->releaseGdImage($image);
             return $working;
         }
         $rotated = @imagerotate($working, $degrees, 0);
         if (!$this->isGdImage($rotated)) {
-            imagedestroy($working);
+            $this->releaseGdImage($working);
             return false;
         }
-        imagedestroy($working);
-        imagedestroy($image);
+        $this->releaseGdImage($working);
+        $this->releaseGdImage($image);
         return $rotated;
     }
 
@@ -438,6 +438,13 @@ final class ImageProcessor
         }
 
         return class_exists('GdImage') && $value instanceof \GdImage;
+    }
+
+    private function releaseGdImage($image): void
+    {
+        if (PHP_VERSION_ID < 80000 && is_resource($image)) {
+            imagedestroy($image);
+        }
     }
 
     private function tempPath(string $tempDir, string $extension): string

@@ -41,9 +41,9 @@ HTML内のRSSリンクは、通常の画面リンクと同じく `public_base_pa
 
 ## 日付
 
-RSSの `pubDate` は `date`、`updated`、`mtime` の順に利用します。
+RSSの `pubDate` は `date`、`published` の順に利用します。
 
-sitemapの `lastmod` は `updated`、`date`、`mtime` の順に利用します。
+sitemapの `lastmod` は `updated`、`date`、`published` の順に利用します。意味のあるmetadataがないページでは `lastmod` を省略します。
 
 日付が解釈できない場合は、その項目を省略します。
 

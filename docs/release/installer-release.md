@@ -37,7 +37,7 @@ Release完了前に必ず以下を満たすこと。
 - `composer.lock`が対象依存versionを固定していること。
 - 本番private keyがrepository外にあり、`update/public-key.pem`と対応していること。
 - `tomosweb/tomos-official-site` のproduction環境に既存SFTP設定があること。
-- private `tomos-dev` Releaseを読むため、公式サイト側production環境に `TOMOS_RELEASE_READ_TOKEN` が設定されていること。fine-grained tokenを使う場合は対象repositoryを `tomosweb/tomos-dev` に限定し、ContentsをRead-onlyとする。
+- 公開配布Release `tomosweb/tomos` を読むため、公式サイト側production環境から公開Release Assetsを取得できること。公開repositoryへのwrite credentialは使用しない。
 
 ## Release候補生成
 

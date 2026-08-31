@@ -234,6 +234,12 @@ final class MetadataIndex
                 return null;
             }
 
+            foreach (['image', 'page_type', 'title_explicit'] as $requiredKey) {
+                if (!array_key_exists($requiredKey, $page)) {
+                    return null;
+                }
+            }
+
             if (LanguageTag::normalizeOrNull($page['language']) === null) {
                 return null;
             }
@@ -371,12 +377,15 @@ final class MetadataIndex
         return [
             'path' => $relativePath,
             'url' => $this->pageRepository->urlFromContentPath($relativePath),
+            'page_type' => $this->pageRepository->pageTypeFromContentPath($relativePath),
             'title' => $metadata['title'],
+            'title_explicit' => $metadata['title_explicit'] ?? false,
             'description' => $metadata['description'],
             'description_explicit' => $metadata['description_explicit'] ?? false,
             'date' => $metadata['date'],
             'published' => $metadata['published'],
             'updated' => $metadata['updated'],
+            'image' => $metadata['image'],
             'tags' => $metadata['tags'],
             'excerpt' => $this->frontMatterParser->excerptFromMarkdown($parsed['body']),
             'search_text' => $this->searchText($metadata, $parsed['body']),

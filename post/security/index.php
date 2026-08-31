@@ -171,7 +171,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php if ($authenticated): ?>
 <section class="card">
 <h2>Obsidian投稿用トークン</h2>
-<p class="hint">ObsidianからTomos InboxへHTTPS投稿するための専用トークンです。再発行すると以前のトークンは無効になります。</p>
+<p class="hint">ObsidianからTomosへHTTPS投稿するための専用トークンです。再発行すると以前のトークンは無効になります。</p>
 <form method="post" action="">
 <input type="hidden" name="action" value="issue_inbox_api_token">
 <input type="hidden" name="_token" value="<?= htmlspecialchars((string) ($_SESSION['tomos_post_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
