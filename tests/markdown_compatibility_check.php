@@ -32,6 +32,7 @@ $html = (new MarkdownParser())->toHtml($markdown);
 
 compatibilityAssert(strpos($html, '<h1>H1</h1>') !== false, 'H1 is not rendered');
 compatibilityAssert(strpos($html, '<h6>H6</h6>') !== false, 'H6 is not rendered');
+compatibilityAssert(strpos($html, '<hr>') !== false, 'horizontal rule is not rendered');
 compatibilityAssert(strpos($html, '<em><strong>bold italic</strong></em>') !== false, 'bold italic nesting is invalid');
 compatibilityAssert(strpos($html, '</em></strong>') === false, 'bold italic contains crossing closing tags');
 compatibilityAssert(strpos($html, '<del>strikethrough</del>') !== false, 'strikethrough is not rendered');

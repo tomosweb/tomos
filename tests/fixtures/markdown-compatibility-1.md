@@ -13,6 +13,8 @@ Paragraph line three.
 
 > A blockquote with **inline emphasis**.
 
+---
+
 - unordered parent
   - nested unordered child
   1. nested ordered child
