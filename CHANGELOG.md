@@ -1,5 +1,27 @@
 # 更新履歴
 
+## v0.6.0 - 2026-08-31
+
+### Added
+
+- Markdown Compatibility 1.0を追加し、nested list、task list、strikethrough、fenced code language、HTTP(S) autolink、GFM-compatible tableに対応しました。
+- SEO Foundation 1.0を追加し、Coreで正規化したtitle、description、canonical、OGP、Twitter Card、sitemap、robotsを出力できるようにしました。
+- Themeの`{{{ page.seo_head_html }}}`契約を追加し、同梱6Themeと実運用custom Themeを移行しました。
+
+### Fixed
+
+- bold italicのHTML nestingを修正しました。
+- RSS、sitemap、OGP、canonicalで公開URL生成規則を揃えました。
+- sitemapの`lastmod`からfilesystem mtime fallbackを除外しました。
+
+### Compatibility
+
+- Tomos Write PreviewとCore公開HTMLのMarkdown意味・構造を整合させました。
+- raw HTMLは標準設定で実行・適用しません。
+- 既存記事ではnested list、task list、`~~...~~`、bare URL、language fenced codeの表示が変わる可能性があります。重大な既存記事破壊は確認されていません。
+- v0.5.3からv0.6.0へは、通常の署名付きTomos Updateで更新します。`from_version`は`0.5.3`、`version`は`0.6.0`です。
+- `config.php`、`content/`、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.5.3 - 2026-08-30
 
 ### Added

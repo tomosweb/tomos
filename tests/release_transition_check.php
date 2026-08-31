@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.5.2';
-$fromRef = '2dc3ce590bc8bd8305eb6c7733519ea5b9cd1591';
+$fromVersion = '0.5.3';
+$fromRef = 'f08a2b720ec43f2b7a153cfa798c42d4d4b13f8f';
 require_once $root . '/tools/UpdateFileSet.php';
-// v0.5.2 is maintained in the public distribution repository. Use its
-// immutable peeled commit because the dev repository intentionally does not
-// publish the public release tag.
+// v0.5.3 is the immutable release baseline for the normal update path.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.5.3') {
-    throw new RuntimeException('release transition check requires VERSION 0.5.3');
+if ($targetVersion !== '0.6.0') {
+    throw new RuntimeException('release transition check requires VERSION 0.6.0');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -122,12 +120,12 @@ try {
             'post/inbox/image/index.php',
             'post/index.php',
             'post/security/index.php',
-        ] as $requiredV053Runtime) {
-            if (!in_array($requiredV053Runtime, $runtimeFiles, true)) {
-                throw new RuntimeException('required v0.5.3 runtime was not derived: ' . $requiredV053Runtime);
+        ] as $requiredPreviousRuntime) {
+            if (!in_array($requiredPreviousRuntime, $runtimeFiles, true)) {
+                throw new RuntimeException('required previous-release runtime was not derived: ' . $requiredPreviousRuntime);
             }
-            if (!isset($manifest['files'][$requiredV053Runtime])) {
-                throw new RuntimeException('required v0.5.3 runtime is missing from manifest: ' . $requiredV053Runtime);
+            if (!isset($manifest['files'][$requiredPreviousRuntime])) {
+                throw new RuntimeException('required previous-release runtime is missing from manifest: ' . $requiredPreviousRuntime);
             }
         }
     } finally {
