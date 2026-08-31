@@ -21,7 +21,7 @@ A same-version package must not be published through the normal Tomos Update rel
 
 For Phase 4 dogfood only, an unreleased runtime fix may be applied manually to the official site when all of the following hold:
 
-1. the patch is already merged to the controlled development `main` branch;
+1. the patch is already merged to `tomos-dev/main`;
 2. the changed runtime file set is explicitly enumerated;
 3. the patch does not require schema migration or a `VERSION` change;
 4. the production signing key is not required because the normal Update path is intentionally not being exercised;
