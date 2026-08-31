@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.5.3';
-$fromRef = 'f08a2b720ec43f2b7a153cfa798c42d4d4b13f8f';
+$fromVersion = '0.6.0';
+$fromRef = 'v0.6.0';
 require_once $root . '/tools/UpdateFileSet.php';
 // v0.5.3 is the immutable release baseline for the normal update path.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.6.0') {
-    throw new RuntimeException('release transition check requires VERSION 0.6.0');
+if ($targetVersion !== '0.6.1') {
+    throw new RuntimeException('release transition check requires VERSION 0.6.1');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -110,10 +110,12 @@ try {
         foreach ([
             'VERSION',
             'core/App.php',
-            'core/MarkdownParser.php',
+            'core/FrontMatterParser.php',
+            'core/Router.php',
+            'core/Security.php',
             'core/SeoMetadata.php',
+            'core/SitemapGenerator.php',
             'core/TemplateRenderer.php',
-            'themes/tomos-minimal/templates/layout.html',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
