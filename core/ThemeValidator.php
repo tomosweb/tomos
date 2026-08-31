@@ -64,6 +64,7 @@ final class ThemeValidator
         }
 
         $this->validateRecommendedAssets($realThemeDir, $warnings);
+        $this->validateSeoHeadPlaceholder($realThemeDir, $warnings);
 
         $themeJson = $this->validateThemeJson($realThemeDir, $themeName, $errors);
         if ($themeJson !== null) {
@@ -187,6 +188,19 @@ final class ThemeValidator
             if (!is_file($themeDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $file))) {
                 $warnings[] = $file . ' がありません。';
             }
+        }
+    }
+
+    private function validateSeoHeadPlaceholder(string $themeDir, array &$warnings): void
+    {
+        $layout = $themeDir . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'layout.html';
+        if (!is_file($layout)) {
+            return;
+        }
+
+        $content = file_get_contents($layout);
+        if ($content !== false && strpos($content, '{{{ page.seo_head_html }}}') === false) {
+            $warnings[] = 'templates/layout.html にSEO head placeholderがありません。';
         }
     }
 

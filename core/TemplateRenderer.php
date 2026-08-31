@@ -13,6 +13,7 @@ final class TemplateRenderer
         'page.body' => true,
         'page.content' => true,
         'page.meta_html' => true,
+        'page.seo_head_html' => true,
         'page.toc' => true,
         'page.tags_html' => true,
         'page.folder_pages_html' => true,
@@ -136,6 +137,14 @@ final class TemplateRenderer
             'title' => $title,
             'description' => $message,
             'url' => Security::publicUrl('/404', $publicBasePath),
+            'internal_url' => '/404',
+            'page_type' => 'website',
+            'title_explicit' => true,
+            'excerpt' => $message,
+            'image' => '',
+            'date' => '',
+            'published' => '',
+            'updated' => '',
             'content' => '<p>' . $this->escape($message) . '</p>',
             'status' => $status,
             'track_page' => false,
@@ -162,17 +171,27 @@ final class TemplateRenderer
             ? Ga4::headHtml($this->config, $this->analyticsNonce)
             : '';
         $ogpAsset = $this->themeAsset('ogp.png');
-        $site['ogp_url'] = Security::absoluteUrl(
-            (string) ($site['url'] ?? ''),
-            $this->absoluteInternalUrl(
+        $defaultSocialImageUrl = is_file($ogpAsset['path'])
+            ? Security::absolutePublicUrl(
+                (string) ($site['url'] ?? ''),
                 '/themes/' . rawurlencode($ogpAsset['theme']) . '/assets/' . rawurlencode($ogpAsset['file']),
                 $publicBasePath
             )
+            : null;
+        $site['ogp_url'] = $defaultSocialImageUrl ?? '';
+        $seo = SeoMetadata::build(
+            $page,
+            $site,
+            $publicBasePath,
+            $defaultSocialImageUrl,
+            (string) ($this->config['paths']['content_dir'] ?? '')
         );
-        $page['absolute_url'] = Security::absoluteUrl(
-            (string) ($site['url'] ?? ''),
-            $this->absoluteInternalUrl((string) ($page['internal_url'] ?? '/'), $publicBasePath)
+        $page['absolute_url'] = $seo['canonical_url'];
+        $page['seo_head_html'] = SeoMetadata::headHtml(
+            $seo,
+            !empty($this->config['features']['rss']) ? Security::publicUrl('/feed.xml', $publicBasePath) : ''
         );
+        $page['seo'] = $seo;
         $nav = [
             'home_url' => Security::publicUrl('/', $publicBasePath),
             'about_url' => Security::publicUrl('/about', $publicBasePath),
@@ -259,17 +278,22 @@ final class TemplateRenderer
 
     private function themeAsset(string $file): array
     {
-        if (is_file($this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file)) {
-            return ['theme' => $this->effectiveThemeName, 'file' => $file];
+        $themeAssetPath = $this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file;
+        if (is_file($themeAssetPath)) {
+            return ['theme' => $this->effectiveThemeName, 'file' => $file, 'path' => $themeAssetPath];
         }
 
         $fallbackPath = $this->themeDirectory('tomos-minimal')
             . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file;
         if (is_file($fallbackPath)) {
-            return ['theme' => 'tomos-minimal', 'file' => $file];
+            return ['theme' => 'tomos-minimal', 'file' => $file, 'path' => $fallbackPath];
         }
 
-        return ['theme' => $this->effectiveThemeName, 'file' => $file];
+        return [
+            'theme' => $this->effectiveThemeName,
+            'file' => $file,
+            'path' => $this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file,
+        ];
     }
 
     private function themeDirectory(string $themeName): string
@@ -287,22 +311,6 @@ final class TemplateRenderer
         }
 
         return (string) ($this->config['site']['base_path'] ?? '');
-    }
-
-    private function absoluteInternalUrl(string $internalUrl, string $publicBasePath): string
-    {
-        $siteUrl = trim((string) ($this->config['site']['url'] ?? ''));
-        $sitePath = parse_url($siteUrl, PHP_URL_PATH);
-        if (is_string($sitePath) && trim($sitePath, '/') !== '') {
-            return $internalUrl;
-        }
-
-        $publicBasePath = Security::normalizeBasePath($publicBasePath);
-        if ($internalUrl === '' || $internalUrl === '/') {
-            return $publicBasePath === '' ? '/' : $publicBasePath . '/';
-        }
-
-        return $publicBasePath . '/' . ltrim($internalUrl, '/');
     }
 
     private function renderTemplate(string $template, array $context): string

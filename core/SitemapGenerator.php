@@ -58,7 +58,7 @@ final class SitemapGenerator
             return Security::absoluteUrl($this->siteUrl, $internalUrl);
         }
 
-        return Security::absoluteUrl($this->siteUrl, Security::publicUrl($internalUrl, $this->publicBasePath));
+        return Security::absolutePublicUrl($this->siteUrl, $internalUrl, $this->publicBasePath);
     }
 
     private function pagesWithVirtualFolders(): array
@@ -87,8 +87,8 @@ final class SitemapGenerator
                 $byUrl[$url] = [
                     'url' => $url,
                     'date' => (string) ($page['date'] ?? ''),
+                    'published' => (string) ($page['published'] ?? ''),
                     'updated' => (string) ($page['updated'] ?? ''),
-                    'mtime' => $page['mtime'] ?? null,
                 ];
             }
         }
@@ -98,7 +98,7 @@ final class SitemapGenerator
 
     private function lastmod(array $page): ?string
     {
-        foreach (['updated', 'date'] as $key) {
+        foreach (['updated', 'date', 'published'] as $key) {
             $value = trim((string) ($page[$key] ?? ''));
             if ($value === '') {
                 continue;
@@ -110,8 +110,7 @@ final class SitemapGenerator
             }
         }
 
-        $mtime = $page['mtime'] ?? null;
-        return is_numeric($mtime) ? date('Y-m-d', (int) $mtime) : null;
+        return null;
     }
 
     private function escape(string $value): string

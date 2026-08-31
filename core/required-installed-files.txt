@@ -54,6 +54,7 @@ core/PostPasswordHashUpdater.php
 core/PageSorter.php
 core/LanguageTag.php
 core/PublishedMetadata.php
+core/SeoMetadata.php
 core/PasskeyPasswordResetService.php
 core/PasskeyServerRecoveryService.php
 core/webauthn/composer.json

@@ -207,6 +207,22 @@ final class Security
         return $base . $internalUrl;
     }
 
+    public static function absolutePublicUrl(string $siteUrl, string $internalUrl, string $publicBasePath = ''): string
+    {
+        $path = parse_url($internalUrl, PHP_URL_PATH);
+        $path = is_string($path) && $path !== '' ? $path : '/';
+        if ($path[0] !== '/') {
+            $path = '/' . $path;
+        }
+
+        $sitePath = parse_url(trim($siteUrl), PHP_URL_PATH);
+        if (is_string($sitePath) && trim($sitePath, '/') !== '') {
+            return self::absoluteUrl($siteUrl, $path);
+        }
+
+        return self::absoluteUrl($siteUrl, self::publicUrl($path, $publicBasePath));
+    }
+
     private static function hasDotDotSegment(string $path): bool
     {
         return preg_match('#(^|/)\.\.?(/|$)#', $path) === 1;
