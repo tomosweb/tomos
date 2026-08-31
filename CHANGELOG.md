@@ -1,5 +1,18 @@
 # 更新履歴
 
+## v0.6.1 - 2026-08-31
+
+### Fixed
+
+- 日本語などのUTF-8を含む公開URLを一度だけpercent-encodeし、canonical、OGP、sitemap、RSSで同じ正規URLを使うようにしました。
+- 404ページではcanonicalと`og:url`を出力しないようにしました。
+- mbstringがない環境でもdescriptionのUTF-8文字列を安全に切り詰めます。
+
+### Compatibility
+
+- v0.6.0からv0.6.1へは、通常の署名付きTomos Updateで更新します。`from_version`は`0.6.0`、`version`は`0.6.1`です。
+- 既存のURL構造、Markdown、テーマ、設定、content、運用データは変更しません。
+
 ## v0.6.0 - 2026-08-31
 
 ### Added
