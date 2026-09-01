@@ -30,16 +30,16 @@ final class UpdateReleaseProvider
     {
         $this->assertVersion($currentVersion, 'current_version');
         $catalog = $this->decodeCatalog($this->fetchCatalog());
-        $updates = $catalog['updates'];
-        foreach ($updates as $update) {
+        foreach ($catalog['updates'] as $update) {
             if ($update['from'] === $currentVersion) {
-                return [
-                    'current_version' => $currentVersion,
-                    'update_available' => true,
-                    'next_version' => $update['to'],
-                    'package_url' => $update['package_url'],
-                    'sha256' => $update['sha256'],
-                ];
+                return $this->updateResult($currentVersion, $update);
+            }
+        }
+        // Keep recovery entries outside the normal update list. Older clients
+        // ignore this optional field and can still consume normal updates.
+        foreach ($catalog['recovery_updates'] as $update) {
+            if ($update['from'] === $currentVersion) {
+                return $this->updateResult($currentVersion, $update);
             }
         }
 
@@ -50,6 +50,21 @@ final class UpdateReleaseProvider
             'package_url' => null,
             'sha256' => null,
         ];
+    }
+
+    private function updateResult(string $currentVersion, array $update): array
+    {
+        $result = [
+            'current_version' => $currentVersion,
+            'update_available' => true,
+            'next_version' => $update['to'],
+            'package_url' => $update['package_url'],
+            'sha256' => $update['sha256'],
+        ];
+        if (($update['recovery'] ?? false) === true) {
+            $result['recovery'] = true;
+        }
+        return $result;
     }
 
     private function fetchCatalog(): string
@@ -189,21 +204,46 @@ final class UpdateReleaseProvider
         ) {
             $this->fail('catalog', '更新カタログの形式が正しくありません。');
         }
-        $seenFrom = [];
+        $seenFrom = $this->validateEntries($catalog['updates'], false);
+        $recoveryUpdates = $catalog['recovery_updates'] ?? [];
+        if (!is_array($recoveryUpdates)) {
+            $this->fail('catalog', '更新カタログのrecovery_updates構造が正しくありません。');
+        }
+        $this->validateEntries($recoveryUpdates, true);
         foreach ($catalog['updates'] as $update) {
+            foreach (array_keys($seenFrom) as $intermediateFrom) {
+                if (version_compare($update['from'], $intermediateFrom, '<')
+                    && version_compare($intermediateFrom, $update['to'], '<')
+                ) {
+                    $this->fail('update_sequence', '更新カタログに中間バージョンを飛び越す更新経路があります。');
+                }
+            }
+        }
+        $catalog['recovery_updates'] = $recoveryUpdates;
+        return $catalog;
+    }
+
+    private function validateEntries(array $updates, bool $recoveryOnly): array
+    {
+        $seenFrom = [];
+        foreach ($updates as $update) {
             if (!is_array($update)
                 || !is_string($update['from'] ?? null)
                 || !is_string($update['to'] ?? null)
                 || !is_string($update['package_url'] ?? null)
                 || !is_string($update['sha256'] ?? null)
             ) {
-                $this->fail('catalog', '更新カタログのupdates構造が正しくありません。');
+                $this->fail('catalog', '更新カタログの更新entry構造が正しくありません。');
             }
             $from = $update['from'];
             $to = $update['to'];
+            $recovery = array_key_exists('recovery', $update) ? $update['recovery'] : false;
+            if (!is_bool($recovery) || ($recoveryOnly && $recovery !== true)) {
+                $this->fail('catalog', '更新カタログのrecovery指定が不正です。');
+            }
             $this->assertVersion($from, 'from');
             $this->assertVersion($to, 'to');
-            if (version_compare($from, $to, '>=')) {
+            if ($recoveryOnly ? $from !== $to : ($recovery ? $from !== $to : version_compare($from, $to, '>='))) {
                 $this->fail('version', '更新カタログの更新順序が正しくありません。');
             }
             if (isset($seenFrom[$from])) {
@@ -215,16 +255,7 @@ final class UpdateReleaseProvider
                 $this->fail('sha256', '更新カタログのSHA-256が不正です。');
             }
         }
-        foreach ($catalog['updates'] as $update) {
-            foreach (array_keys($seenFrom) as $intermediateFrom) {
-                if (version_compare($update['from'], $intermediateFrom, '<')
-                    && version_compare($intermediateFrom, $update['to'], '<')
-                ) {
-                    $this->fail('update_sequence', '更新カタログに中間バージョンを飛び越す更新経路があります。');
-                }
-            }
-        }
-        return $catalog;
+        return $seenFrom;
     }
 
     private function assertVersion(string $version, string $field): void
