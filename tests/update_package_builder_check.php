@@ -119,6 +119,28 @@ try {
     check(($rulesMetadata['target'] ?? null) === 'docs/theme/theme-rules.json', 'Theme rules pending metadata preserves the runtime target');
     $rulesZip->close();
 
+    $legacyRequiredList = $tmp . '/legacy-required-files.txt';
+    $legacyRequiredContents = "VERSION\ncore/required-installed-files.txt\n";
+    file_put_contents($legacyRequiredList, $legacyRequiredContents, LOCK_EX);
+    $bootstrapOutput = $tmp . '/tomos-update-' . $targetVersion . '-legacy-bootstrap.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $bootstrapOutput,
+        'bootstrap-legacy-required-list' => $legacyRequiredList,
+        'file' => ['VERSION', 'core/UpdaterSelfUpdate.php', 'core/required-installed-files.txt', 'docs/theme/theme-rules.json'],
+    ]);
+    check($code === 0, 'builder accepts the legacy bootstrap required-file list: ' . $outputText);
+    $bootstrapZip = new ZipArchive();
+    check($bootstrapZip->open($bootstrapOutput) === true, 'legacy bootstrap ZIP opens');
+    $bootstrapManifest = json_decode((string) $bootstrapZip->getFromName('manifest.json'), true);
+    check(($bootstrapManifest['files']['core/required-installed-files.txt'] ?? null) === hash('sha256', $legacyRequiredContents), 'legacy bootstrap keeps the pre-update required-file list for first verification');
+    check($bootstrapZip->getFromName('files/core/required-installed-files.txt') === $legacyRequiredContents, 'legacy bootstrap contains the pre-update required-file list');
+    check($bootstrapZip->getFromName('files/core/updater-pending/required-installed-files.txt') === (string) file_get_contents($root . '/core/required-installed-files.txt'), 'legacy bootstrap carries the v0.6.2 required-file list as pending data');
+    check($bootstrapZip->getFromName('files/core/updater-pending/required-installed-files.meta.json') !== false, 'legacy bootstrap carries required-file list metadata');
+    $bootstrapZip->close();
+
     $bridgeOutput = $tmp . '/tomos-update-' . $targetVersion . '-bridge.zip';
     [$code, $outputText] = runBuilder($root, $tmp, [
         'from' => $fromVersion,

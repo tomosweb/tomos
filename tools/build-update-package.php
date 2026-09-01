@@ -11,7 +11,7 @@ if (!class_exists(ZipArchive::class) || !function_exists('openssl_sign')) {
     exit(1);
 }
 
-$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'private-key:', 'output:', 'file:', 'from-ref:', 'to-ref:']);
+$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'private-key:', 'output:', 'file:', 'from-ref:', 'to-ref:', 'bootstrap-legacy-required-list:']);
 $from = trim((string) ($options['from'] ?? ''));
 $version = trim((string) ($options['version'] ?? ''));
 $legacyBridge = array_key_exists('legacy-bridge', $options);
@@ -21,6 +21,7 @@ $files = $options['file'] ?? [];
 $files = is_array($files) ? $files : [$files];
 $fromRef = trim((string) ($options['from-ref'] ?? ''));
 $toRef = trim((string) ($options['to-ref'] ?? 'HEAD'));
+$bootstrapLegacyRequiredList = trim((string) ($options['bootstrap-legacy-required-list'] ?? ''));
 $rootDir = dirname(__DIR__);
 $updateFileSetPath = __DIR__ . DIRECTORY_SEPARATOR . 'UpdateFileSet.php';
 if (!is_file($updateFileSetPath)) {
@@ -51,6 +52,12 @@ if (version_compare($from, $version, '>=')) {
 }
 if (!is_file($privateKeyPath) || realpath($privateKeyPath) !== false && strpos((string) realpath($privateKeyPath), $rootDir . DIRECTORY_SEPARATOR) === 0) {
     fwrite(STDERR, "The private key must exist outside the Tomos project tree.\n");
+    exit(1);
+}
+if ($bootstrapLegacyRequiredList !== ''
+    && (!is_file($bootstrapLegacyRequiredList) || is_link($bootstrapLegacyRequiredList) || !is_readable($bootstrapLegacyRequiredList))
+) {
+    fwrite(STDERR, "The legacy required-file list must be a readable regular file.\n");
     exit(1);
 }
 
@@ -97,6 +104,12 @@ $pendingTargets = [
         'metadata' => 'core/updater-pending/theme-rules.meta.json',
     ],
 ];
+$bootstrapPendingTargets = [
+    'core/required-installed-files.txt' => [
+        'pending' => 'core/updater-pending/required-installed-files.txt',
+        'metadata' => 'core/updater-pending/required-installed-files.meta.json',
+    ],
+];
 foreach ($files as $relative) {
     $relative = (string) $relative;
     if (isset($requestedFiles[$relative])) {
@@ -104,6 +117,36 @@ foreach ($files as $relative) {
         exit(1);
     }
     $requestedFiles[$relative] = true;
+    if ($relative === 'core/required-installed-files.txt' && $bootstrapLegacyRequiredList !== '') {
+        $source = $rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        if (!is_file($source) || is_link($source)) {
+            fwrite(STDERR, "Missing or unsafe source file: {$relative}\n");
+            exit(1);
+        }
+        $legacyContents = file_get_contents($bootstrapLegacyRequiredList);
+        if (!is_string($legacyContents) || $legacyContents === '') {
+            fwrite(STDERR, "The legacy required-file list is empty or unreadable.\n");
+            exit(1);
+        }
+        $manifestFiles[$relative] = hash('sha256', $legacyContents);
+        $packageFiles[$relative] = $bootstrapLegacyRequiredList;
+        $pendingPath = $bootstrapPendingTargets[$relative]['pending'];
+        $metadataPath = $bootstrapPendingTargets[$relative]['metadata'];
+        $hash = (string) hash_file('sha256', $source);
+        $metadata = json_encode([
+            'target' => $relative,
+            'sha256' => $hash,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if (!is_string($metadata)) {
+            fwrite(STDERR, "Could not encode updater metadata.\n");
+            exit(1);
+        }
+        $manifestFiles[$pendingPath] = $hash;
+        $manifestFiles[$metadataPath] = hash('sha256', $metadata);
+        $packageFiles[$pendingPath] = $source;
+        $generatedFiles[$metadataPath] = $metadata;
+        continue;
+    }
     if (isset($pendingTargets[$relative])) {
         $source = $rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
         if (!is_file($source) || is_link($source)) {

@@ -31,6 +31,12 @@ final class UpdaterSelfUpdate
             'directory' => 'docs/theme',
             'format' => 'json',
         ],
+        'core/required-installed-files.txt' => [
+            'pending_file' => 'required-installed-files.txt',
+            'metadata_file' => 'required-installed-files.meta.json',
+            'directory' => 'core',
+            'format' => 'required_files',
+        ],
     ];
 
     private $rootDir;
@@ -342,7 +348,8 @@ final class UpdaterSelfUpdate
                 continue;
             }
             $backupPath = $this->backupPath($backupDir, $target);
-            if (!@mkdir(dirname($backupPath), 0700, true)
+            $backupParent = dirname($backupPath);
+            if ((is_link($backupParent) || (!is_dir($backupParent) && !@mkdir($backupParent, 0700, true)))
                 || !@copy($entry['target_path'], $backupPath)
                 || !@chmod($backupPath, $entry['permissions'])
                 || !hash_equals($entry['old_sha256'], $this->hashFile($backupPath))
@@ -450,6 +457,19 @@ final class UpdaterSelfUpdate
             if (!is_array($decoded) || json_last_error() !== JSON_ERROR_NONE) {
                 throw new RuntimeException('json_file');
             }
+        } elseif ($format === 'required_files') {
+            $lines = @file($path, FILE_IGNORE_NEW_LINES);
+            if (!is_array($lines)) {
+                throw new RuntimeException('required_files_file');
+            }
+            foreach ($lines as $line) {
+                $relative = trim((string) $line);
+                if ($relative === '' || strpos($relative, '#') === 0 || !$this->isSafeRelativePath($relative)) {
+                    if ($relative !== '' && strpos($relative, '#') !== 0) {
+                        throw new RuntimeException('required_files_path');
+                    }
+                }
+            }
         } else {
             throw new RuntimeException('payload_format');
         }
@@ -490,6 +510,18 @@ final class UpdaterSelfUpdate
             throw new RuntimeException('hash');
         }
         return strtolower($hash);
+    }
+
+    private function isSafeRelativePath(string $path): bool
+    {
+        return $path !== ''
+            && strpos($path, "\0") === false
+            && strpos($path, '\\') === false
+            && strpos($path, ':') === false
+            && strpos($path, '/') !== 0
+            && preg_match('#(^|/)\.\.?(/|$)#', $path) !== 1
+            && preg_match('/[\x00-\x1F\x7F]/', $path) !== 1
+            && preg_match('//u', $path) === 1;
     }
 
     private function filePermissions(string $path): int
