@@ -253,7 +253,9 @@ function renderUpdatePage(
         if ($onlineError !== null) {
             echo '<div class="notice"><strong>' . e($onlineError) . '</strong></div>';
         } elseif (is_array($releaseInfo) && !empty($releaseInfo['update_available'])) {
-            echo '<p>次の更新が利用できます。</p>';
+            echo !empty($releaseInfo['recovery'])
+                ? '<p>現在のバージョン向けの復旧更新が利用できます。</p>'
+                : '<p>次の更新が利用できます。</p>';
             echo '<p class="version-path"><strong>' . e($currentVersion) . ' → ' . e((string) $releaseInfo['next_version']) . '</strong></p>';
             echo '<form method="post" action="' . e($updateUrl) . '" onsubmit="this.querySelector(\'button\').disabled=true">';
             echo '<input type="hidden" name="action" value="inspect_online"><input type="hidden" name="_token" value="' . e($token) . '">';

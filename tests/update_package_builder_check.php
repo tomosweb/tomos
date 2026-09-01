@@ -100,6 +100,24 @@ try {
     check(!array_key_exists('minimum_version', $manifest), 'manifest does not contain legacy minimum_version');
     $zip->close();
 
+    $recoveryOutput = $tmp . '/tomos-update-' . $targetVersion . '-recovery.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $targetVersion,
+        'version' => $targetVersion,
+        'recovery' => true,
+        'private-key' => $privateKeyPath,
+        'output' => $recoveryOutput,
+        'file' => ['VERSION', 'core/UpdaterSelfUpdate.php'],
+    ]);
+    check($code === 0, 'builder accepts an explicit same-version recovery package: ' . $outputText);
+    $recoveryZip = new ZipArchive();
+    check($recoveryZip->open($recoveryOutput) === true, 'same-version recovery ZIP opens');
+    $recoveryManifest = json_decode((string) $recoveryZip->getFromName('manifest.json'), true);
+    check(($recoveryManifest['from_version'] ?? null) === $targetVersion, 'recovery manifest source equals installed version');
+    check(($recoveryManifest['version'] ?? null) === $targetVersion, 'recovery manifest target equals installed version');
+    check(($recoveryManifest['recovery'] ?? false) === true, 'recovery manifest has explicit recovery marker');
+    $recoveryZip->close();
+
     $rulesOutput = $tmp . '/tomos-update-' . $targetVersion . '-theme-rules.zip';
     [$code, $outputText] = runBuilder($root, $tmp, [
         'from' => $fromVersion,

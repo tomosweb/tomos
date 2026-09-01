@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/core/UpdateService.php';
+require_once dirname(__DIR__) . '/core/UpdateLock.php';
 
 use Tomos\UpdateException;
 use Tomos\UpdateService;
@@ -48,7 +49,8 @@ function makeSignedZip(
     string $version,
     string $privateKey,
     bool $validSignature = true,
-    string $manifestType = 'valid'
+    string $manifestType = 'valid',
+    bool $recovery = false
 ): void
 {
     $versionBytes = $version . "\n";
@@ -90,6 +92,9 @@ function makeSignedZip(
         ];
     } else {
         $manifest = ['product' => 'Not Tomos'];
+    }
+    if ($recovery && $manifestType === 'valid') {
+        $manifest['recovery'] = true;
     }
     $manifestRaw = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     $signature = '';
@@ -150,6 +155,16 @@ check(is_file($source), 'source remains after successful staging');
 $staged = stagingDirectories($root);
 check(count($staged) === 1 && is_file($staged[0] . '/package.zip'), 'downloaded ZIP uses formal package.zip staging');
 check(is_file($staged[0] . '/record.json'), 'inspectStaged wrote the staging record');
+removeTree($root);
+
+$root = makeRoot($tmp, $publicKey, '0.1.0-alpha.18');
+$service = new UpdateService($root);
+$recoverySource = $tmp . '/same-version-recovery.zip';
+makeSignedZip($recoverySource, '0.1.0-alpha.18', '0.1.0-alpha.18', $privateKey, true, 'valid', true);
+$recoverySummary = $service->stageDownloadedPackage($recoverySource, 'owner', '0.1.0-alpha.18', '0.1.0-alpha.18');
+check(($recoverySummary['recovery'] ?? false) === true, 'same-version recovery manifest is staged explicitly');
+$recoveryResult = $service->apply((string) $recoverySummary['id'], 'owner');
+check(!empty($recoveryResult['ok']) && $service->currentVersion() === '0.1.0-alpha.18', 'same-version recovery update applies without changing VERSION');
 removeTree($root);
 
 $root = makeRoot($tmp, $publicKey);

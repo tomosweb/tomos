@@ -103,6 +103,29 @@ check($noUpdate === [
     'sha256' => null,
 ], 'missing from-version is a distinct no-update result');
 
+$recoveryCatalog = validCatalog();
+$recoveryCatalog['updates'][] = [
+    'from' => '0.1.0-alpha.19',
+    'to' => '0.1.0-alpha.19',
+    'recovery' => true,
+    'package_url' => 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.19/tomos-update-0.1.0-alpha.19-recovery.zip',
+    'sha256' => str_repeat('d', 64),
+];
+$recoveryResult = providerFor(jsonResponse($recoveryCatalog))->getNextUpdate('0.1.0-alpha.19');
+check(($recoveryResult['recovery'] ?? false) === true, 'same-version recovery catalog entry is offered explicitly');
+check($recoveryResult['next_version'] === '0.1.0-alpha.19', 'recovery entry keeps the current version as its target');
+
+$sameVersionWithoutRecovery = validCatalog();
+$sameVersionWithoutRecovery['updates'][] = [
+    'from' => '0.1.0-alpha.19',
+    'to' => '0.1.0-alpha.19',
+    'package_url' => 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.19/tomos-update-0.1.0-alpha.19.zip',
+    'sha256' => str_repeat('d', 64),
+];
+expectError(static function () use ($sameVersionWithoutRecovery): void {
+    providerFor(jsonResponse($sameVersionWithoutRecovery))->getNextUpdate('0.1.0-alpha.17');
+}, 'version', 'same-version catalog entry requires recovery flag');
+
 $cases = [];
 $cases['product'] = static function (): array { $c = validCatalog(); $c['product'] = 'Other'; return $c; };
 $cases['schema'] = static function (): array { $c = validCatalog(); $c['schema'] = 2; return $c; };

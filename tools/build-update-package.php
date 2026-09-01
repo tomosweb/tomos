@@ -11,10 +11,11 @@ if (!class_exists(ZipArchive::class) || !function_exists('openssl_sign')) {
     exit(1);
 }
 
-$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'private-key:', 'output:', 'file:', 'from-ref:', 'to-ref:', 'bootstrap-legacy-required-list:']);
+$options = getopt('', ['from:', 'version:', 'legacy-bridge', 'recovery', 'private-key:', 'output:', 'file:', 'from-ref:', 'to-ref:', 'bootstrap-legacy-required-list:']);
 $from = trim((string) ($options['from'] ?? ''));
 $version = trim((string) ($options['version'] ?? ''));
 $legacyBridge = array_key_exists('legacy-bridge', $options);
+$recovery = array_key_exists('recovery', $options);
 $privateKeyPath = (string) ($options['private-key'] ?? '');
 $outputPath = (string) ($options['output'] ?? '');
 $files = $options['file'] ?? [];
@@ -46,8 +47,15 @@ if (!isValidTomosVersion($from) || !isValidTomosVersion($version)) {
     fwrite(STDERR, "Both --from and --version must use a valid Tomos version.\n");
     exit(1);
 }
-if (version_compare($from, $version, '>=')) {
+if (version_compare($from, $version, '>')
+    || (!$recovery && version_compare($from, $version, '>='))
+    || ($recovery && $from !== $version)
+) {
     fwrite(STDERR, "--from must be lower than --version.\n");
+    exit(1);
+}
+if ($recovery && $legacyBridge) {
+    fwrite(STDERR, "--recovery cannot be combined with --legacy-bridge.\n");
     exit(1);
 }
 if (!is_file($privateKeyPath) || realpath($privateKeyPath) !== false && strpos((string) realpath($privateKeyPath), $rootDir . DIRECTORY_SEPARATOR) === 0) {
@@ -197,6 +205,9 @@ $manifestData = [
 ];
 if ($legacyBridge) {
     $manifestData['minimum_version'] = $from;
+}
+if ($recovery) {
+    $manifestData['recovery'] = true;
 }
 $manifestData['version'] = $version;
 $manifestData['files'] = $manifestFiles;

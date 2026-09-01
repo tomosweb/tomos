@@ -20,6 +20,7 @@ try {
         throw new RuntimeException('could not extract v0.6.1 distribution');
     }
     $zip->close();
+    removeMigrationTree($fixture . '/docs/theme');
 
     $config = "<?php return ['site' => ['name' => 'preserved'], 'theme' => ['name' => 'custom-theme']];\n";
     file_put_contents($fixture . '/config.php', $config, LOCK_EX);

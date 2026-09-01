@@ -85,11 +85,37 @@ final class InstalledIntegrityVerifier
             $targetPath = $this->targetPath($targetRelative);
             $targetDir = dirname($targetPath);
             $rootReal = realpath($this->rootDir);
-            $targetDirReal = realpath($targetDir);
             $expectedTargetDir = $rootReal === false
                 ? ''
                 : $rootReal . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'theme';
-            if ($rootReal === false || $targetDirReal === false || $targetDirReal !== $expectedTargetDir
+            if ($rootReal === false || $expectedTargetDir === ''
+                || is_link($targetDir) || (file_exists($targetDir) && !is_dir($targetDir))
+            ) {
+                throw new RuntimeException('pending_runtime_directory');
+            }
+            if (!is_dir($targetDir)) {
+                $missing = [];
+                $cursor = $targetDir;
+                while (!is_dir($cursor)) {
+                    if (is_link($cursor) || file_exists($cursor)) {
+                        throw new RuntimeException('pending_runtime_directory');
+                    }
+                    $missing[] = $cursor;
+                    $parent = dirname($cursor);
+                    if ($parent === $cursor) {
+                        throw new RuntimeException('pending_runtime_directory');
+                    }
+                    $cursor = $parent;
+                }
+                if (is_link($cursor) || realpath($cursor) === false
+                    || ($cursor !== $this->rootDir && strpos((string) realpath($cursor), $rootReal . DIRECTORY_SEPARATOR) !== 0)
+                    || !@mkdir($targetDir, 0755, true)
+                ) {
+                    throw new RuntimeException('pending_runtime_directory');
+                }
+            }
+            $targetDirReal = realpath($targetDir);
+            if ($targetDirReal === false || $targetDirReal !== $expectedTargetDir
                 || !is_dir($targetDir) || is_link($targetDir)
             ) {
                 throw new RuntimeException('pending_runtime_directory');
