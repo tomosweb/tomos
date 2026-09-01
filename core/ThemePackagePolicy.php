@@ -17,13 +17,6 @@ final class ThemePackagePolicy
     public const MAX_FILE_BYTES = 5242880;
     public const MAX_DIRECTORY_DEPTH = 4;
 
-    private const RUNTIME_REQUIRED = [
-        'theme.json',
-        'templates/layout.html',
-        'templates/page.html',
-        'templates/list.html',
-        'assets/style.css',
-    ];
     private const DISTRIBUTION_RECOMMENDED = [
         'preview.png',
         'README.md',
@@ -53,7 +46,7 @@ final class ThemePackagePolicy
 
     public static function runtimeRequiredFiles(): array
     {
-        return self::RUNTIME_REQUIRED;
+        return ThemeRules::requiredFiles();
     }
 
     public static function distributionRequiredFiles(): array
@@ -152,7 +145,7 @@ final class ThemePackagePolicy
     private function validateRequiredFiles(string $themeDir): array
     {
         $missingRuntime = [];
-        foreach (self::RUNTIME_REQUIRED as $relative) {
+        foreach (ThemeRules::requiredFiles() as $relative) {
             $path = $themeDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
             if (!is_file($path) || filesize($path) === 0) {
                 $missingRuntime[] = $relative;
