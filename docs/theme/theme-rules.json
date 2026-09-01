@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "compatibility": {"tomos": "0.6.1", "status": "Developer Preview"},
+  "compatibility": {"tomos": "0.6.2", "status": "Developer Preview"},
   "structure": {
     "required_files": ["theme.json", "templates/layout.html", "templates/page.html", "templates/list.html", "assets/style.css"],
     "recommended_files": ["assets/favicon.svg または assets/favicon.png", "assets/apple-touch-icon.png", "assets/ogp.png"],

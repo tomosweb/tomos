@@ -1,6 +1,6 @@
 # Tomos Theme Specification
 
-Compatibility baseline: Tomos 0.6.1
+Compatibility baseline: Tomos 0.6.2
 Status: Developer Preview
 
 この仕様は、Tomos Theme Developer Centerの初期入口で検査する最小契約です。Themeをサーバーで実行したり保存したりする仕様ではありません。

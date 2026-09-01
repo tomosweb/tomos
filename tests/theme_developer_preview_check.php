@@ -26,7 +26,7 @@ $required = ThemeRules::requiredFiles();
 $starter = $root . '/theme-packages/tomos-starter/package';
 $starterCopy = sys_get_temp_dir() . '/tomos-starter-validation-' . bin2hex(random_bytes(6));
 mkdir($starterCopy . '/tomos-starter', 0755, true);
-file_put_contents($starterCopy . '/VERSION', "0.6.1\n");
+file_put_contents($starterCopy . '/VERSION', "0.6.2\n");
 
 try {
     foreach ($required as $relative) {
@@ -41,7 +41,7 @@ try {
     $result = (new ThemeValidator($starterCopy))->validate('tomos-starter');
     previewCheck($result['valid'] === true, 'starter theme must pass Core ThemeValidator');
     previewCheck(str_contains((string) file_get_contents($starter . '/templates/layout.html'), '{{{ page.seo_head_html }}}'), 'starter SEO placeholder missing');
-    previewCheck(($rules['compatibility']['tomos'] ?? '') === '0.6.1', 'baseline drifted');
+    previewCheck(($rules['compatibility']['tomos'] ?? '') === '0.6.2', 'baseline drifted');
     previewCheck(($rules['developer_preview']['limits']['max_zip_bytes'] ?? 0) === 10485760, 'ZIP limit missing');
     echo "theme_developer_preview_check: OK\n";
 } finally {

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.6.0';
-$fromRef = 'v0.6.0';
+$fromVersion = '0.6.1';
+$fromRef = 'e770fee';
 require_once $root . '/tools/UpdateFileSet.php';
-// v0.5.3 is the immutable release baseline for the normal update path.
+// e770fee is the private Core source baseline used for the released v0.6.1 runtime.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.6.1') {
-    throw new RuntimeException('release transition check requires VERSION 0.6.1');
+if ($targetVersion !== '0.6.2') {
+    throw new RuntimeException('release transition check requires VERSION 0.6.2');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -110,12 +110,13 @@ try {
         foreach ([
             'VERSION',
             'core/App.php',
-            'core/FrontMatterParser.php',
-            'core/Router.php',
-            'core/Security.php',
-            'core/SeoMetadata.php',
-            'core/SitemapGenerator.php',
-            'core/TemplateRenderer.php',
+            'core/ContentSecurityPolicy.php',
+            'core/required-installed-files.txt',
+            'core/ThemePackagePolicy.php',
+            'core/ThemeRules.php',
+            'core/ThemeValidator.php',
+            'core/UpdateService.php',
+            'docs/theme/theme-rules.json',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);

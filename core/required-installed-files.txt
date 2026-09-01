@@ -42,6 +42,9 @@ core/ThemePackageException.php
 core/ThemePackageInstaller.php
 core/ThemePackageDeployment.php
 core/ThemePackagePolicy.php
+core/ContentSecurityPolicy.php
+core/ThemeRules.php
+docs/theme/theme-rules.json
 core/PasskeyEnvironment.php
 core/PasskeyCredentialStore.php
 core/PasskeyChallengeStore.php
