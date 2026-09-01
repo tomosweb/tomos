@@ -121,7 +121,15 @@ try {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
             }
-            if (!isset($manifest['files'][$requiredCurrentRuntime])) {
+            $packagePaths = UpdateFileSet::packagePaths([$requiredCurrentRuntime]);
+            $manifestHasPackagePath = false;
+            foreach ($packagePaths as $packagePath) {
+                if (isset($manifest['files'][$packagePath])) {
+                    $manifestHasPackagePath = true;
+                    break;
+                }
+            }
+            if (!$manifestHasPackagePath) {
                 throw new RuntimeException('required current-release runtime is missing from manifest: ' . $requiredCurrentRuntime);
             }
         }
