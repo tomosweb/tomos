@@ -71,6 +71,9 @@ final class UpdateFileSet
             } elseif ($path === 'core/UpdateLock.php') {
                 $paths[] = 'core/updater-pending/update-lock.php';
                 $paths[] = 'core/updater-pending/update-lock.json';
+            } elseif ($path === 'docs/theme/theme-rules.json') {
+                $paths[] = 'core/updater-pending/theme-rules.json';
+                $paths[] = 'core/updater-pending/theme-rules.meta.json';
             } else {
                 $paths[] = $path;
             }

@@ -92,6 +92,10 @@ $pendingTargets = [
         'pending' => 'core/updater-pending/update-lock.php',
         'metadata' => 'core/updater-pending/update-lock.json',
     ],
+    'docs/theme/theme-rules.json' => [
+        'pending' => 'core/updater-pending/theme-rules.json',
+        'metadata' => 'core/updater-pending/theme-rules.meta.json',
+    ],
 ];
 foreach ($files as $relative) {
     $relative = (string) $relative;

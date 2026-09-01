@@ -32,6 +32,10 @@ checkProtected(
 checkProtected(strpos($updateService, "\$path === 'docs/theme/theme-rules.json'") !== false, 'UpdateService allows the Theme rules runtime dependency');
 checkProtected(strpos($builder, "\$path === 'docs/theme/theme-rules.json'") !== false, 'builder allows the Theme rules runtime dependency');
 checkProtected(strpos($fileSet, "\$path === 'docs/theme/theme-rules.json'") !== false, 'derived update file set allows the Theme rules runtime dependency');
+checkProtected(strpos($builder, "'pending' => 'core/updater-pending/theme-rules.json'") !== false, 'builder has Theme rules pending payload path');
+checkProtected(strpos($builder, "'metadata' => 'core/updater-pending/theme-rules.meta.json'") !== false, 'builder has Theme rules pending metadata path');
+checkProtected(strpos($selfUpdate, "'pending_file' => 'theme-rules.json'") !== false, 'self-update consumes Theme rules pending payload');
+checkProtected(strpos($selfUpdate, "'metadata_file' => 'theme-rules.meta.json'") !== false, 'self-update consumes Theme rules pending metadata');
 checkProtected(strpos($builder, "'pending' => 'core/updater-pending/update-lock.php'") !== false, 'builder has UpdateLock pending PHP path');
 checkProtected(strpos($builder, "'metadata' => 'core/updater-pending/update-lock.json'") !== false, 'builder has UpdateLock pending metadata path');
 checkProtected(strpos($selfUpdate, "'pending_file' => 'update-lock.php'") !== false, 'self-update consumes UpdateLock pending PHP');

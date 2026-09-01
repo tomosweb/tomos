@@ -112,8 +112,11 @@ try {
     $rulesZip = new ZipArchive();
     check($rulesZip->open($rulesOutput) === true, 'Theme rules dependency ZIP opens');
     $rulesManifest = json_decode((string) $rulesZip->getFromName('manifest.json'), true);
-    check(isset($rulesManifest['files']['docs/theme/theme-rules.json']), 'Theme rules dependency is recorded in the manifest');
-    check($rulesZip->getFromName('files/docs/theme/theme-rules.json') === (string) file_get_contents($root . '/docs/theme/theme-rules.json'), 'Theme rules dependency bytes are included');
+    check(isset($rulesManifest['files']['core/updater-pending/theme-rules.json']), 'Theme rules dependency is recorded in the pending manifest');
+    check($rulesZip->getFromName('files/core/updater-pending/theme-rules.json') === (string) file_get_contents($root . '/docs/theme/theme-rules.json'), 'Theme rules dependency bytes are included in the pending payload');
+    check($rulesZip->getFromName('files/docs/theme/theme-rules.json') === false, 'Theme rules dependency is not duplicated as a direct update target');
+    $rulesMetadata = json_decode((string) $rulesZip->getFromName('files/core/updater-pending/theme-rules.meta.json'), true);
+    check(($rulesMetadata['target'] ?? null) === 'docs/theme/theme-rules.json', 'Theme rules pending metadata preserves the runtime target');
     $rulesZip->close();
 
     $bridgeOutput = $tmp . '/tomos-update-' . $targetVersion . '-bridge.zip';
