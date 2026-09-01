@@ -115,6 +115,29 @@ $recoveryResult = providerFor(jsonResponse($recoveryCatalog))->getNextUpdate('0.
 check(($recoveryResult['recovery'] ?? false) === true, 'same-version recovery catalog entry is offered explicitly');
 check($recoveryResult['next_version'] === '0.1.0-alpha.19', 'recovery entry keeps the current version as its target');
 
+$separatedRecoveryCatalog = validCatalog();
+$separatedRecoveryCatalog['recovery_updates'] = [[
+    'from' => '0.1.0-alpha.19',
+    'to' => '0.1.0-alpha.19',
+    'recovery' => true,
+    'package_url' => 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.19/tomos-update-0.1.0-alpha.19-recovery.zip',
+    'sha256' => str_repeat('e', 64),
+]];
+$separatedRecoveryResult = providerFor(jsonResponse($separatedRecoveryCatalog))->getNextUpdate('0.1.0-alpha.19');
+check(($separatedRecoveryResult['recovery'] ?? false) === true, 'separated recovery catalog entry is offered explicitly');
+check($separatedRecoveryResult['sha256'] === str_repeat('e', 64), 'separated recovery entry returns its package hash');
+
+$normalWinsOverRecovery = $separatedRecoveryCatalog;
+$normalWinsOverRecovery['updates'][] = [
+    'from' => '0.1.0-alpha.19',
+    'to' => '0.1.0-alpha.20',
+    'package_url' => 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.20/tomos-update-0.1.0-alpha.20.zip',
+    'sha256' => str_repeat('f', 64),
+];
+$normalResult = providerFor(jsonResponse($normalWinsOverRecovery))->getNextUpdate('0.1.0-alpha.19');
+check(($normalResult['recovery'] ?? false) === false, 'normal update takes precedence over recovery entry');
+check($normalResult['next_version'] === '0.1.0-alpha.20', 'normal update is selected before recovery');
+
 $sameVersionWithoutRecovery = validCatalog();
 $sameVersionWithoutRecovery['updates'][] = [
     'from' => '0.1.0-alpha.19',

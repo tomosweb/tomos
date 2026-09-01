@@ -10,8 +10,8 @@ require_once $root . '/tools/UpdateFileSet.php';
 // e770fee is the private Core source baseline used for the released v0.6.1 runtime.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.6.2') {
-    throw new RuntimeException('release transition check requires VERSION 0.6.2');
+if ($targetVersion !== '0.6.3') {
+    throw new RuntimeException('release transition check requires VERSION 0.6.3');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
