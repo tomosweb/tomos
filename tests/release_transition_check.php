@@ -77,8 +77,9 @@ try {
         }
         foreach ($runtimeFiles as $path) {
             $packagePaths = UpdateFileSet::packagePaths([$path]);
-            $payloadCandidates = array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -4) === '.php'));
-            $payloadPath = $payloadCandidates[0] ?? $path;
+            $payloadPath = $path === 'docs/theme/theme-rules.json'
+                ? 'core/updater-pending/theme-rules.json'
+                : (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -4) === '.php'))[0] ?? $path);
             $bytes = $zip->getFromName('files/' . $payloadPath);
             if (!is_string($bytes)) {
                 throw new RuntimeException($targetVersion . ' package payload missing: ' . $path);
@@ -86,9 +87,10 @@ try {
             if (($manifest['files'][$payloadPath] ?? null) !== hash('sha256', $bytes)) {
                 throw new RuntimeException($targetVersion . ' manifest hash mismatch: ' . $path);
             }
-            if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php'], true)) {
-                $metadataCandidates = array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'));
-                $metadataPath = (string) ($metadataCandidates[0] ?? '');
+            if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php', 'docs/theme/theme-rules.json'], true)) {
+                $metadataPath = $path === 'docs/theme/theme-rules.json'
+                    ? 'core/updater-pending/theme-rules.meta.json'
+                    : (string) (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'))[0] ?? '');
                 $metadataBytes = $zip->getFromName('files/' . $metadataPath);
                 if (!is_string($metadataBytes)) {
                     throw new RuntimeException($targetVersion . ' package pending updater metadata missing');
