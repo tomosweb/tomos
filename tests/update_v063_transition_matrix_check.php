@@ -79,7 +79,9 @@ function archiveInto(string $repo, string $ref, string $destination): void
         }
     }
     file_put_contents($destination . '/config.php', "<?php return ['theme'=>['name'=>'custom-theme']];\n", LOCK_EX);
-    mkdir($destination . '/content', 0700, true);
+    if (!is_dir($destination . '/content')) {
+        mkdir($destination . '/content', 0700, true);
+    }
     file_put_contents($destination . '/content/keep.md', "# Keep\n", LOCK_EX);
     mkdir($destination . '/uploads', 0700, true);
     file_put_contents($destination . '/uploads/keep.txt', "keep\n", LOCK_EX);
@@ -90,6 +92,9 @@ function archiveInto(string $repo, string $ref, string $destination): void
 
 function exerciseUpdate(string $sourceRoot, string $fixture, string $package, string $from): void
 {
+    if (is_dir($sourceRoot . '/core/webauthn/vendor')) {
+        copyTree($sourceRoot . '/core/webauthn/vendor', $fixture . '/core/webauthn/vendor');
+    }
     $before = [];
     foreach (['config.php', 'content/keep.md', 'uploads/keep.txt', 'themes/custom-theme/custom.txt'] as $path) {
         $before[$path] = hash_file('sha256', $fixture . '/' . $path);
@@ -121,6 +126,23 @@ function exerciseUpdate(string $sourceRoot, string $fixture, string $package, st
     foreach ($before as $path => $hash) {
         if (!hash_equals($hash, hash_file('sha256', $fixture . '/' . $path))) {
             throw new RuntimeException('site data changed during update: ' . $from . ' ' . $path);
+        }
+    }
+}
+
+function copyTree(string $source, string $destination): void
+{
+    if (!is_dir($destination) && !mkdir($destination, 0700, true)) {
+        throw new RuntimeException('could not copy runtime dependency');
+    }
+    foreach (scandir($source) ?: [] as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $from = $source . DIRECTORY_SEPARATOR . $item;
+        $to = $destination . DIRECTORY_SEPARATOR . $item;
+        if (is_dir($from) && !is_link($from)) {
+            copyTree($from, $to);
+        } elseif (is_file($from) && !is_link($from) && !copy($from, $to)) {
+            throw new RuntimeException('could not copy runtime dependency file: ' . $item);
         }
     }
 }
