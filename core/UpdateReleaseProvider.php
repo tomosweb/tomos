@@ -215,7 +215,16 @@ final class UpdateReleaseProvider
                 if (version_compare($update['from'], $intermediateFrom, '<')
                     && version_compare($intermediateFrom, $update['to'], '<')
                 ) {
-                    $this->fail('update_sequence', '更新カタログに中間バージョンを飛び越す更新経路があります。');
+                    $hasDirectIntermediate = false;
+                    foreach ($catalog['updates'] as $candidate) {
+                        if ($candidate['from'] === $intermediateFrom && $candidate['to'] === $update['to']) {
+                            $hasDirectIntermediate = true;
+                            break;
+                        }
+                    }
+                    if (!$hasDirectIntermediate) {
+                        $this->fail('update_sequence', '更新カタログに中間バージョンを飛び越す更新経路があります。');
+                    }
                 }
             }
         }
