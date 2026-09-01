@@ -4,34 +4,28 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ThemeRules.php';
+
 final class ThemeValidator
 {
     private string $themesDir;
-    private array $requiredFiles = [
-        'theme.json',
-        'templates/layout.html',
-        'templates/page.html',
-        'templates/list.html',
-        'assets/style.css',
-    ];
+    private array $requiredFiles;
     private array $recommendedFiles = [
         'assets/apple-touch-icon.png',
         'assets/ogp.png',
     ];
-    private array $forbiddenPhpExtensions = ['php', 'phtml', 'phar', 'php5', 'php7'];
-    private array $templateErrorPatterns = [
-        '/<\?(?:php|=)?/i' => 'PHPタグは使えません。',
-        '/javascript\s*:/i' => 'javascript: URLは使えません。',
-        '/data\s*:\s*text\/html/i' => 'data:text/html は使えません。',
-    ];
-    private array $templateWarningPatterns = [
-        '/<script\s+[^>]*(?:src|type)\s*=/i' => 'script要素は避けてください。',
-        '/\son(?:error|load|click)\s*=/i' => 'イベントハンドラ属性は避けてください。',
-    ];
+    private array $forbiddenPhpExtensions;
+    private array $templateErrorPatterns;
+    private array $templateWarningPatterns;
 
     public function __construct(string $themesDir)
     {
         $this->themesDir = rtrim($themesDir, DIRECTORY_SEPARATOR);
+        $rules = ThemeRules::all();
+        $this->requiredFiles = $rules['structure']['required_files'] ?? [];
+        $this->forbiddenPhpExtensions = $rules['core']['forbidden_php_extensions'] ?? [];
+        $this->templateErrorPatterns = $this->patterns($rules['core']['template_errors'] ?? []);
+        $this->templateWarningPatterns = $this->patterns($rules['core']['template_warnings'] ?? []);
     }
 
     public function validate(string $themeName): array
@@ -282,5 +276,18 @@ final class ThemeValidator
             'warnings' => $warnings,
             'theme' => $theme,
         ];
+    }
+
+    private function patterns(array $definitions): array
+    {
+        $patterns = [];
+        foreach ($definitions as $definition) {
+            if (!is_array($definition) || !isset($definition['regex'], $definition['message'])) {
+                continue;
+            }
+            $patterns['/' . $definition['regex'] . '/i'] = (string) $definition['message'];
+        }
+
+        return $patterns;
     }
 }

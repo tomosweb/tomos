@@ -25,6 +25,12 @@ final class UpdaterSelfUpdate
             'metadata_file' => 'update-lock.json',
             'directory' => 'core',
         ],
+        'docs/theme/theme-rules.json' => [
+            'pending_file' => 'theme-rules.json',
+            'metadata_file' => 'theme-rules.meta.json',
+            'directory' => 'docs/theme',
+            'format' => 'json',
+        ],
     ];
 
     private $rootDir;
@@ -107,13 +113,13 @@ final class UpdaterSelfUpdate
                     continue;
                 }
                 $temporary = $temporaryPaths[$target];
-                $this->assertPhpAndHash($temporary, $entry['expected_sha256']);
+                $this->assertPayloadAndHash($temporary, $entry['expected_sha256'], (string) ($entry['format'] ?? 'php'));
                 if (!@chmod($temporary, $entry['permissions'])
                     || $this->filePermissions($temporary) !== $entry['permissions']
                 ) {
                     throw new RuntimeException('temporary_permissions');
                 }
-                $this->assertPhpAndHash($temporary, $entry['expected_sha256']);
+                $this->assertPayloadAndHash($temporary, $entry['expected_sha256'], (string) ($entry['format'] ?? 'php'));
             }
 
             $stage = 'replace';
@@ -138,7 +144,7 @@ final class UpdaterSelfUpdate
                 $installedHash = $entry['changed']
                     ? $entry['expected_sha256']
                     : $entry['old_sha256'];
-                $this->assertPhpAndHash($entry['target_path'], $installedHash);
+                $this->assertPayloadAndHash($entry['target_path'], $installedHash, (string) ($entry['format'] ?? 'php'));
                 if ($this->filePermissions($entry['target_path']) !== $entry['permissions']) {
                     throw new RuntimeException('post_replace_permissions');
                 }
@@ -221,12 +227,14 @@ final class UpdaterSelfUpdate
             if (!is_file($sourcePath) || is_link($sourcePath) || !is_readable($sourcePath)) {
                 throw new RuntimeException('pending_file');
             }
-            $this->assertPhpAndHash($sourcePath, $expectedHash);
+            $format = (string) ($definition['format'] ?? 'php');
+            $this->assertPayloadAndHash($sourcePath, $expectedHash, $format);
             $bundle[$target] = [
                 'target' => $target,
                 'source' => $sourcePath,
                 'expected_sha256' => $expectedHash,
                 'directory' => $definition['directory'],
+                'format' => $format,
             ];
         }
         return $bundle;
@@ -239,8 +247,8 @@ final class UpdaterSelfUpdate
             $targetPath = $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $target);
             $targetDir = dirname($targetPath);
             $this->assertSafeTarget($target, $targetPath, $targetDir, $definition['directory']);
-            $oldHash = $this->hashFile($targetPath);
-            $permissions = $this->filePermissions($targetPath);
+            $oldHash = is_file($targetPath) ? $this->hashFile($targetPath) : '';
+            $permissions = is_file($targetPath) ? $this->filePermissions($targetPath) : 0644;
             $bundle[$target]['target_path'] = $targetPath;
             $bundle[$target]['old_sha256'] = $oldHash;
             $bundle[$target]['permissions'] = $permissions;
@@ -307,10 +315,12 @@ final class UpdaterSelfUpdate
     {
         $rootReal = realpath($this->rootDir);
         $targetDirReal = realpath($targetDir);
+        $isNewThemeRules = $target === 'docs/theme/theme-rules.json' && !file_exists($targetPath);
         if (!isset(self::TARGETS[$target])
             || !is_dir($targetDir) || is_link($targetDir)
-            || !is_file($targetPath) || is_link($targetPath)
-            || !is_readable($targetPath) || !is_writable($targetDir)
+            || (!$isNewThemeRules && (!is_file($targetPath) || is_link($targetPath) || !is_readable($targetPath)))
+            || ($isNewThemeRules && (is_link($targetPath) || file_exists($targetPath)))
+            || !is_writable($targetDir)
             || $rootReal === false || $targetDirReal === false
             || $targetDirReal !== $rootReal . DIRECTORY_SEPARATOR . $expectedDirectory
         ) {
@@ -328,6 +338,9 @@ final class UpdaterSelfUpdate
             throw new RuntimeException('backup_directory');
         }
         foreach ($bundle as $target => $entry) {
+            if ((string) ($entry['old_sha256'] ?? '') === '') {
+                continue;
+            }
             $backupPath = $this->backupPath($backupDir, $target);
             if (!@mkdir(dirname($backupPath), 0700, true)
                 || !@copy($entry['target_path'], $backupPath)
@@ -348,6 +361,12 @@ final class UpdaterSelfUpdate
                 if (!isset($entry['target_path'], $entry['old_sha256'], $entry['permissions'])) {
                     return false;
                 }
+                if ((string) $entry['old_sha256'] === '') {
+                    if (is_link($entry['target_path']) || (file_exists($entry['target_path']) && !@unlink($entry['target_path']))) {
+                        return false;
+                    }
+                    continue;
+                }
                 $backupPath = $this->backupPath($backupDir, $target);
                 if (!is_file($backupPath) || is_link($backupPath)
                     || !hash_equals($entry['old_sha256'], $this->hashFile($backupPath))
@@ -356,7 +375,7 @@ final class UpdaterSelfUpdate
                 }
                 $restorePath = $this->temporaryPath($target, '.tomos-updater-restore-');
                 $this->copyToExclusiveTemporary($backupPath, $restorePath);
-                $this->assertPhpAndHash($restorePath, $entry['old_sha256']);
+                $this->assertPayloadAndHash($restorePath, $entry['old_sha256'], (string) ($entry['format'] ?? 'php'));
                 if (!@chmod($restorePath, $entry['permissions'])
                     || $this->filePermissions($restorePath) !== $entry['permissions']
                 ) {
@@ -365,13 +384,19 @@ final class UpdaterSelfUpdate
                 $temporary[$target] = $restorePath;
             }
             foreach ($bundle as $target => $entry) {
+                if ((string) $entry['old_sha256'] === '') {
+                    continue;
+                }
                 if (!@rename($temporary[$target], $entry['target_path'])) {
                     return false;
                 }
                 unset($temporary[$target]);
             }
             foreach ($bundle as $entry) {
-                $this->assertPhpAndHash($entry['target_path'], $entry['old_sha256']);
+                if ((string) $entry['old_sha256'] === '') {
+                    continue;
+                }
+                $this->assertPayloadAndHash($entry['target_path'], $entry['old_sha256'], (string) ($entry['format'] ?? 'php'));
                 if ($this->filePermissions($entry['target_path']) !== $entry['permissions']) {
                     return false;
                 }
@@ -410,14 +435,24 @@ final class UpdaterSelfUpdate
         }
     }
 
-    private function assertPhpAndHash(string $path, string $expectedHash): void
+    private function assertPayloadAndHash(string $path, string $expectedHash, string $format): void
     {
-        if (!is_file($path) || is_link($path) || !is_readable($path)
-            || @file_get_contents($path, false, null, 0, 5) !== '<?php'
-        ) {
+        if (!is_file($path) || is_link($path) || !is_readable($path)) {
             throw new RuntimeException('php_file');
         }
-        $this->assertPhpSyntax($path);
+        if ($format === 'php') {
+            if (@file_get_contents($path, false, null, 0, 5) !== '<?php') {
+                throw new RuntimeException('php_file');
+            }
+            $this->assertPhpSyntax($path);
+        } elseif ($format === 'json') {
+            $decoded = json_decode((string) @file_get_contents($path), true);
+            if (!is_array($decoded) || json_last_error() !== JSON_ERROR_NONE) {
+                throw new RuntimeException('json_file');
+            }
+        } else {
+            throw new RuntimeException('payload_format');
+        }
         if (!hash_equals(strtolower($expectedHash), $this->hashFile($path))) {
             throw new RuntimeException('php_or_hash');
         }
