@@ -50,6 +50,12 @@ try {
         throw new RuntimeException('v0.6.1 UpdateService did not complete the main update');
     }
 
+    require_once $fixture . '/core/InstalledIntegrityVerifier.php';
+    $verified = (new Tomos\InstalledIntegrityVerifier($fixture))->verifyAfterUpdate($result);
+    if (empty($verified['ok']) || !is_file($fixture . '/docs/theme/theme-rules.json')) {
+        throw new RuntimeException('v0.6.2 update did not materialize Theme rules before required-file verification');
+    }
+
     require_once $fixture . '/core/UpdaterSelfUpdate.php';
     $selfUpdate = new Tomos\UpdaterSelfUpdate($fixture);
     if (!$selfUpdate->hasPendingUpdate()) {
