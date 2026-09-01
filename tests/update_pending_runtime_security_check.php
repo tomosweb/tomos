@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/core/InstalledIntegrityVerifier.php';
+require_once dirname(__DIR__) . '/core/UpdateService.php';
 
 use Tomos\InstalledIntegrityVerifier;
 use Tomos\UpdateException;
