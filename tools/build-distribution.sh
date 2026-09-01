@@ -78,6 +78,7 @@ copy_item() {
       --exclude='tomos-creator' \
       --exclude='tomos-radical-poster' \
       --exclude='ai-theme-safe-workflow-draft.md' \
+      --exclude='project/v0.6.2-bugfix-audit.md' \
       "${ROOT_DIR}/${source}" \
       "${BUILD_DIR}/"
   fi
