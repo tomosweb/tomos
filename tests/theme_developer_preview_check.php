@@ -17,6 +17,11 @@ function previewCheck(bool $condition, string $message): void
 
 $root = dirname(__DIR__);
 $rules = ThemeRules::all();
+$rulesHash = ThemeRules::sha256();
+$canonical = ThemeRules::canonicalJson();
+$decodedCanonical = json_decode($canonical, true);
+previewCheck(preg_match('/\A[a-f0-9]{64}\z/', $rulesHash) === 1, 'rules hash must be a SHA-256 value');
+previewCheck(is_array($decodedCanonical), 'canonical rules JSON must remain valid JSON');
 $required = ThemeRules::requiredFiles();
 $starter = $root . '/theme-packages/tomos-starter/package';
 $starterCopy = sys_get_temp_dir() . '/tomos-starter-validation-' . bin2hex(random_bytes(6));

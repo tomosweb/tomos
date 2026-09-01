@@ -6,6 +6,7 @@ $root = dirname(__DIR__);
 $updateService = (string) file_get_contents($root . '/core/UpdateService.php');
 $selfUpdate = (string) file_get_contents($root . '/core/UpdaterSelfUpdate.php');
 $builder = (string) file_get_contents($root . '/tools/build-update-package.php');
+$fileSet = (string) file_get_contents($root . '/tools/UpdateFileSet.php');
 $required = file($root . '/core/required-installed-files.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
 
 $passes = 0;
@@ -28,6 +29,9 @@ checkProtected(
     strpos($updateService, "preg_match('#\\Acore/Update(?:Lock|Service|Exception)\\.php\\z#', \$path)") !== false,
     'UpdateService keeps updater core protected from direct replacement'
 );
+checkProtected(strpos($updateService, "\$path === 'docs/theme/theme-rules.json'") !== false, 'UpdateService allows the Theme rules runtime dependency');
+checkProtected(strpos($builder, "\$path === 'docs/theme/theme-rules.json'") !== false, 'builder allows the Theme rules runtime dependency');
+checkProtected(strpos($fileSet, "\$path === 'docs/theme/theme-rules.json'") !== false, 'derived update file set allows the Theme rules runtime dependency');
 checkProtected(strpos($builder, "'pending' => 'core/updater-pending/update-lock.php'") !== false, 'builder has UpdateLock pending PHP path');
 checkProtected(strpos($builder, "'metadata' => 'core/updater-pending/update-lock.json'") !== false, 'builder has UpdateLock pending metadata path');
 checkProtected(strpos($selfUpdate, "'pending_file' => 'update-lock.php'") !== false, 'self-update consumes UpdateLock pending PHP');

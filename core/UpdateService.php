@@ -542,6 +542,7 @@ final class UpdateService
             return preg_match('#\Athemes/(tomos-90s|tomos-blog|tomos-dark|tomos-journal|tomos-minimal|tomos-note)/[A-Za-z0-9._/-]+\z#', $path) === 1;
         }
         return $path === 'VERSION'
+            || $path === 'docs/theme/theme-rules.json'
             || $path === 'index.php'
             || preg_match('#\A(core|post|setup|assets)/[A-Za-z0-9._/-]+\z#', $path) === 1;
     }

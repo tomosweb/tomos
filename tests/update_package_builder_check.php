@@ -100,6 +100,22 @@ try {
     check(!array_key_exists('minimum_version', $manifest), 'manifest does not contain legacy minimum_version');
     $zip->close();
 
+    $rulesOutput = $tmp . '/tomos-update-' . $targetVersion . '-theme-rules.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $rulesOutput,
+        'file' => ['VERSION', 'docs/theme/theme-rules.json'],
+    ]);
+    check($code === 0, 'builder accepts the Theme rules runtime dependency: ' . $outputText);
+    $rulesZip = new ZipArchive();
+    check($rulesZip->open($rulesOutput) === true, 'Theme rules dependency ZIP opens');
+    $rulesManifest = json_decode((string) $rulesZip->getFromName('manifest.json'), true);
+    check(isset($rulesManifest['files']['docs/theme/theme-rules.json']), 'Theme rules dependency is recorded in the manifest');
+    check($rulesZip->getFromName('files/docs/theme/theme-rules.json') === (string) file_get_contents($root . '/docs/theme/theme-rules.json'), 'Theme rules dependency bytes are included');
+    $rulesZip->close();
+
     $bridgeOutput = $tmp . '/tomos-update-' . $targetVersion . '-bridge.zip';
     [$code, $outputText] = runBuilder($root, $tmp, [
         'from' => $fromVersion,

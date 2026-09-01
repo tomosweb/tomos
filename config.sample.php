@@ -58,7 +58,6 @@ return [
     'security' => [
         'allow_raw_html' => false,
         'allow_external_scripts' => false,
-        'allow_theme_scripts' => false,
         'allowed_file_extensions' => ['md', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
         'disable_setup_after_install' => true,
         'hide_error_detail' => true,
