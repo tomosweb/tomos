@@ -24,6 +24,10 @@ Options -Indexes
 RewriteEngine On
 # RewriteBase /tomos/
 
+# `docs/theme/theme-rules.json` is required runtime data, but `/docs/` itself
+# must remain an application route when that directory exists on the server.
+RewriteRule ^docs/?$ index.php [L]
+
 # `/post/site-settings.php` is the canonical Site Settings entrypoint.
 # Keep the former directory URL only as a compatibility redirect so normal
 # Tomos Post navigation never depends on shared-hosting DirectoryIndex behavior.
