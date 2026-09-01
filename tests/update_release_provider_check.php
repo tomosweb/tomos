@@ -94,6 +94,18 @@ $completeSequence['updates'][] = [
 $completeResult = providerFor(jsonResponse($completeSequence))->getNextUpdate('0.1.0-alpha.17');
 check($completeResult['next_version'] === '0.1.0-alpha.18', 'complete sequential catalog remains valid');
 
+$alternateTargetSequence = validCatalog();
+$alternateTargetSequence['updates'][0]['to'] = '0.1.0-alpha.20';
+$alternateTargetSequence['updates'][0]['package_url'] = 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.20/tomos-update-0.1.0-alpha.20.zip';
+$alternateTargetSequence['updates'][1] = [
+    'from' => '0.1.0-alpha.18',
+    'to' => '0.1.0-alpha.20',
+    'package_url' => 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.20/tomos-update-0.1.0-alpha.20-from-0.1.0-alpha.18.zip',
+    'sha256' => str_repeat('c', 64),
+];
+$alternateTargetResult = providerFor(jsonResponse($alternateTargetSequence))->getNextUpdate('0.1.0-alpha.17');
+check($alternateTargetResult['next_version'] === '0.1.0-alpha.20', 'alternate from-version entries with a shared target are valid');
+
 $noUpdate = providerFor(jsonResponse($catalog))->getNextUpdate('0.1.0-alpha.19');
 check($noUpdate === [
     'current_version' => '0.1.0-alpha.19',
