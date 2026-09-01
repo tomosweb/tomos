@@ -84,6 +84,7 @@ final class UpdaterSelfUpdate
         $rollbackAttempted = false;
         $rollbackSucceeded = false;
         $bundle = [];
+        $createdDirectories = [];
         $temporaryPaths = [];
         $lockHandle = null;
 
@@ -97,7 +98,7 @@ final class UpdaterSelfUpdate
             $stage = 'pending_validation';
             $bundle = $this->collectPendingBundle();
             $stage = 'current_files';
-            $bundle = $this->collectCurrentTargets($bundle);
+            $bundle = $this->collectCurrentTargets($bundle, $createdDirectories);
 
             $stage = 'backup';
             $this->createBackup($backupDir, $bundle);
@@ -175,6 +176,7 @@ final class UpdaterSelfUpdate
                     unset($entry);
                 }
             }
+            $this->removeCreatedDirectories($createdDirectories);
 
             $targetMeta = $this->targetMeta($bundle);
             $meta = $this->resultMeta(
@@ -246,12 +248,13 @@ final class UpdaterSelfUpdate
         return $bundle;
     }
 
-    private function collectCurrentTargets(array $bundle): array
+    private function collectCurrentTargets(array $bundle, array &$createdDirectories): array
     {
         foreach ($bundle as $target => $entry) {
             $definition = self::TARGETS[$target];
             $targetPath = $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $target);
             $targetDir = dirname($targetPath);
+            $this->ensureTargetDirectory($targetDir, $definition['directory'], $createdDirectories);
             $this->assertSafeTarget($target, $targetPath, $targetDir, $definition['directory']);
             $oldHash = is_file($targetPath) ? $this->hashFile($targetPath) : '';
             $permissions = is_file($targetPath) ? $this->filePermissions($targetPath) : 0644;
@@ -262,6 +265,53 @@ final class UpdaterSelfUpdate
             $bundle[$target]['installed_sha256'] = $oldHash;
         }
         return $bundle;
+    }
+
+    private function ensureTargetDirectory(string $targetDir, string $expectedDirectory, array &$createdDirectories): void
+    {
+        $rootReal = realpath($this->rootDir);
+        $expectedPath = $rootReal === false
+            ? ''
+            : $rootReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $expectedDirectory);
+        if ($rootReal === false || $expectedPath === ''
+            || is_link($targetDir) || (file_exists($targetDir) && !is_dir($targetDir))
+        ) {
+            throw new RuntimeException('current_target_directory');
+        }
+
+        if (!is_dir($targetDir)) {
+            $missing = [];
+            $cursor = $targetDir;
+            while (!is_dir($cursor)) {
+                if (is_link($cursor) || file_exists($cursor)) {
+                    throw new RuntimeException('current_target_directory');
+                }
+                $missing[] = $cursor;
+                $parent = dirname($cursor);
+                if ($parent === $cursor) {
+                    throw new RuntimeException('current_target_directory');
+                }
+                $cursor = $parent;
+            }
+            if (is_link($cursor) || realpath($cursor) === false
+                || ($cursor !== $this->rootDir && strpos((string) realpath($cursor), $rootReal . DIRECTORY_SEPARATOR) !== 0)
+            ) {
+                throw new RuntimeException('current_target_directory');
+            }
+            if (!@mkdir($targetDir, 0755, true) && !is_dir($targetDir)) {
+                throw new RuntimeException('current_target_directory');
+            }
+            foreach (array_reverse($missing) as $created) {
+                $createdDirectories[] = $created;
+            }
+        }
+
+        $targetDirReal = realpath($targetDir);
+        if ($targetDirReal === false || $targetDirReal !== $expectedPath
+            || is_link($targetDir) || !is_writable($targetDir)
+        ) {
+            throw new RuntimeException('current_target_directory');
+        }
     }
 
     private function assertPendingDirectory(): void
@@ -480,26 +530,27 @@ final class UpdaterSelfUpdate
 
     private function assertPhpSyntax(string $path): void
     {
-        if (!function_exists('proc_open')) {
+        if (!function_exists('token_get_all') || !defined('TOKEN_PARSE')) {
             throw new RuntimeException('php_syntax_environment');
         }
-        $binary = PHP_BINARY !== '' ? PHP_BINARY : 'php';
-        $process = @proc_open(
-            escapeshellarg($binary) . ' -l ' . escapeshellarg($path),
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes
-        );
-        if (!is_resource($process)) {
+
+        $source = @file_get_contents($path);
+        if (!is_string($source) || $source === '') {
             throw new RuntimeException('php_syntax_environment');
         }
-        foreach ([1, 2] as $pipe) {
-            if (isset($pipes[$pipe]) && is_resource($pipes[$pipe])) {
-                stream_get_contents($pipes[$pipe]);
-                fclose($pipes[$pipe]);
-            }
-        }
-        if (proc_close($process) !== 0) {
+
+        try {
+            $tokens = token_get_all($source, TOKEN_PARSE);
+        } catch (Throwable $exception) {
             throw new RuntimeException('php_syntax');
+        }
+        if (!is_array($tokens) || $tokens === []) {
+            throw new RuntimeException('php_syntax');
+        }
+        foreach ($tokens as $token) {
+            if (is_array($token) && defined('T_BAD_CHARACTER') && $token[0] === T_BAD_CHARACTER) {
+                throw new RuntimeException('php_syntax');
+            }
         }
     }
 
@@ -713,6 +764,15 @@ final class UpdaterSelfUpdate
             $allOk = @unlink($completedDir . DIRECTORY_SEPARATOR . $definition['metadata_file']) && $allOk;
         }
         return $allOk && @rmdir($completedDir);
+    }
+
+    private function removeCreatedDirectories(array $directories): void
+    {
+        foreach (array_reverse($directories) as $directory) {
+            if (is_dir($directory) && !is_link($directory)) {
+                @rmdir($directory);
+            }
+        }
     }
 }
 

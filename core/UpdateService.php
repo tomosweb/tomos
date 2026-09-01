@@ -252,6 +252,9 @@ final class UpdateService
                 'theme_files' => $themeFiles,
                 'created_at' => gmdate('c'),
             ];
+            if (($manifest['recovery'] ?? false) === true) {
+                $summary['recovery'] = true;
+            }
             if (@file_put_contents($recordPath, json_encode($summary, JSON_UNESCAPED_SLASHES), LOCK_EX) === false) {
                 throw new UpdateException('更新内容の確認結果を保存できませんでした。', 'staging');
             }
@@ -470,11 +473,20 @@ final class UpdateService
             throw new UpdateException('manifestの形式が正しくありません。', 'manifest');
         }
         $versionPattern = '/\A[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?\z/';
+        $recovery = array_key_exists('recovery', $manifest) ? $manifest['recovery'] : false;
+        if (!is_bool($recovery)) {
+            throw new UpdateException('manifestのrecovery情報が正しくありません。', 'manifest');
+        }
         if (preg_match($versionPattern, $manifest['from_version']) !== 1
             || preg_match($versionPattern, $manifest['version']) !== 1
-            || version_compare($manifest['from_version'], $manifest['version'], '>=')
+            || version_compare($manifest['from_version'], $manifest['version'], '>')
+            || ($recovery && $manifest['from_version'] !== $manifest['version'])
+            || (!$recovery && version_compare($manifest['from_version'], $manifest['version'], '>='))
         ) {
             throw new UpdateException('manifestのバージョン情報が正しくありません。', 'version');
+        }
+        if ($recovery && array_key_exists('minimum_version', $manifest)) {
+            throw new UpdateException('recovery manifestにminimum_versionは指定できません。', 'manifest');
         }
         if (array_key_exists('minimum_version', $manifest)) {
             if (!is_string($manifest['minimum_version'])
@@ -497,8 +509,11 @@ final class UpdateService
                 'update_sequence'
             );
         }
-        if (version_compare($manifest['version'], $current, '<=')) {
+        if (!$recovery && version_compare($manifest['version'], $current, '<=')) {
             throw new UpdateException('同じバージョン、または現在より古いバージョンは適用できません。', 'version');
+        }
+        if ($recovery && ($manifest['from_version'] !== $current || $manifest['version'] !== $current)) {
+            throw new UpdateException('recovery更新は現在のバージョンに対してのみ適用できます。', 'update_sequence');
         }
         if (!array_key_exists('VERSION', $manifest['files'])) {
             throw new UpdateException('更新ZIPにVERSIONの更新情報がありません。', 'manifest');

@@ -33,13 +33,17 @@ final class UpdateReleaseProvider
         $updates = $catalog['updates'];
         foreach ($updates as $update) {
             if ($update['from'] === $currentVersion) {
-                return [
+                $result = [
                     'current_version' => $currentVersion,
                     'update_available' => true,
                     'next_version' => $update['to'],
                     'package_url' => $update['package_url'],
                     'sha256' => $update['sha256'],
                 ];
+                if (($update['recovery'] ?? false) === true) {
+                    $result['recovery'] = true;
+                }
+                return $result;
             }
         }
 
@@ -201,9 +205,16 @@ final class UpdateReleaseProvider
             }
             $from = $update['from'];
             $to = $update['to'];
+            $recovery = array_key_exists('recovery', $update) ? $update['recovery'] : false;
+            if (!is_bool($recovery)) {
+                $this->fail('catalog', '更新カタログのrecovery指定が不正です。');
+            }
             $this->assertVersion($from, 'from');
             $this->assertVersion($to, 'to');
-            if (version_compare($from, $to, '>=')) {
+            if (version_compare($from, $to, '>')
+                || (!$recovery && version_compare($from, $to, '>='))
+                || ($recovery && $from !== $to)
+            ) {
                 $this->fail('version', '更新カタログの更新順序が正しくありません。');
             }
             if (isset($seenFrom[$from])) {
