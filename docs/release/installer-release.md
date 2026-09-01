@@ -12,11 +12,55 @@
 - mirrorはlatestとpreviousの2世代を保持する。
 - versioned assetsはimmutableとし、同じversionを上書きしない。
 
-## 正式Releaseの必須条件
+## 正式Releaseの完了条件
+
+Tomosの正式Releaseは、GitHub Release作成、ZIP生成、単体テスト、mirror同期の個別成功では完了としない。
+
+正式Releaseの最終Acceptance Gateは、**サポート対象となる既存実環境から、公開済みartifactを使用したBrowser Updateが最後まで成功すること**とする。
+
+検証経路は次を一つのrelease transactionとして扱う。
+
+```text
+旧実環境
+  -> 旧Updater
+  -> 公開catalog
+  -> 公開Update ZIP
+  -> PHP実取得
+  -> SHA-256 / 署名 / manifest検証
+  -> 展開
+  -> runtime必須ファイル配置
+  -> 実サイト起動
+  -> 保護データ保持確認
+```
+
+package builder、Updater、catalog、mirror、GitHub asset、公式Downloadページ、News、実サイト更新を別々にPASS判定してはならない。
+
+上記の最終経路がPASSするまで `PUBLIC RELEASE COMPLETE` と報告しない。
+
+## Release必須Gate
+
+Release完了前に必ず以下を満たすこと。
+
+1. 実際にRelease用として生成したUpdate ZIPを使用して検証する。
+2. サポート対象の全更新元versionから更新を実行する。version番号だけでなく、実際に残り得るUpdater実装差分がある場合はUpdater実装単位でmatrix化する。
+3. 各更新元に含まれる旧Updaterで公開catalogを読み込めることを確認する。
+4. PHP runtimeが実際に使用する取得方式で公開Update ZIPを取得する。
+5. SHA-256、署名、manifestの検証を行う。
+6. 更新処理完了後にruntime必須ファイルが完成状態のpathへ配置されていることを確認する。Update ZIP内の一時配置・pending配置をruntime完成状態として扱わない。
+7. `config.php`、`content/`、uploads、custom Themeその他の保護対象が保持されていることを確認する。
+8. 意図的に必須ファイルを欠落させたUpdate ZIP等でrollbackが成立することを確認する。
+9. 必要artifact、公開URL、実行環境が不足した場合の `SKIP` はPASSとして扱わない。必須Gateでの `SKIP` はBLOCKEDとする。
+10. GitHub Release / mirror公開後、公開URLからartifactを再取得して最終更新テストを実行する。
+11. 更新後のTomos実サイトをHTTP経由で起動確認し、主要画面が正常に表示されることを確認する。
+12. 1ファイルInstallerについても公開 `latest.json`、manifest、signature、Distribution ZIP、smoke testを確認する。
+
+いずれかが未完了、FAIL、または必須GateでSKIPの場合、Release statusはBLOCKEDとする。
+
+## Installer Releaseの必須条件
 
 Tomos本体の正式Releaseでは、1ファイルInstallerのmirror同期と `latest.json` の対象versionへの切替を必須タスクとする。GitHub Release、通常Distribution、Update、公式サイトの公開が完了していても、公開 `https://tomoswords.org/installer/latest.json` が対象versionを返さない状態では、そのversionのReleaseをCOMPLETEとして扱わない。
 
-Release完了前に必ず以下を満たすこと。
+InstallerについてRelease完了前に必ず以下を満たすこと。
 
 1. 対象versionのInstaller Release Assets 6点を生成・署名・検証し、GitHub Releaseへ公開する。
 2. `tomosweb/tomos-official-site` の `Sync installer mirror` をdry-run、本番の順に実行する。
@@ -27,8 +71,6 @@ Release完了前に必ず以下を満たすこと。
 7. Installer smoke testをPASSさせる。
 
 `install.php` 自体へTomosのversionを固定記述する必要はない。正式Releaseの判定対象は、固定Installerが参照する `latest.json` が対象versionを指し、その配布経路が正常に機能することである。
-
-上記のいずれかが未完了またはFAILの場合、Release statusはBLOCKEDとし、`PUBLIC RELEASE COMPLETE` と報告しない。
 
 ## 事前条件
 
@@ -76,7 +118,7 @@ bash tools/build-installer-release-candidate.sh \
 4. Release Assetsの名称、size、GitHubが返すdigest、`SHA256SUMS`を確認する。
 5. 本番private keyや一時的な秘密情報がRelease Assetsへ含まれていないことを確認する。
 
-同じversionのRelease Assetsを差し替えて運用しない。修正が必要な場合は新しいversionを作成する。
+通常Releaseの同じversionのRelease Assetsを差し替えて運用しない。修正が必要な場合は新しいversionを作成する。同一versionの緊急修復が必要な場合は、通常Updateとは分離したRecovery Update仕様に従う。
 
 ## 公式mirror同期
 
@@ -96,9 +138,10 @@ mirror同期は `tomosweb/tomos-official-site` のGitHub Actions `Sync installer
 
 - versioned assets配置中またはHTTPS再検証中に失敗した場合、`latest.json` は切り替えない。
 - `install.php` または `latest.json` の切替後にsmoke testが失敗した場合、同期処理は事前取得した固定ファイルへrollbackする。
+- Browser Updateでは、runtime必須ファイルの完成状態を検証したうえでcommitする。pending領域に存在するだけでは成功扱いにしない。
 - `latest.json` の切替はSFTP renameによる上書きが実サーバーで検証済みである。
 - GitHub Release Assetsは自動削除しない。必要な場合のみ人間が確認して処理する。
-- versioned assetsを同名で上書きせず、修正版は新versionで作成する。
+- versioned assetsを同名で上書きせず、修正版は新versionまたはRecovery Updateの新しいimmutable artifactとして作成する。
 
 ## 初回本番同期後の確認
 
@@ -116,3 +159,5 @@ mirror同期は `tomosweb/tomos-official-site` のGitHub Actions `Sync installer
 `.github/workflows/installer-release-dry-run.yml` はtest専用鍵でRelease候補を検証するだけで、本番署名・Release公開・mirror同期を行わない。
 
 本番private keyはGitHub Actionsへ置かない。GitHub Actionsが担当するのは、すでに本番署名済みでGitHub Releaseへ公開されたAssetsを検証し、公式mirrorへ同期する工程までとする。
+
+Release自動化は、必須Gateを実際に実行していないのにPASS相当の終了コードを返してはならない。必要artifactや環境が存在しない場合はfail-closedでBLOCKEDとする。
