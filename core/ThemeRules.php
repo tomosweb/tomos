@@ -34,4 +34,52 @@ final class ThemeRules
     {
         return self::all()['structure']['recommended_files'] ?? [];
     }
+
+    public static function canonicalJson(): string
+    {
+        $canonical = self::canonicalize(self::all());
+        $encoded = json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($encoded)) {
+            throw new \RuntimeException('Theme rules could not be canonicalized.');
+        }
+
+        return $encoded;
+    }
+
+    public static function sha256(): string
+    {
+        return hash('sha256', self::canonicalJson());
+    }
+
+    private static function canonicalize($value)
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if (self::isList($value)) {
+            return array_map([self::class, 'canonicalize'], $value);
+        }
+
+        $keys = array_keys($value);
+        sort($keys, SORT_STRING);
+        $result = [];
+        foreach ($keys as $key) {
+            $result[$key] = self::canonicalize($value[$key]);
+        }
+
+        return $result;
+    }
+
+    private static function isList(array $value): bool
+    {
+        $expected = 0;
+        foreach (array_keys($value) as $key) {
+            if ($key !== $expected++) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

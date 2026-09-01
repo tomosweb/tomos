@@ -40,6 +40,6 @@ ZIPは単一Themeディレクトリを直下に持ち、path traversal、絶対�
 
 ## 判定の正本
 
-必須構造、推奨ファイル、placeholder、制限値、静的検査patternのIDとseverityは`theme-rules.json`に集約します。CoreのPHP `ThemeValidator`はこのJSONから既存互換の判定へ取り込み、Browser Validatorにはこのcatalogを監査済みのローカルコピーとして同梱します。Browser Validatorはルール取得のための通信を行わないため、catalog変更時はCore JSONとBrowser側コピーを同じレビューで更新します。Server-sideのTheme package policyにあるZIP展開・権限・install時の防御は、今回のBrowser-only checkerとは別の責務です。
+必須構造、推奨ファイル、placeholder、制限値、静的検査patternのIDとseverityは`theme-rules.json`に集約します。CoreのPHP `ThemeValidator`はこのJSONから既存互換の判定へ取り込み、Browser Validatorにはこのcatalogを監査済みのローカルコピーとして同梱します。Browser Validatorはルール取得のための通信を行わないため、catalog変更時はCore JSONとBrowser側コピーを同じレビューで更新します。Coreのcanonical JSON SHA-256は`ThemeRules::sha256()`で計算し、Browser bundleには`RULES_HASH`として埋め込みます。CIまたは同一レビューの検査では`php tools/check-theme-rules-parity.php --browser=/path/to/theme-validator.js`を実行し、両者が一致しない場合は公開を止めます。Server-sideのTheme package policyにあるZIP展開・権限・install時の防御は、今回のBrowser-only checkerとは別の責務です。
 
 この検査は仕様適合と一般的な危険patternの静的確認であり、完全な安全性を保証するものではありません。
