@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "compatibility": {"tomos": "0.6.2", "status": "Developer Preview"},
+  "structure": {
+    "required_files": ["theme.json", "templates/layout.html", "templates/page.html", "templates/list.html", "assets/style.css"],
+    "recommended_files": ["assets/favicon.svg または assets/favicon.png", "assets/apple-touch-icon.png", "assets/ogp.png"],
+    "optional_templates": ["templates/home.html"]
+  },
+  "core": {
+    "forbidden_php_extensions": ["php", "phtml", "phar", "php5", "php7"],
+    "template_errors": [
+      {"id": "php-tags", "regex": "<\\?(?:php|=)?", "message": "PHPタグは使えません。"},
+      {"id": "javascript-url", "regex": "javascript\\s*:", "message": "javascript: URLは使えません。"},
+      {"id": "data-html", "regex": "data\\s*:\\s*text\\/html", "message": "data:text/html は使えません。"}
+    ],
+    "template_warnings": [
+      {"id": "script-element", "regex": "<script\\s+[^>]*(?:src|type)\\s*=", "message": "script要素は避けてください。"},
+      {"id": "event-handler", "regex": "\\son(?:error|load|click)\\s*=", "message": "イベントハンドラ属性は避けてください。"}
+    ],
+    "svg_errors": [
+      {"id": "svg-script", "regex": "<script\\b", "message": "SVG内にscriptまたは外部参照があります。"},
+      {"id": "svg-external-reference", "regex": "\\s(?:href|xlink:href)\\s*=\\s*[\"']https?:\\/\\/", "message": "SVG内にscriptまたは外部参照があります。"}
+    ]
+  },
+  "developer_preview": {
+    "required_placeholders": [
+      {"id": "layout-body", "file": "templates/layout.html", "token": "{{{ page.body }}}", "label": "Layout body"},
+      {"id": "seo-head", "file": "templates/layout.html", "token": "{{{ page.seo_head_html }}}", "label": "SEO Foundation"},
+      {"id": "markdown-content", "file": "templates/page.html", "token": "{{{ page.content }}}", "label": "Markdown content"},
+      {"id": "list-pages", "file": "templates/list.html", "token": "{{{ list.pages }}}", "label": "List pages"}
+    ],
+    "markdown_selectors": [".youtube-embed", ".page-content img", ".wiki-link"],
+    "limits": {"max_zip_bytes": 10485760, "max_expanded_bytes": 31457280, "max_entries": 200, "max_file_bytes": 5242880, "max_directory_depth": 4, "max_compression_ratio": 100},
+    "security_patterns": [
+      {"id": "script", "severity": "error", "regex": "<script\\b|\\.(?:m?js|ts)$", "message": "script要素またはJavaScriptファイルが検出されました。"},
+      {"id": "external-javascript", "severity": "error", "regex": "(?:src|href)\\s*=\\s*[\"']https?:\\/\\/[^\"']+\\.m?js(?:[?#\"']|$)", "message": "外部JavaScriptが検出されました。"},
+      {"id": "javascript-url", "severity": "error", "regex": "javascript\\s*:", "message": "javascript: URLが検出されました。"},
+      {"id": "event-handler", "severity": "error", "regex": "\\son[a-z][a-z0-9_-]*\\s*=", "message": "inline event handlerが検出されました。"},
+      {"id": "object-embed", "severity": "error", "regex": "<(?:object|embed)\\b", "message": "object/embed要素が検出されました。"},
+      {"id": "unknown-iframe", "severity": "error", "regex": "<iframe\\b", "message": "Themeに直接記述されたiframeが検出されました。Core生成HTMLのiframeとは別に検査されます。"},
+      {"id": "dynamic-code", "severity": "error", "regex": "\\beval\\s*\\(|\\bFunction\\s*\\(", "message": "動的コード実行が検出されました。"},
+      {"id": "network-api", "severity": "error", "regex": "\\b(?:fetch|XMLHttpRequest|WebSocket|navigator\\.sendBeacon)\\b", "message": "ThemeからのネットワークAPIが検出されました。"},
+      {"id": "browser-storage", "severity": "error", "regex": "(?:document\\.cookie|localStorage|sessionStorage)", "message": "CookieまたはBrowser Storageの利用が検出されました。"},
+      {"id": "dynamic-html", "severity": "error", "regex": "(?:innerHTML|outerHTML|insertAdjacentHTML|document\\.write)\\s*(?:=|\\(|\\.)", "message": "危険な動的HTML挿入が検出されました。"},
+      {"id": "external-stylesheet", "severity": "warning", "regex": "(?:<link\\b[^>]*\\b(?:href|src)\\s*=\\s*[\"']https?:\\/\\/[^\"']+\\.css(?:[?#\"']|$)|@import\\b[^;]*https?:\\/\\/)", "message": "外部stylesheetが検出されました。"},
+      {"id": "external-font", "severity": "warning", "regex": "@font-face[\\s\\S]{0,600}\\burl\\s*\\(\\s*[\"']?https?:\\/\\/", "message": "外部fontが検出されました。"},
+      {"id": "external-form", "severity": "warning", "regex": "<form\\b[^>]*\\baction\\s*=\\s*[\"']https?:\\/\\/", "message": "外部form送信先が検出されました。"},
+      {"id": "meta-refresh", "severity": "error", "regex": "<meta\\b[^>]*http-equiv\\s*=\\s*[\"']refresh[\"']", "message": "meta refreshが検出されました。"},
+      {"id": "obfuscation", "severity": "warning", "regex": "(?:atob\\s*\\(|base64|[A-Za-z0-9+/]{160,}={0,2})", "message": "不自然なbase64または難読化らしき記述があります。"}
+    ]
+  }
+}

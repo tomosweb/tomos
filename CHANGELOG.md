@@ -1,5 +1,24 @@
 # 更新履歴
 
+## v0.6.2 - 2026-09-01
+
+### Fixed
+
+- v0.6.1以降で追加された`docs/theme/theme-rules.json`が、Distribution ZIPとUpdate ZIPの両方へ確実に含まれるようにし、更新後のruntime整合性を強化しました。
+- `allow_theme_scripts`を削除し、CSP生成をfail-closedに整理しました。Google Analytics 4を設定しない場合はscript実行を許可しません。
+- Theme rulesの正本をCoreから参照し、canonical SHA-256を比較できるようにしました。
+- Reserved URLの現状と実ディレクトリ衝突を回帰fixtureで検証できるようにしました。既存contentとの互換性のため、予約slugの全面禁止は行いません。
+
+### Added
+
+- Theme Specification、ThemeRules、ThemePackagePolicy / ThemeValidator共通rule基盤、Starter Theme source、Theme security rule基盤を追加しました。これらは今後のTheme development foundationです。
+
+### Compatibility
+
+- v0.6.1からv0.6.2へは、通常の署名付きTomos Updateで更新します。`from_version`は`0.6.1`、`version`は`0.6.2`です。
+- `config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+- Theme Developer Centerの公式サイトproduction公開は、このReleaseには含みません。
+
 ## v0.6.1 - 2026-08-31
 
 ### Fixed
