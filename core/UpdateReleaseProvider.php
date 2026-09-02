@@ -15,10 +15,12 @@ final class UpdateReleaseProvider
     public const MAX_REDIRECTS = 3;
 
     private $fixtureTransport;
+    private $catalogUrl;
 
-    public function __construct(?callable $fixtureTransport = null)
+    public function __construct(?callable $fixtureTransport = null, ?string $catalogUrl = null)
     {
         $this->fixtureTransport = $fixtureTransport;
+        $this->catalogUrl = $catalogUrl !== null && $catalogUrl !== '' ? $catalogUrl : self::CATALOG_URL;
     }
 
     /**
@@ -69,7 +71,7 @@ final class UpdateReleaseProvider
 
     private function fetchCatalog(): string
     {
-        $url = self::CATALOG_URL;
+        $url = $this->catalogUrl;
         for ($redirect = 0; $redirect <= self::MAX_REDIRECTS; $redirect++) {
             $this->assertCatalogUrl($url);
             $response = $this->fixtureTransport !== null

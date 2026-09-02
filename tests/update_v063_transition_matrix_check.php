@@ -16,8 +16,7 @@ $publicRepo = getenv('TOMOS_PUBLIC_REPO') ?: '';
 $package061 = getenv('TOMOS_V063_FROM_061') ?: '';
 $package062 = getenv('TOMOS_V063_FROM_062') ?: '';
 if ($publicRepo === '' || !is_dir($publicRepo) || !is_file($package061) || !is_file($package062)) {
-    fwrite(STDERR, "SKIP: public v0.6.2 source or v0.6.3 transition packages are unavailable.\n");
-    exit(0);
+    failOrSkip('public v0.6.2 source or v0.6.3 transition packages are unavailable.');
 }
 
 $tmp = sys_get_temp_dir() . '/tomos-v063-transition-' . bin2hex(random_bytes(8));
@@ -153,4 +152,14 @@ function removeTree(string $path): void
     if (is_file($path) || is_link($path)) { @unlink($path); return; }
     foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $item) removeTree($path . DIRECTORY_SEPARATOR . $item);
     @rmdir($path);
+}
+
+function failOrSkip(string $message): void
+{
+    if (getenv('TOMOS_RELEASE_GATE') === '1' || in_array('--strict', $GLOBALS['argv'] ?? [], true)) {
+        fwrite(STDERR, "FAIL: {$message}\n");
+        exit(1);
+    }
+    fwrite(STDERR, "SKIP: {$message}\n");
+    exit(0);
 }

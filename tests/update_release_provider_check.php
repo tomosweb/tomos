@@ -71,6 +71,14 @@ check($result['update_available'] === true, 'normal catalog reports an update');
 check($result['next_version'] === '0.1.0-alpha.18', 'alpha.17 advances only to alpha.18');
 check($result['sha256'] === str_repeat('a', 64), 'next package hash is returned');
 
+$customCatalogUrl = 'https://tomoswords.org/assets/updates/acceptance-catalog.json';
+$customProvider = new UpdateReleaseProvider(static function (string $url, int $maxBytes) use ($catalog, $customCatalogUrl): array {
+    check($url === $customCatalogUrl, 'provider uses an explicitly supplied catalog URL');
+    check($maxBytes === UpdateReleaseProvider::CATALOG_MAX_BYTES, 'custom catalog receives the catalog size limit');
+    return jsonResponse($catalog);
+}, $customCatalogUrl);
+check($customProvider->getNextUpdate('0.1.0-alpha.17')['next_version'] === '0.1.0-alpha.18', 'custom catalog URL remains fully validated');
+
 $sequenceCatalog = validCatalog();
 $sequenceCatalog['updates'][0]['to'] = '0.1.0-alpha.20';
 $sequenceCatalog['updates'][0]['package_url'] = 'https://tomoswords.org/assets/updates/releases/0.1.0-alpha.20/tomos-update-0.1.0-alpha.20.zip';
