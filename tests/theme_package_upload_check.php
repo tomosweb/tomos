@@ -353,7 +353,13 @@ function runTests(string $testRoot, int &$passes, array &$failures): void
         check('post-placement validation failure removes new theme', function () use ($testRoot): void {
             [$root, $installer] = environment($testRoot, 'post-validation');
             $zip = $root . '/valid.zip';
-            makeZip($zip, validEntries());
+            $entries = validEntries();
+            // Keep the target present long enough for the watcher to inject the
+            // post-placement mutation before final validation completes.
+            for ($i = 0; $i < 150; $i++) {
+                $entries['tomos-test/assets/extra-' . $i . '.css'] = '.x' . $i . '{}';
+            }
+            makeZip($zip, $entries);
             [$id] = inspectZip($installer, $zip, 'owner-a');
             withWatcher(function () use ($root): bool {
                 $path = $root . '/themes/tomos-test/theme.json';
