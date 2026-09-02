@@ -55,5 +55,9 @@ jobs:
               continue
             fi
             echo "Running $test"
-            php "$test"
+            if [ "$test" = "tests/update_self_update_no_proc_open_check.php" ]; then
+              php -d disable_functions=proc_open "$test"
+            else
+              php "$test"
+            fi
           done
