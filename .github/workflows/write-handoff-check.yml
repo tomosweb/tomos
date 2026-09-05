@@ -7,6 +7,9 @@ on:
     paths:
       - .github/workflows/write-handoff-check.yml
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -14,13 +17,47 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/write-handoff-integration
+          fetch-depth: 0
+      - name: Fetch public v0.5.2 baseline
+        run: git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/tags/tomos-public-v0.5.2
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.2'
+          extensions: openssl, mbstring, zip, gd
+          coverage: none
+          tools: composer:v2
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: php -l post/index.php
-      - run: php -l post/write-handoff.php
+      - name: PHP lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file" >/dev/null
+          done < <(find . -path './core/webauthn/vendor' -prune -o -name '*.php' -print0)
       - run: node --check post/assets/write-handoff.js
-      - run: php tests/run.php
+      - name: Prepare WebAuthn runtime
+        run: composer install --working-dir=core/webauthn --no-dev --prefer-dist --no-interaction --classmap-authoritative
+      - name: Build distribution fixture
+        run: bash tools/build-distribution.sh
+      - name: Run regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tests/*_check.php; do
+            if [ "$test" = "tests/installer_phase5_check.php" ]; then
+              echo "Skipping $test (requires signed release-candidate fixture)"
+              continue
+            fi
+            if [ "$test" = "tests/public_artifact_update_acceptance_check.php" ]; then
+              echo "Skipping $test (live public artifact gate)"
+              continue
+            fi
+            echo "Running $test"
+            if [ "$test" = "tests/update_self_update_no_proc_open_check.php" ]; then
+              php -d disable_functions=proc_open "$test"
+            else
+              php "$test"
+            fi
+          done
