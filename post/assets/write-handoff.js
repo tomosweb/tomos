@@ -47,7 +47,7 @@
   const safeReturnUrl = (value) => {
     try {
       const url = new URL(value, window.location.href);
-      if (url.protocol !== "https:" || url.origin !== window.location.origin) return "";
+      if (url.protocol !== "https:" || url.origin !== window.location.origin || url.username || url.password) return "";
       return `${url.origin}${url.pathname}${url.search}`;
     } catch {
       return "";
@@ -129,6 +129,35 @@
     }
   };
 
+  const receiveReturnDocument = (message, source, session) => {
+    const fileInput = document.getElementById("markdown_file");
+    if (!fileInput || !source) return;
+
+    const markdown = message.document && message.document.markdown;
+    const filename = message.document && message.document.filename;
+    if (typeof markdown !== "string" || byteLength(markdown) > MAX_MARKDOWN_BYTES) return;
+    if (typeof DataTransfer === "undefined") {
+      window.alert("このブラウザでは編集済みMarkdownを投稿画面へ渡せません。Write側でMarkdownを保存してください。");
+      return;
+    }
+
+    const safeFilename = typeof filename === "string" && /^[^/\\]+\.(?:md|markdown|txt)$/i.test(filename)
+      ? filename
+      : "article.md";
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([markdown], safeFilename, { type: "text/markdown", lastModified: Date.now() }));
+    fileInput.files = transfer.files;
+    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    source.postMessage({
+      protocol: PROTOCOL,
+      session,
+      type: "tomos:return-ack",
+    }, WRITE_ORIGIN);
+    history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    document.getElementById("post-upload")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   document.querySelectorAll(".tomos-write-edit").forEach((button) => {
     button.addEventListener("click", () => void launchWrite(button));
   });
@@ -143,6 +172,20 @@
     if (message.type === "write:ready") {
       readyReceived = true;
       maybeSendDocument();
+      return;
+    }
+
+    if (message.type === "write:return-probe") {
+      event.source.postMessage({
+        protocol: PROTOCOL,
+        session: sessionId,
+        type: "tomos:return-ready",
+      }, WRITE_ORIGIN);
+      return;
+    }
+
+    if (message.type === "write:return-document") {
+      receiveReturnDocument(message, event.source, sessionId);
       return;
     }
 
@@ -172,30 +215,7 @@
         if (!message || typeof message !== "object") return;
         if (message.protocol !== PROTOCOL || message.session !== returnSession) return;
         if (message.type !== "write:return-document") return;
-
-        const markdown = message.document && message.document.markdown;
-        const filename = message.document && message.document.filename;
-        if (typeof markdown !== "string" || byteLength(markdown) > MAX_MARKDOWN_BYTES) return;
-        if (typeof DataTransfer === "undefined") {
-          window.alert("このブラウザでは編集済みMarkdownを投稿画面へ渡せません。Write側でMarkdownを保存してください。");
-          return;
-        }
-
-        const safeFilename = typeof filename === "string" && /^[^/\\]+\.(?:md|markdown|txt)$/i.test(filename)
-          ? filename
-          : "article.md";
-        const transfer = new DataTransfer();
-        transfer.items.add(new File([markdown], safeFilename, { type: "text/markdown", lastModified: Date.now() }));
-        fileInput.files = transfer.files;
-        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-        opener.postMessage({
-          protocol: PROTOCOL,
-          session: returnSession,
-          type: "tomos:return-ack",
-        }, WRITE_ORIGIN);
-        history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-        document.getElementById("post-upload")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        receiveReturnDocument(message, opener, returnSession);
       });
     }
   }
