@@ -54,6 +54,10 @@ jobs:
               echo "Skipping $test (requires signed release-candidate fixture; covered by installer release workflow)"
               continue
             fi
+            if [ "$test" = "tests/public_artifact_update_acceptance_check.php" ]; then
+              echo "Skipping $test (live public artifact gate; run public-artifact-release-gate workflow explicitly)"
+              continue
+            fi
             echo "Running $test"
             if [ "$test" = "tests/update_self_update_no_proc_open_check.php" ]; then
               php -d disable_functions=proc_open "$test"

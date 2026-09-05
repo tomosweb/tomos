@@ -5,8 +5,7 @@ declare(strict_types=1);
 $distribution = getenv('TOMOS_V061_DISTRIBUTION') ?: dirname(__DIR__) . '/build/tomos-0.6.1.zip';
 $updatePackage = getenv('TOMOS_V062_UPDATE_PACKAGE') ?: '';
 if (!is_file($distribution) || !is_file($updatePackage) || !class_exists(ZipArchive::class)) {
-    fwrite(STDERR, "SKIP: v0.6.1 distribution or v0.6.2 update package is unavailable.\n");
-    exit(0);
+    failOrSkip('v0.6.1 distribution or v0.6.2 update package is unavailable.');
 }
 
 $fixture = sys_get_temp_dir() . '/tomos-legacy-browser-bootstrap-' . bin2hex(random_bytes(8));
@@ -106,4 +105,14 @@ function removeLegacyBootstrapTree(string $path): void
         removeLegacyBootstrapTree($path . DIRECTORY_SEPARATOR . $item);
     }
     @rmdir($path);
+}
+
+function failOrSkip(string $message): void
+{
+    if (getenv('TOMOS_RELEASE_GATE') === '1' || in_array('--strict', $GLOBALS['argv'] ?? [], true)) {
+        fwrite(STDERR, "FAIL: {$message}\n");
+        exit(1);
+    }
+    fwrite(STDERR, "SKIP: {$message}\n");
+    exit(0);
 }

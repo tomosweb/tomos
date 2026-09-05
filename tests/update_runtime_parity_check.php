@@ -13,8 +13,7 @@ use Tomos\UpdaterSelfUpdate;
 $root = dirname(__DIR__);
 $distributionPath = $root . '/build/tomos-' . trim((string) file_get_contents($root . '/VERSION')) . '.zip';
 if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
-    fwrite(STDERR, "SKIP: distribution ZIP or ZipArchive is unavailable.\n");
-    exit(0);
+    failOrSkip('distribution ZIP or ZipArchive is unavailable.');
 }
 
 $fromVersion = '0.5.1';
@@ -180,4 +179,14 @@ function removeTree(string $path): void
     if (is_file($path) || is_link($path)) { @unlink($path); return; }
     foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $item) removeTree($path . DIRECTORY_SEPARATOR . $item);
     @rmdir($path);
+}
+
+function failOrSkip(string $message): void
+{
+    if (getenv('TOMOS_RELEASE_GATE') === '1' || in_array('--strict', $GLOBALS['argv'] ?? [], true)) {
+        fwrite(STDERR, "FAIL: {$message}\n");
+        exit(1);
+    }
+    fwrite(STDERR, "SKIP: {$message}\n");
+    exit(0);
 }
