@@ -1,0 +1,42 @@
+name: Post Handoff Package
+
+on:
+  push:
+    branches:
+      - feature/write-handoff-integration
+    paths:
+      - .github/workflows/write-handoff-package.yml
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/write-handoff-integration
+      - name: Prepare test package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package/post/assets
+          cp post/index.php package/post/index.php
+          cp post/write-handoff.php package/post/write-handoff.php
+          cp post/assets/write-handoff.js package/post/assets/write-handoff.js
+          sed -i 's#https://tomoswords.org/write/#https://tomoswords.org/write-integration-test/#g' package/post/assets/write-handoff.js
+          cat > package/README.txt <<'EOF'
+          Tomos Write integration test package
+
+          Upload the contents of this package to the Tomos test install root:
+          https://tomoswords.sakura.ne.jp/tomos-edit/
+
+          This test package points Tomos Write handoff to:
+          https://tomoswords.org/write-integration-test/
+
+          It is for integration testing only.
+          EOF
+          grep -q 'https://tomoswords.org/write-integration-test/' package/post/assets/write-handoff.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tomos-post-integration-test
+          path: package/
+          if-no-files-found: error
