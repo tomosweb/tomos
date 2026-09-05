@@ -22,7 +22,16 @@ jobs:
           cp post/index.php package/post/index.php
           cp post/write-handoff.php package/post/write-handoff.php
           cp post/assets/write-handoff.js package/post/assets/write-handoff.js
-          sed -i 's#https://tomoswords.org/write/#https://tomoswords.org/write-integration-test/#g' package/post/assets/write-handoff.js
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("package/post/assets/write-handoff.js")
+          text = path.read_text(encoding="utf-8")
+          old = 'const WRITE_URL = `${WRITE_ORIGIN}/write/`;'
+          new = 'const WRITE_URL = `${WRITE_ORIGIN}/write-integration-test/`;'
+          if text.count(old) != 1:
+              raise SystemExit(f"WRITE_URL substitution point count was {text.count(old)}, expected 1")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
           cat > package/README.txt <<'EOF'
           Tomos Write integration test package
 
@@ -34,7 +43,7 @@ jobs:
 
           It is for integration testing only.
           EOF
-          grep -q 'https://tomoswords.org/write-integration-test/' package/post/assets/write-handoff.js
+          grep -Fq 'const WRITE_URL = `${WRITE_ORIGIN}/write-integration-test/`;' package/post/assets/write-handoff.js
       - uses: actions/upload-artifact@v4
         with:
           name: tomos-post-integration-test
