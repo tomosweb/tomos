@@ -18,8 +18,19 @@ if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
 
 $fromVersion = '0.5.1';
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromRef = 'e4d459a2a2618969d90e4b7998a9036d3e3c365b';
-$runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
+$publicRepo = trim((string) (getenv('TOMOS_PUBLIC_REPO') ?: ''));
+if ($publicRepo === '' || !is_dir($publicRepo)) {
+    failOrSkip('public repository fixture source is unavailable.');
+}
+$fromRef = 'v0.5.1';
+$toRef = 'v0.6.3';
+if (!gitRefExists($publicRepo, $fromRef) || !gitRefExists($publicRepo, $toRef)) {
+    failOrSkip('public repository fixture tags v0.5.1 and v0.6.3 are unavailable.');
+}
+$runtimeFiles = UpdateFileSet::fromGitDiff($publicRepo, $fromRef, $toRef);
+if ($runtimeFiles === []) {
+    throw new RuntimeException('public repository fixture contains no updateable runtime files');
+}
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-runtime-parity-' . bin2hex(random_bytes(8));
 if (!mkdir($tmp, 0700, true)) {
     throw new RuntimeException('could not create runtime parity fixture');
@@ -28,12 +39,12 @@ if (!mkdir($tmp, 0700, true)) {
 try {
     $fixture = $tmp . '/fixture';
     mkdir($fixture, 0700, true);
-    $archiveCommand = 'git -C ' . escapeshellarg($root) . ' archive ' . escapeshellarg($fromRef) . ' | tar -x -C ' . escapeshellarg($fixture);
+    $archiveCommand = 'git -C ' . escapeshellarg($publicRepo) . ' archive ' . escapeshellarg($fromRef) . ' | tar -x -C ' . escapeshellarg($fixture);
     $archiveOutput = [];
     $archiveCode = 0;
     exec($archiveCommand, $archiveOutput, $archiveCode);
     if ($archiveCode !== 0) {
-        throw new RuntimeException('could not materialize v0.3.1 fixture');
+        throw new RuntimeException('could not materialize v0.5.1 fixture');
     }
     foreach (['storage/update-tmp', 'storage/update-backups', 'storage/update-logs', 'core/updater-pending'] as $directory) {
         mkdir($fixture . '/' . $directory, 0700, true);
@@ -67,8 +78,10 @@ try {
         . ' ' . escapeshellarg('--from=' . $fromVersion)
         . ' ' . escapeshellarg('--version=' . $targetVersion)
         . ' ' . escapeshellarg('--private-key=' . $keyPath)
-        . ' ' . escapeshellarg('--output=' . $packagePath)
-        . ' ' . escapeshellarg('--from-ref=' . $fromRef);
+        . ' ' . escapeshellarg('--output=' . $packagePath);
+    foreach ($runtimeFiles as $runtimeFile) {
+        $command .= ' ' . escapeshellarg('--file=' . $runtimeFile);
+    }
     $lines = [];
     $code = 0;
     exec($command . ' 2>&1', $lines, $code);
@@ -171,6 +184,16 @@ function assertContains(string $value, string $needle, string $message): void
     if (strpos($value, $needle) === false) {
         throw new RuntimeException($message);
     }
+}
+
+function gitRefExists(string $repository, string $ref): bool
+{
+    $command = 'git -C ' . escapeshellarg($repository)
+        . ' rev-parse --verify --quiet ' . escapeshellarg('refs/tags/' . $ref . '^{commit}');
+    $output = [];
+    $status = 0;
+    exec($command, $output, $status);
+    return $status === 0 && $output !== [];
 }
 
 function removeTree(string $path): void
