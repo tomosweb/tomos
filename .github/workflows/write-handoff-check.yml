@@ -1,0 +1,26 @@
+name: Post Handoff Check
+
+on:
+  push:
+    branches:
+      - feature/write-handoff-integration
+    paths:
+      - .github/workflows/write-handoff-check.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/write-handoff-integration
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: php -l post/index.php
+      - run: php -l post/write-handoff.php
+      - run: node --check post/assets/write-handoff.js
+      - run: php tests/run.php
