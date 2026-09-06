@@ -2,7 +2,7 @@
 
 Tomosは、Markdownで書いた文章を自分のWebサイトとして公開するための、軽量なMarkdown公開プログラムです。
 
-現在のバージョンは `v0.6.3` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
+現在のバージョンは `v0.6.4` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
 
 > **v0.1.0-alpha.17から更新する方へ**
 >
@@ -13,7 +13,7 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 >
 > 2まで完了するとalpha.18の新しいUpdaterへ完全に移行します。その後、Tomos Updateからalpha.19、beta.1へ1バージョンずつ更新できます。
 
-詳しくは [v0.6.3の更新案内](docs/releases/v0.6.3.md) を確認してください。過去のalpha/betaからの移行手順は[既存環境の更新手順](docs/install/update.md)に履歴として掲載しています。
+詳しくは [v0.6.4の更新案内](docs/releases/v0.6.4.md) を確認してください。過去のalpha/betaからの移行手順は[既存環境の更新手順](docs/install/update.md)に履歴として掲載しています。
 
 ## 主な機能
 
@@ -33,6 +33,7 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 - Tomos Postの記事管理から公開記事、下書き、固定ページを検索
 - 既存原稿の編集用Markdownダウンロード、再投稿、競合確認
 - 公開記事の更新、下書き保存、下書きからの公開
+- 公開済み記事からTomos Writeを使った編集とTomos Post更新への復帰
 - Tomos Postによるサイト名、サイト説明、タイムゾーン、RSS、RSS対象パス、Sitemapの設定変更
 - HTTPS経由の外部Markdown投稿、`draft` に応じた下書き保存・自動公開
 - Tomos Postの管理用合言葉認証に加え、対応環境ではパスキー認証を利用可能
