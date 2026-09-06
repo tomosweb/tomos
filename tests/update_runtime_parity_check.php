@@ -16,16 +16,16 @@ if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
     failOrSkip('distribution ZIP or ZipArchive is unavailable.');
 }
 
-$fromVersion = '0.5.1';
+$fromVersion = '0.6.4';
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
 $publicRepo = trim((string) (getenv('TOMOS_PUBLIC_REPO') ?: ''));
 if ($publicRepo === '' || !is_dir($publicRepo)) {
     failOrSkip('public repository fixture source is unavailable.');
 }
-$fromRef = 'v0.5.1';
-$toRef = 'v0.6.4';
+$fromRef = 'v0.6.4';
+$toRef = 'v0.6.5';
 if (!gitRefExists($publicRepo, $fromRef) || !gitRefExists($publicRepo, $toRef)) {
-    failOrSkip('public repository fixture tags v0.5.1 and v0.6.4 are unavailable.');
+    failOrSkip('public repository fixture tags v0.6.4 and v0.6.5 are unavailable.');
 }
 $runtimeFiles = UpdateFileSet::fromGitDiff($publicRepo, $fromRef, $toRef);
 if ($runtimeFiles === []) {

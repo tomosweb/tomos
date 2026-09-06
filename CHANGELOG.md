@@ -1,5 +1,19 @@
 # 更新履歴
 
+## v0.6.5 - 2026-09-06
+
+### Fixed
+
+- 「Tomos Writeで編集」で、Chrome環境により承認後のTomos Write起動がポップアップブロックされる問題を修正しました。
+- ポップアップ起動に失敗した場合は、記事本文を送信せず安全に停止するようにしました。
+
+### Compatibility
+
+- v0.6.4で追加したTomos Write編集フローを継続して利用できます。
+- 承認、origin/session検証、自動公開しない仕様は変更ありません。
+- 従来の「Markdownを取得」とMarkdown upload更新を継続して利用できます。
+- Mac Chrome、Mac Safari、iPhone Safariでhandoffを確認しました。
+
 ## v0.6.4 - 2026-09-06
 
 ### Added
