@@ -1,5 +1,18 @@
 # 更新履歴
 
+## v0.6.7 - 2026-09-06
+
+### Fixed
+
+- v0.6.6で承認後にTomos Writeタブが開かないことがある往路popup regressionを修正しました。
+- PR #179で導入した、click user activation中のpopup予約、確認ダイアログ、予約windowのWrite URL遷移の順序へ戻しました。
+- v0.6.6で修正したTomos WriteからTomosへ戻る復路receiverは維持しています。
+
+### Security / Compatibility
+
+- 承認、origin/source/session検証、ACK確認、自動公開しない仕様は変更ありません。
+- v0.6.6からv0.6.7へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.6.6 - 2026-09-06
 
 ### Fixed
