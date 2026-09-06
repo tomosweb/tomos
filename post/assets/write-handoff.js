@@ -89,19 +89,18 @@
     clearHandshakeTimer();
     closeReservedWindow();
     selectedButton = button;
-    writeWindow = window.open("about:blank", "_blank");
-    reservedWindow = Boolean(writeWindow);
-    if (!writeWindow) {
-      failLaunch("Tomos Writeを開けませんでした。ブラウザのポップアップ設定を確認してください。");
-      return;
-    }
-
     const approved = window.confirm(
       "この記事のMarkdownをTomos公式サイトのTomos Writeへ渡します。\n\n編集内容は自動では公開されません。Tomosへ戻した後に更新内容を確認できます。"
     );
     if (!approved) {
-      closeReservedWindow();
       selectedButton = null;
+      return;
+    }
+
+    writeWindow = window.open("about:blank", "_blank");
+    reservedWindow = Boolean(writeWindow);
+    if (!writeWindow) {
+      failLaunch("Tomos Writeを開けませんでした。ブラウザのポップアップ設定を確認してください。");
       return;
     }
 
