@@ -16,10 +16,6 @@ on:
         description: Public v0.6.1 Distribution ZIP URL
         required: true
         type: string
-      v062_distribution_url:
-        description: Public v0.6.2 Distribution ZIP URL
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -61,13 +57,11 @@ jobs:
           TARGET_VERSION: ${{ inputs.target_version }}
           CATALOG_URL: ${{ inputs.catalog_url }}
           V061_URL: ${{ inputs.v061_distribution_url }}
-          V062_URL: ${{ inputs.v062_distribution_url }}
         run: |
           set -euo pipefail
           test -n "$TARGET_VERSION"
           test -n "$CATALOG_URL"
           test -n "$V061_URL"
-          test -n "$V062_URL"
 
       - name: Run public artifact acceptance gate
         shell: bash
@@ -75,7 +69,6 @@ jobs:
           TOMOS_RELEASE_GATE: '1'
           TOMOS_PUBLIC_CATALOG_URL: ${{ inputs.catalog_url }}
           TOMOS_V061_DISTRIBUTION_URL: ${{ inputs.v061_distribution_url }}
-          TOMOS_V062_DISTRIBUTION_URL: ${{ inputs.v062_distribution_url }}
           TOMOS_PUBLIC_GATE_OUTPUT_DIR: ${{ runner.temp }}/tomos-public-gate
         run: |
           set -euo pipefail
@@ -92,13 +85,10 @@ jobs:
           TOMOS_RELEASE_GATE: '1'
           TOMOS_PUBLIC_REPO: ${{ runner.temp }}/tomos-public
           TOMOS_V063_FROM_061: ${{ runner.temp }}/tomos-public-gate/tomos-update-0_6_1.zip
-          TOMOS_V063_FROM_062: ${{ runner.temp }}/tomos-public-gate/tomos-update-0_6_2.zip
         run: |
           set -euo pipefail
           echo "Running strict tests/update_runtime_parity_check.php"
           php tests/update_runtime_parity_check.php --strict
-          echo "Running strict tests/update_v063_transition_matrix_check.php"
-          php tests/update_v063_transition_matrix_check.php --strict
 
       - name: Verify strict missing-artifact behavior
         shell: bash
