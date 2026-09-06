@@ -16,16 +16,16 @@ function requireNeedle(string $source, string $needle, string $message): void
 
 requireNeedle($source, 'let reservedWindow = false;', 'reserved popup state is missing');
 requireNeedle($source, 'writeWindow = window.open("about:blank", "_blank");', 'popup must be reserved synchronously as about:blank');
-requireNeedle($source, "if (!approved) {\n      selectedButton = null;", 'approval rejection must not open or retain a popup');
+requireNeedle($source, "if (!approved) {\n      closeReservedWindow();", 'approval rejection must close the reserved popup');
 requireNeedle($source, 'writeWindow.location.href = `${WRITE_URL}#${fragment.toString()}`;', 'the reserved popup must be navigated after approval');
 requireNeedle($source, "if (!writeWindow) {\n      failLaunch(", 'a blocked popup must stop the handoff');
 requireNeedle($source, 'writeWindow.postMessage({', 'the existing document handoff must use the retained window handle');
 requireNeedle($source, '}, WRITE_ORIGIN);', 'postMessage must retain the exact target origin');
 
-$confirmPosition = strpos($source, 'const approved = window.confirm(');
 $openPosition = strpos($source, 'writeWindow = window.open("about:blank", "_blank");');
+$confirmPosition = strpos($source, 'const approved = window.confirm(');
 $navigatePosition = strpos($source, 'writeWindow.location.href = `${WRITE_URL}#${fragment.toString()}`;');
-if ($openPosition === false || $confirmPosition === false || $navigatePosition === false || !($confirmPosition < $openPosition && $openPosition < $navigatePosition)) {
+if ($openPosition === false || $confirmPosition === false || $navigatePosition === false || !($openPosition < $confirmPosition && $confirmPosition < $navigatePosition)) {
     throw new RuntimeException('popup reservation and post-approval navigation order is invalid');
 }
 
@@ -33,4 +33,4 @@ if (strpos($source, 'window.open(`${WRITE_URL}') !== false) {
     throw new RuntimeException('handoff must not open the final URL after the approval boundary');
 }
 
-echo "write_handoff_popup_activation_check: visible approval, synchronous reservation, retained window, and exact-origin handoff checks passed\n";
+echo "write_handoff_popup_activation_check: synchronous reservation, approval cleanup, retained window, and exact-origin handoff checks passed\n";
