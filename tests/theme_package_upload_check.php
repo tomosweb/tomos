@@ -301,15 +301,28 @@ function runTests(string $testRoot, int &$passes, array &$failures): void
         check('hidden staging validation failure rolls back', function () use ($testRoot): void {
             [$root, $installer] = environment($testRoot, 'hidden-validation');
             $zip = $root . '/valid.zip';
-            makeZip($zip, validEntries());
+            $entries = validEntries();
+            // Keep the hidden staging tree in the transaction long enough for
+            // the watcher to mutate it before staging validation completes.
+            for ($i = 0; $i < 150; $i++) {
+                $entries['tomos-test/assets/extra-' . $i . '.css'] = '.x' . $i . '{}';
+            }
+            makeZip($zip, $entries);
             [$id] = inspectZip($installer, $zip, 'owner-a');
-            withWatcher(function () use ($root): bool {
+            withWatcher(function () use ($root, $entries): bool {
                 $matches = glob($root . '/themes/.tomos-theme-staging-*/tomos-test/theme.json') ?: [];
                 if ($matches === []) {
                     return false;
                 }
-                file_put_contents($matches[0], '{invalid');
-                return true;
+                $stagedTheme = dirname($matches[0]);
+                foreach ($entries as $relative => $expected) {
+                    $relative = substr($relative, strlen('tomos-test/'));
+                    $path = $stagedTheme . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+                    if (!is_file($path) || file_get_contents($path) !== (string) $expected) {
+                        return false;
+                    }
+                }
+                return file_put_contents($matches[0], '{invalid') !== false;
             }, function () use ($installer, $id): void {
                 try {
                     $installer->apply($id, 'owner-a');
