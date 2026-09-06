@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.6.1';
-$fromRef = 'e770fee';
+$fromVersion = '0.6.3';
+$fromRef = '9e7fc6f';
 require_once $root . '/tools/UpdateFileSet.php';
-// e770fee is the private Core source baseline used for the released v0.6.1 runtime.
+// 9e7fc6f is the Core source baseline used for the v0.6.3 runtime.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.6.3') {
-    throw new RuntimeException('release transition check requires VERSION 0.6.3');
+if ($targetVersion !== '0.6.4') {
+    throw new RuntimeException('release transition check requires VERSION 0.6.4');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -111,14 +111,10 @@ try {
 
         foreach ([
             'VERSION',
-            'core/App.php',
-            'core/ContentSecurityPolicy.php',
-            'core/required-installed-files.txt',
-            'core/ThemePackagePolicy.php',
-            'core/ThemeRules.php',
-            'core/ThemeValidator.php',
-            'core/UpdateService.php',
-            'docs/theme/theme-rules.json',
+            'core/UpdateReleaseProvider.php',
+            'post/assets/write-handoff.js',
+            'post/index.php',
+            'post/write-handoff.php',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
