@@ -16,10 +16,10 @@ if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
     failOrSkip('distribution ZIP or ZipArchive is unavailable.');
 }
 
-$fromVersion = '0.6.5';
+$fromVersion = '0.6.6';
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromRef = 'ae657f2';
-// ae657f2 is the private Core source baseline used to build the public v0.6.5
+$fromRef = 'c56a910';
+// c56a910 is the private Core source baseline used to build the public v0.6.6
 // runtime. The public repository is a release-facing export and may not carry
 // every unchanged runtime file from that baseline.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
