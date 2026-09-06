@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.6.4';
-$fromRef = '89e49dd';
+$fromVersion = '0.6.5';
+$fromRef = 'ae657f2';
 require_once $root . '/tools/UpdateFileSet.php';
-// 89e49dd is the v0.6.4 Core source baseline immediately before the popup fix.
+// ae657f2 is the v0.6.5 Core source baseline before the return receiver fix.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.6.5') {
-    throw new RuntimeException('release transition check requires VERSION 0.6.5');
+if ($targetVersion !== '0.6.6') {
+    throw new RuntimeException('release transition check requires VERSION 0.6.6');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
