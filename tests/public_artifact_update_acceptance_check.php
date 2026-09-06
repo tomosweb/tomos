@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/core/UpdatePackageDownloader.php';
 require_once dirname(__DIR__) . '/core/UpdateReleaseProvider.php';
+require_once dirname(__DIR__) . '/tests/public_update_chain_helper.php';
 
 use Tomos\UpdatePackageDownloader;
 use Tomos\UpdateReleaseProvider;
@@ -46,10 +47,9 @@ try {
     }
     $rulesHash = strtolower((string) hash_file('sha256', $rulesPath));
 
-    $baselineUrls = [
-        '0.6.1' => getenv('TOMOS_V061_DISTRIBUTION_URL') ?: 'https://github.com/tomosweb/tomos/releases/download/v0.6.1/tomos-0.6.1.zip',
-        '0.6.2' => getenv('TOMOS_V062_DISTRIBUTION_URL') ?: 'https://github.com/tomosweb/tomos/releases/download/v0.6.2/tomos-0.6.2.zip',
-    ];
+    $startVersion = '0.6.1';
+    $baselineUrlTemplate = getenv('TOMOS_PUBLIC_BASELINE_URL_TEMPLATE')
+        ?: 'https://github.com/tomosweb/tomos/releases/download/v%s/tomos-%s.zip';
     $configuredWorkdir = getenv('TOMOS_PUBLIC_GATE_OUTPUT_DIR') ?: '';
     $tmp = $configuredWorkdir !== '' ? rtrim($configuredWorkdir, DIRECTORY_SEPARATOR) : sys_get_temp_dir() . '/tomos-public-artifact-gate-' . bin2hex(random_bytes(8));
     if ($configuredWorkdir !== '' && (file_exists($tmp) || is_link($tmp))) {
@@ -61,20 +61,22 @@ try {
 
     try {
         $provider = new UpdateReleaseProvider(null, $catalogUrl);
-        $packages = [];
-        foreach (['0.6.1', '0.6.2'] as $from) {
-            $release = $provider->getNextUpdate($from);
-            check(($release['update_available'] ?? false) === true, "catalog has candidate for {$from}");
-            check(($release['next_version'] ?? null) === $targetVersion, "catalog candidate for {$from} targets {$targetVersion}");
-            check(is_string($release['package_url'] ?? null) && $release['package_url'] !== '', "catalog package URL exists for {$from}");
-            check(is_string($release['sha256'] ?? null) && preg_match('/\A[a-f-f0-9]{64}\z/', $release['sha256']) === 1, "catalog SHA-256 exists for {$from}");
+        $chain = resolvePublicUpdateChain($provider, $startVersion, $targetVersion);
+        check($chain !== [], "catalog chain exists for {$startVersion}");
+        check(end($chain)['to'] === $targetVersion, "catalog chain reaches {$targetVersion}");
 
-            $packagePath = $tmp . '/tomos-update-' . str_replace('.', '_', $from) . '.zip';
-            $download = (new UpdatePackageDownloader())->download((string) $release['package_url'], (string) $release['sha256'], $packagePath);
-            check((int) $download['size'] > 0, "public Update ZIP has content for {$from}");
-            check(hash_equals(strtolower((string) $release['sha256']), (string) $download['sha256']), "public Update ZIP SHA-256 matches catalog for {$from}");
-            echo 'PUBLIC UPDATE ' . $from . ' -> ' . $targetVersion . ': ' . $download['url'] . ' size=' . $download['size'] . ' sha256=' . $download['sha256'] . PHP_EOL;
+        $packages = [];
+        $baselineUrls = [];
+        foreach ($chain as $step) {
+            $from = $step['from'];
+            $to = $step['to'];
+            $packagePath = $tmp . '/tomos-update-' . str_replace('.', '_', $from) . '-to-' . str_replace('.', '_', $to) . '.zip';
+            $download = (new UpdatePackageDownloader())->download($step['package_url'], $step['sha256'], $packagePath);
+            check((int) $download['size'] > 0, "public Update ZIP has content for {$from} -> {$to}");
+            assertDownloadedPackageHash($packagePath, $step['sha256']);
+            echo 'PUBLIC UPDATE ' . $from . ' -> ' . $to . ': ' . $download['url'] . ' size=' . $download['size'] . ' sha256=' . $download['sha256'] . PHP_EOL;
             $packages[$from] = $packagePath;
+            $baselineUrls[$from] = sprintf($baselineUrlTemplate, $from, $from);
         }
 
         $baselines = [];
@@ -87,12 +89,15 @@ try {
             $baselines[$version] = $path;
         }
 
-        foreach (['0.6.1', '0.6.2'] as $from) {
-            runTransitionChild($root, $baselines[$from], $packages[$from], $from, $targetVersion, $rulesHash, 'success');
-            echo "TRANSITION {$from} -> {$targetVersion}: PASS" . PHP_EOL;
+        foreach ($chain as $step) {
+            $from = $step['from'];
+            $to = $step['to'];
+            runTransitionChild($root, $baselines[$from], $packages[$from], $from, $to, $rulesHash, 'success');
+            echo "TRANSITION {$from} -> {$to}: PASS" . PHP_EOL;
         }
 
-        runTransitionChild($root, $baselines['0.6.1'], $packages['0.6.1'], '0.6.1', $targetVersion, $rulesHash, 'rollback');
+        $first = $chain[0];
+        runTransitionChild($root, $baselines[$first['from']], $packages[$first['from']], $first['from'], $first['to'], $rulesHash, 'rollback');
         echo 'ROLLBACK negative package: PASS' . PHP_EOL;
         echo 'public_artifact_update_acceptance_check: PASS' . PHP_EOL;
     } finally {
