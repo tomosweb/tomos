@@ -1,5 +1,19 @@
 # 更新履歴
 
+## v0.6.6 - 2026-09-06
+
+### Fixed
+
+- Tomos WriteからTomosへ戻る際、既存のPublished一覧windowが再利用されると本文受信ACKが返らない問題を修正しました。
+- 再利用するTomos windowをTomos Postのupload receiverへ遷移し、receiverの起動確認後に編集済みMarkdownを渡すようにしました。
+- v0.6.5で修正したChromeのポップアップ起動問題への対応を維持しています。
+
+### Security / Compatibility
+
+- 承認、origin/source/session検証、ACK確認、自動公開しない仕様は変更ありません。
+- 編集途中の内容はブラウザ内に保持され、従来の「Markdownを取得」とMarkdown upload更新も継続して利用できます。
+- v0.6.5からv0.6.6へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.6.5 - 2026-09-06
 
 ### Fixed
