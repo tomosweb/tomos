@@ -226,24 +226,39 @@
   const returnSession = returnParams.get("tomosWriteReturn") === "1"
     ? returnParams.get("session") || ""
     : "";
-  if (returnSession) {
+  if (returnSession && document.getElementById("markdown_file")) {
     const opener = window.opener;
-    const fileInput = document.getElementById("markdown_file");
-    if (opener && fileInput) {
-      opener.postMessage({
+    let returnSource = opener && !opener.closed ? opener : null;
+
+    const handleReturnMessage = (event) => {
+      if (event.origin !== WRITE_ORIGIN || !event.source || event.source === window) return;
+      const message = event.data;
+      if (!message || typeof message !== "object") return;
+      if (message.protocol !== PROTOCOL || message.session !== returnSession) return;
+      if (!returnSource) returnSource = event.source;
+      if (event.source !== returnSource) return;
+
+      if (message.type === "write:return-probe") {
+        event.source.postMessage({
+          protocol: PROTOCOL,
+          session: returnSession,
+          type: "tomos:return-ready",
+        }, WRITE_ORIGIN);
+        return;
+      }
+
+      if (message.type === "write:return-document") {
+        receiveReturnDocument(message, event.source, returnSession);
+      }
+    };
+
+    window.addEventListener("message", handleReturnMessage);
+    if (returnSource) {
+      returnSource.postMessage({
         protocol: PROTOCOL,
         session: returnSession,
         type: "tomos:return-ready",
       }, WRITE_ORIGIN);
-
-      window.addEventListener("message", (event) => {
-        if (event.origin !== WRITE_ORIGIN || event.source !== opener) return;
-        const message = event.data;
-        if (!message || typeof message !== "object") return;
-        if (message.protocol !== PROTOCOL || message.session !== returnSession) return;
-        if (message.type !== "write:return-document") return;
-        receiveReturnDocument(message, opener, returnSession);
-      });
     }
   }
 })();
