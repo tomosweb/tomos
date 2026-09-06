@@ -204,37 +204,37 @@ if grep -RhoE 'G-[A-Z0-9]{8,}' "${BUILD_DIR}" \
   exit 1
 fi
 
-if find "${BUILD_DIR}/cache/html" -type f \( -name '*.html' -o -name '*.json' \) -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/cache/html" -type f \( -name '*.html' -o -name '*.json' \) -print -quit)" ]]; then
   echo "Error: generated HTML cache files must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}/cache/logs" -type f \( -name '*.log' -o -name '*.tmp' \) -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/cache/logs" -type f \( -name '*.log' -o -name '*.tmp' \) -print -quit)" ]]; then
   echo "Error: generated performance log files must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}/cache/security/post-rate-limit" -type f \( -name '*.json' -o -name '*.tmp' -o -name '*.log' \) -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/cache/security/post-rate-limit" -type f \( -name '*.json' -o -name '*.tmp' -o -name '*.log' \) -print -quit)" ]]; then
   echo "Error: generated rate limit files must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}/cache/security/post-auth" -type f \( -name '*.json' -o -name '*.tmp-*' -o -name '*.log' \) -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/cache/security/post-auth" -type f \( -name '*.json' -o -name '*.tmp-*' -o -name '*.log' \) -print -quit)" ]]; then
   echo "Error: generated remembered authentication files must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}/cache/security/post-submissions" -type f \( -name '*.json' -o -name '*.lock' -o -name '*.tmp-*' -o -name '*.log' \) -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/cache/security/post-submissions" -type f \( -name '*.json' -o -name '*.lock' -o -name '*.tmp-*' -o -name '*.log' \) -print -quit)" ]]; then
   echo "Error: generated submission guard files must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}/cache/post-upload-sessions" -mindepth 1 ! -name '.htaccess' ! -name '.gitkeep' -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/cache/post-upload-sessions" -mindepth 1 ! -name '.htaccess' ! -name '.gitkeep' -print -quit)" ]]; then
   echo "Error: generated post upload session files must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}/storage" -type f ! -name '.htaccess' ! -name '.gitkeep' -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/storage" -type f ! -name '.htaccess' ! -name '.gitkeep' -print -quit)" ]]; then
   echo "Error: generated Tomos Update data must not be included in distribution."
   exit 1
 fi
@@ -244,17 +244,17 @@ if [[ -d "${BUILD_DIR}/trash/content" ]]; then
   exit 1
 fi
 
-if find "${BUILD_DIR}/trash" -type f \( -name '*.json' -o -name '*.tmp' -o -name '*.log' \) -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}/trash" -type f \( -name '*.json' -o -name '*.tmp' -o -name '*.log' \) -print -quit)" ]]; then
   echo "Error: generated trash metadata files must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}" -name '.DS_Store' -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}" -name '.DS_Store' -print -quit)" ]]; then
   echo "Error: .DS_Store must not be included in distribution."
   exit 1
 fi
 
-if find "${BUILD_DIR}" -name '.htpasswd' -print -quit | grep -q .; then
+if [[ -n "$(find "${BUILD_DIR}" -name '.htpasswd' -print -quit)" ]]; then
   echo "Error: .htpasswd must not be included in distribution."
   exit 1
 fi
@@ -285,7 +285,7 @@ if command -v unzip >/dev/null 2>&1; then
 
   zip_require() {
     local path="$1"
-    if ! printf '%s\n' "${ZIP_LIST}" | grep -Fxq "${path}"; then
+    if ! grep -Fxq "${path}" <<< "${ZIP_LIST}"; then
       echo "Error: ${path} is missing from ZIP."
       exit 1
     fi
@@ -293,7 +293,7 @@ if command -v unzip >/dev/null 2>&1; then
 
   zip_reject_exact() {
     local path="$1"
-    if printf '%s\n' "${ZIP_LIST}" | grep -Fxq "${path}"; then
+    if grep -Fxq "${path}" <<< "${ZIP_LIST}"; then
       echo "Error: ${path} must not be included in ZIP."
       exit 1
     fi
@@ -301,7 +301,7 @@ if command -v unzip >/dev/null 2>&1; then
 
   zip_reject_prefix() {
     local prefix="$1"
-    if printf '%s\n' "${ZIP_LIST}" | grep -E "^${prefix}" >/dev/null; then
+    if grep -E "^${prefix}" >/dev/null <<< "${ZIP_LIST}"; then
       echo "Error: ${prefix} must not be included in ZIP."
       exit 1
     fi
@@ -319,24 +319,24 @@ if command -v unzip >/dev/null 2>&1; then
   zip_reject_exact "cache/index/link-aliases.json"
   zip_reject_exact "cache/index/image-references.json"
   zip_reject_exact "cache/index/image-deletion-retries.json"
-  if printf '%s\n' "${ZIP_LIST}" | grep -E '^cache/post-upload-sessions/.+\.(json|lock)$|^cache/post-upload-sessions/.+-images/' >/dev/null; then
+  if grep -E '^cache/post-upload-sessions/.+\.(json|lock)$|^cache/post-upload-sessions/.+-images/' >/dev/null <<< "${ZIP_LIST}"; then
     echo "Error: generated post upload session files must not be included in ZIP."
     exit 1
   fi
-  if printf '%s\n' "${ZIP_LIST}" | grep -Eq '^cache/html/.*\.(html|json)$'; then
+  if grep -Eq '^cache/html/.*\.(html|json)$' <<< "${ZIP_LIST}"; then
     echo "Error: generated HTML cache files must not be included in ZIP."
     exit 1
   fi
-  if printf '%s\n' "${ZIP_LIST}" | grep -Eq '^cache/security/post-rate-limit/.*\.(json|tmp|log)$'; then
+  if grep -Eq '^cache/security/post-rate-limit/.*\.(json|tmp|log)$' <<< "${ZIP_LIST}"; then
     echo "Error: generated rate limit files must not be included in ZIP."
     exit 1
   fi
   zip_reject_prefix "trash/content/"
-  if printf '%s\n' "${ZIP_LIST}" | grep -Eq '^trash/.*\.(json|tmp|log)$'; then
+  if grep -Eq '^trash/.*\.(json|tmp|log)$' <<< "${ZIP_LIST}"; then
     echo "Error: generated trash metadata files must not be included in ZIP."
     exit 1
   fi
-  if printf '%s\n' "${ZIP_LIST}" | grep -E '^storage/.+' | grep -Ev '^storage/(\.htaccess|\.gitkeep|update-backups/(\.gitkeep)?|update-logs/(\.gitkeep)?|update-tmp/(\.gitkeep)?)$' >/dev/null; then
+  if grep -E '^storage/.+' <<< "${ZIP_LIST}" | grep -Ev '^storage/(\.htaccess|\.gitkeep|update-backups/(\.gitkeep)?|update-logs/(\.gitkeep)?|update-tmp/(\.gitkeep)?)$' >/dev/null; then
     echo "Error: generated Tomos Update data must not be included in ZIP."
     exit 1
   fi
@@ -344,17 +344,17 @@ if command -v unzip >/dev/null 2>&1; then
   zip_reject_prefix "tomos_logo_web_assets/"
   zip_reject_prefix "書類/"
 
-  if printf '%s\n' "${ZIP_LIST}" | grep -Eq '(^|/)\.DS_Store$'; then
+  if grep -Eq '(^|/)\.DS_Store$' <<< "${ZIP_LIST}"; then
     echo "Error: .DS_Store must not be included in ZIP."
     exit 1
   fi
 
-  if printf '%s\n' "${ZIP_LIST}" | grep -Eq '(^|/)\.htpasswd$'; then
+  if grep -Eq '(^|/)\.htpasswd$' <<< "${ZIP_LIST}"; then
     echo "Error: .htpasswd must not be included in ZIP."
     exit 1
   fi
 
-  if printf '%s\n' "${ZIP_LIST}" | grep -Fxq "tomos/index.php"; then
+  if grep -Fxq "tomos/index.php" <<< "${ZIP_LIST}"; then
     echo "Error: ZIP contains tomos/index.php. index.php must be at ZIP root."
     exit 1
   fi
