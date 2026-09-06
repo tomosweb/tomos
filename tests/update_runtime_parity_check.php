@@ -18,18 +18,13 @@ if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
 
 $fromVersion = '0.6.4';
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$publicRepo = trim((string) (getenv('TOMOS_PUBLIC_REPO') ?: ''));
-if ($publicRepo === '' || !is_dir($publicRepo)) {
-    failOrSkip('public repository fixture source is unavailable.');
-}
-$fromRef = 'v0.6.4';
-$toRef = 'v0.6.5';
-if (!gitRefExists($publicRepo, $fromRef) || !gitRefExists($publicRepo, $toRef)) {
-    failOrSkip('public repository fixture tags v0.6.4 and v0.6.5 are unavailable.');
-}
-$runtimeFiles = UpdateFileSet::fromGitDiff($publicRepo, $fromRef, $toRef);
+$fromRef = '89e49dd';
+// 89e49dd is the private Core source baseline used to build the public v0.6.4
+// runtime. The public repository is a release-facing export and may not carry
+// every unchanged runtime file from that baseline.
+$runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if ($runtimeFiles === []) {
-    throw new RuntimeException('public repository fixture contains no updateable runtime files');
+    throw new RuntimeException('release source contains no updateable runtime files');
 }
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-runtime-parity-' . bin2hex(random_bytes(8));
 if (!mkdir($tmp, 0700, true)) {
@@ -39,12 +34,12 @@ if (!mkdir($tmp, 0700, true)) {
 try {
     $fixture = $tmp . '/fixture';
     mkdir($fixture, 0700, true);
-    $archiveCommand = 'git -C ' . escapeshellarg($publicRepo) . ' archive ' . escapeshellarg($fromRef) . ' | tar -x -C ' . escapeshellarg($fixture);
+    $archiveCommand = 'git -C ' . escapeshellarg($root) . ' archive ' . escapeshellarg($fromRef) . ' | tar -x -C ' . escapeshellarg($fixture);
     $archiveOutput = [];
     $archiveCode = 0;
     exec($archiveCommand, $archiveOutput, $archiveCode);
     if ($archiveCode !== 0) {
-        throw new RuntimeException('could not materialize v0.5.1 fixture');
+        throw new RuntimeException('could not materialize v0.6.4 fixture');
     }
     foreach (['storage/update-tmp', 'storage/update-backups', 'storage/update-logs', 'core/updater-pending'] as $directory) {
         mkdir($fixture . '/' . $directory, 0700, true);
@@ -184,16 +179,6 @@ function assertContains(string $value, string $needle, string $message): void
     if (strpos($value, $needle) === false) {
         throw new RuntimeException($message);
     }
-}
-
-function gitRefExists(string $repository, string $ref): bool
-{
-    $command = 'git -C ' . escapeshellarg($repository)
-        . ' rev-parse --verify --quiet ' . escapeshellarg('refs/tags/' . $ref . '^{commit}');
-    $output = [];
-    $status = 0;
-    exec($command, $output, $status);
-    return $status === 0 && $output !== [];
 }
 
 function removeTree(string $path): void
