@@ -1003,6 +1003,7 @@ document.querySelectorAll("form[data-withdraw-submit]").forEach((form) => {
 });
 </script>
 HTML;
+    echo '<script src="' . e(Tomos\Security::publicUrl('/post/assets/write-handoff.js', $publicBasePath)) . '" defer></script>';
     echo '</main></body></html>';
 }
 
@@ -2231,6 +2232,8 @@ function renderPublishedSection(
         echo '<input type="hidden" name="content_path" value="' . e((string) ($item['path'] ?? '')) . '">';
         echo '<button class="secondary" type="submit">Markdownを取得</button>';
         echo '</form>';
+        $handoffReturnUrl = Tomos\Security::publicUrl('/post/?section=upload', $publicBasePath);
+        echo '<button class="secondary tomos-write-edit" type="button" data-return-url="' . e($handoffReturnUrl) . '">Tomos Writeで編集</button>';
         if (empty($item['protected'])) {
             $withdrawUrl = publishedWithdrawUrl($publicBasePath, $query, $year, (int) ($result['page'] ?? 1), (string) ($item['path'] ?? ''));
             echo '<a class="button danger secondary" href="' . e($withdrawUrl) . '">取り下げ</a>';

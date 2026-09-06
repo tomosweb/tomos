@@ -1,5 +1,25 @@
 # 更新履歴
 
+## v0.6.4 - 2026-09-06
+
+### Added
+
+- 公開済み記事の一覧から「Tomos Writeで編集」を利用できるようにしました。
+- ブラウザ間のhandoffで編集用MarkdownをTomos Writeへ渡し、「Tomosで更新する」からTomos Postの更新フローへ戻せるようにしました。
+- 編集途中の内容をブラウザのlocalStorageへ保持し、再読み込みや再開に対応しました。
+- Mac Chrome、Mac Safari、iPhone Safariでテキスト編集、画像追加、Tomosへの返送、更新を確認しました。
+
+### Fixed
+
+- distribution ZIPの内容検査で、`pipefail`と`grep -q`の組み合わせによる誤判定を修正しました。
+
+### Compatibility
+
+- 従来の「Markdownを取得」とMarkdown upload更新を継続して利用できます。
+- 既存画像を保持し、新しい画像は既存のTomos Post画像追加フローを利用します。
+- Tomos本体へeditorを内蔵せず、記事本文をtomoswords.orgのサーバーへ送信・保存しません。
+- v0.6.3からv0.6.4へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.6.3 - 2026-09-02
 
 ### Fixed
