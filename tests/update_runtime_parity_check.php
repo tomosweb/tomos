@@ -23,9 +23,9 @@ if ($publicRepo === '' || !is_dir($publicRepo)) {
     failOrSkip('public repository fixture source is unavailable.');
 }
 $fromRef = 'v0.5.1';
-$toRef = 'v0.6.3';
+$toRef = 'v0.6.4';
 if (!gitRefExists($publicRepo, $fromRef) || !gitRefExists($publicRepo, $toRef)) {
-    failOrSkip('public repository fixture tags v0.5.1 and v0.6.3 are unavailable.');
+    failOrSkip('public repository fixture tags v0.5.1 and v0.6.4 are unavailable.');
 }
 $runtimeFiles = UpdateFileSet::fromGitDiff($publicRepo, $fromRef, $toRef);
 if ($runtimeFiles === []) {
