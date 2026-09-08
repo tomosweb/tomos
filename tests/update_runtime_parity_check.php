@@ -16,12 +16,12 @@ if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
     failOrSkip('distribution ZIP or ZipArchive is unavailable.');
 }
 
-$fromVersion = '0.6.6';
+$fromVersion = '0.6.7';
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromRef = 'c56a910';
-// c56a910 is the private Core source baseline used to build the public v0.6.6
-// runtime. The public repository is a release-facing export and may not carry
-// every unchanged runtime file from that baseline.
+$fromRef = '616b9ca74d92f1a5e55d7b388551af21bcce3c95';
+// 616b9ca is the private Core source baseline used to build the public v0.6.7
+// runtime. Changes after this baseline and before the v0.6.8 runtime fix were
+// documentation-only.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if ($runtimeFiles === []) {
     throw new RuntimeException('release source contains no updateable runtime files');
@@ -39,7 +39,7 @@ try {
     $archiveCode = 0;
     exec($archiveCommand, $archiveOutput, $archiveCode);
     if ($archiveCode !== 0) {
-        throw new RuntimeException('could not materialize v0.6.5 fixture');
+        throw new RuntimeException('could not materialize v0.6.7 fixture');
     }
     foreach (['storage/update-tmp', 'storage/update-backups', 'storage/update-logs', 'core/updater-pending'] as $directory) {
         mkdir($fixture . '/' . $directory, 0700, true);
