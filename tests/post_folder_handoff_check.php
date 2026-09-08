@@ -20,13 +20,12 @@ requireNeedle($source, "editableReupload\n        ? \"Markdown内で変更され
 
 $sourceMetadataPosition = strpos($source, 'const sourceMetadata = extractSourceMetadata(markdown);');
 $folderParsePosition = strpos($source, 'const folder = extractFolder(markdown);');
-if ($sourceMetadataPosition === false || $folderParsePosition === false || $sourceMetadataPosition >= $folderParsePosition) {
-    throw new RuntimeException('editable source metadata must be processed before Markdown folder parsing');
+$folderApplyPosition = strpos($source, 'folderInput.value = normalizeFolder(folder);');
+if ($sourceMetadataPosition === false || $folderParsePosition === false || $folderApplyPosition === false) {
+    throw new RuntimeException('required editable folder handoff steps are missing');
 }
-
-$editableReturnPosition = strpos($source, "return;\n      }\n      if (isUnsafeFolder(folder))");
-if ($editableReturnPosition !== false) {
-    throw new RuntimeException('editable reupload must not return before applying Markdown folder');
+if (!($sourceMetadataPosition < $folderParsePosition && $folderParsePosition < $folderApplyPosition)) {
+    throw new RuntimeException('editable source metadata must be processed before Markdown folder parsing and application');
 }
 
 echo "post_folder_handoff_check: editable Markdown folder overrides source folder\n";
