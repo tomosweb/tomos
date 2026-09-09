@@ -36,6 +36,15 @@ try {
     assertSame(true, $cache->isFresh('content.md', $source), 'rewritten cache must become fresh again');
     assertSame('<p>generation-c</p>', $cache->read('content.md', $source), 'rewritten cache must be readable');
 
+    $currentMeta = json_decode((string) file_get_contents($metaPath), true);
+    if (!is_array($currentMeta)) {
+        throw new RuntimeException('current HTML cache metadata must be valid JSON');
+    }
+    $currentMeta['cache_version'] = '8';
+    file_put_contents($metaPath, json_encode($currentMeta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    assertSame(false, $cache->isFresh('content.md', $source), 'old HTML cache generations must be rejected after renderer changes');
+    assertSame(null, $cache->read('content.md', $source), 'old HTML cache generations must not be rendered');
+
     $fixedTemps = glob($cacheDir . DIRECTORY_SEPARATOR . 'html' . DIRECTORY_SEPARATOR . '*.tmp') ?: [];
     assertSame([], $fixedTemps, 'fixed .tmp cache files must not be used');
 

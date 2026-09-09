@@ -6,7 +6,9 @@ namespace Tomos;
 
 final class HtmlCache
 {
-    private const CACHE_VERSION = '8';
+    // Rendered HTML depends on MarkdownParser and ExternalUrlResolver output.
+    // A new generation prevents old rendered blocks from surviving a code update.
+    private const CACHE_VERSION = '9';
 
     private string $htmlDir;
     private bool $enabled;

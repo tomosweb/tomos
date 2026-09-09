@@ -101,13 +101,13 @@ try {
     }
 
     $schemaFile = $cacheDir . DIRECTORY_SEPARATOR . 'index' . DIRECTORY_SEPARATOR . 'metadata-schema.txt';
-    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '3') {
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '4') {
         failCheck('Public metadata refresh must persist the current cache schema marker.');
     }
 
     file_put_contents($schemaFile, "2\n");
     PublicMetadataFreshener::ensure($config);
-    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '3') {
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '4') {
         failCheck('An older public metadata schema marker must force a refresh.');
     }
 
@@ -140,7 +140,7 @@ try {
     if (in_array('B', $rebuiltTitles, true) || !in_array('C', $rebuiltTitles, true)) {
         failCheck('Missing cache schema marker must force rebuild even when file stats are unchanged.');
     }
-    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '3') {
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '4') {
         failCheck('Schema-forced rebuild must restore the current cache schema marker.');
     }
 
