@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 $distribution = getenv('TOMOS_V061_DISTRIBUTION') ?: dirname(__DIR__) . '/build/tomos-0.6.1.zip';
-$updatePackage = getenv('TOMOS_V062_UPDATE_PACKAGE') ?: '';
+$updatePackage = getenv('TOMOS_V062_LEGACY_BOOTSTRAP_PACKAGE') ?: '';
 if (!is_file($distribution) || !is_file($updatePackage) || !class_exists(ZipArchive::class)) {
     failOrSkip('v0.6.1 distribution or v0.6.2 update package is unavailable.');
 }
@@ -19,6 +19,12 @@ try {
         throw new RuntimeException('could not extract v0.6.1 distribution');
     }
     $zip->close();
+    $testPublicKey = getenv('TOMOS_HISTORICAL_PUBLIC_KEY') ?: '';
+    if ($testPublicKey !== '') {
+        if (!is_file($testPublicKey) || !copy($testPublicKey, $fixture . '/update/public-key.pem')) {
+            throw new RuntimeException('could not install historical test public key');
+        }
+    }
 
     foreach (['storage/update-tmp', 'storage/update-backups', 'storage/update-logs', 'core/updater-pending', 'docs/theme'] as $directory) {
         if (!is_dir($fixture . '/' . $directory) && !mkdir($fixture . '/' . $directory, 0700, true)) {
