@@ -73,13 +73,10 @@ articleCheck(substr_count($html, '<hr>') === 1, 'article fixture horizontal rule
 articleCheck(strpos($html, '<ul><li>') !== false, 'article fixture list changed');
 foreach ([
     'href="https://link.amazon/B0gc18lgC"',
-    'href="https://music.apple.com/jp/album/',
-    'href="https://music.apple.com/jp/playlist/',
-    'href="https://open.spotify.com/intl-ja/track/',
-    'href="https://open.spotify.com/intl-ja/album/',
-    'href="https://open.spotify.com/playlist/',
 ] as $marker) {
     articleCheck(strpos($html, $marker) !== false, 'sourceUrl marker missing: ' . $marker);
 }
+articleCheck(strpos($html, 'Apple Musicで開く') === false, 'article fixture Apple success CTA remained');
+articleCheck(strpos($html, 'Spotifyで開く') === false, 'article fixture Spotify success CTA remained');
 
 echo "external_links_article_acceptance_check: OK\n";

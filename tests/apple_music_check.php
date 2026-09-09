@@ -45,15 +45,18 @@ foreach ($cases as $source => $embed) {
     $html = $resolver->resolve($source);
     appleCheck(is_string($html), 'supported Apple Music URL did not render');
     appleCheck(strpos($html, 'src="' . htmlspecialchars($embed, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"') !== false, 'Apple embed URL changed path or query');
-    appleCheck(strpos($html, 'href="' . htmlspecialchars($source, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"') !== false, 'Apple sourceUrl was not preserved');
+    appleCheck(in_array($source, $calls, true), 'Apple sourceUrl was not preserved for source validation');
     $expectedHeight = strpos($source, '/song/') !== false || strpos($source, '?i=') !== false ? '150' : '450';
     appleCheck(strpos($html, 'height="' . $expectedHeight . '"') !== false, 'Apple embed height is unsuitable for content type');
     $expectedClass = $expectedHeight === '150' ? 'apple-music-embed--track' : 'apple-music-embed--collection';
     appleCheck(strpos($html, $expectedClass) !== false, 'Apple content-type class is missing');
+    appleCheck(strpos($html, 'Apple Musicで開く') === false, 'Apple success embed emitted duplicate CTA');
 }
 
 appleCheck($resolver->resolve('https://music.apple.com/jp/song/does-not-exist/9999999999') !== null, 'invalid Apple source did not produce safe fallback');
-appleCheck(strpos((string) $resolver->resolve('https://music.apple.com/jp/song/does-not-exist/9999999999'), 'external-embed') === false, 'invalid Apple source produced an embed');
+$appleFallback = (string) $resolver->resolve('https://music.apple.com/jp/song/does-not-exist/9999999999');
+appleCheck(strpos($appleFallback, 'external-embed') === false, 'invalid Apple source produced an embed');
+appleCheck(strpos($appleFallback, 'Apple Musicで開く') !== false, 'Apple fallback CTA is missing');
 foreach ([
     'https://music.apple.com/jp/artist/example/123',
     'https://music.apple.com/jp/station/apple-music-1/ra.123',

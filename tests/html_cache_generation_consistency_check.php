@@ -40,7 +40,7 @@ try {
     if (!is_array($currentMeta)) {
         throw new RuntimeException('current HTML cache metadata must be valid JSON');
     }
-    $currentMeta['cache_version'] = '9';
+    $currentMeta['cache_version'] = '10';
     file_put_contents($metaPath, json_encode($currentMeta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     assertSame(false, $cache->isFresh('content.md', $source), 'old HTML cache generations must be rejected after renderer changes');
     assertSame(null, $cache->read('content.md', $source), 'old HTML cache generations must not be rendered');

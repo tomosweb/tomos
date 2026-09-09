@@ -144,7 +144,7 @@ final class ExternalUrlResolver
             || ($type === 'album' && preg_match('/\A\d+\z/', (string) ($queryParameters['i'] ?? '')) === 1);
         $height = $isTrackView ? 150 : 450;
         $viewClass = $isTrackView ? 'apple-music-embed--track' : 'apple-music-embed--collection';
-        return '<div class="external-embed apple-music-embed ' . $viewClass . '"><iframe src="' . $this->escape($embedUrl) . '" title="Apple Music" width="100%" height="' . $height . '" loading="lazy" allow="autoplay *; encrypted-media *;"></iframe><p class="external-link"><a href="' . $this->escapeUrl($sourceUrl) . '">Apple Musicで開く →</a></p></div>';
+        return '<div class="external-embed apple-music-embed ' . $viewClass . '"><iframe src="' . $this->escape($embedUrl) . '" title="Apple Music" width="100%" height="' . $height . '" loading="lazy" allow="autoplay *; encrypted-media *;"></iframe></div>';
     }
 
     private function spotifyCard(string $sourceUrl): ?string
@@ -177,7 +177,7 @@ final class ExternalUrlResolver
                 return $this->providerFallback('Spotify', 'Spotifyで開く →', $sourceUrl);
             }
         }
-        return '<div class="external-embed spotify-embed"><iframe src="' . $this->escape((string) $metadata['iframe_url']) . '" title="' . $this->escape((string) ($metadata['title'] ?? 'Spotify')) . '" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe><p class="external-link"><a href="' . $this->escapeUrl($sourceUrl) . '">Spotifyで開く →</a></p></div>';
+        return '<div class="external-embed spotify-embed"><iframe src="' . $this->escape((string) $metadata['iframe_url']) . '" title="' . $this->escape((string) ($metadata['title'] ?? 'Spotify')) . '" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe></div>';
     }
 
     private function validSpotifyIframe(string $url, string $type, string $id): bool

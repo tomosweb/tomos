@@ -9,7 +9,7 @@ final class HtmlCache
     // Rendered HTML depends on MarkdownParser, ExternalUrlResolver, and their
     // markup/CSS contract. A new generation prevents old rendered blocks from
     // surviving an output change such as Apple Music embed dimensions.
-    private const CACHE_VERSION = '10';
+    private const CACHE_VERSION = '11';
 
     private string $htmlDir;
     private bool $enabled;

@@ -52,15 +52,17 @@ foreach (['track', 'album', 'artist', 'playlist', 'episode'] as $type) {
     $source = 'https://open.spotify.com/' . $type . '/abc123';
     $html = $resolver->resolve($source);
     spotifyCheck(is_string($html) && strpos($html, 'https://open.spotify.com/embed/' . $type . '/abc123?utm_source=oembed') !== false, $type . ' was not embedded');
-    spotifyCheck(strpos($html, 'href="' . $source . '"') !== false, $type . ' sourceUrl was not preserved');
+    spotifyCheck(in_array('https://open.spotify.com/oembed?url=' . rawurlencode($source), $calls, true), $type . ' sourceUrl was not preserved for oEmbed request');
     spotifyCheck(strpos($html, 'evil.example') === false, 'untrusted Spotify html was emitted');
+    spotifyCheck(strpos($html, 'Spotifyで開く') === false, $type . ' success embed emitted duplicate CTA');
 }
 
 foreach (['track', 'album'] as $type) {
     $source = 'https://open.spotify.com/intl-ja/' . $type . '/abc123?si=fixture';
     $html = $resolver->resolve($source);
     spotifyCheck(is_string($html) && strpos($html, 'https://open.spotify.com/embed/' . $type . '/abc123?utm_source=oembed') !== false, 'intl-ja ' . $type . ' was not embedded');
-    spotifyCheck(strpos($html, 'href="' . $source . '"') !== false, 'intl-ja ' . $type . ' sourceUrl was not preserved');
+    spotifyCheck(in_array('https://open.spotify.com/oembed?url=' . rawurlencode($source), $calls, true), 'intl-ja ' . $type . ' sourceUrl was not preserved for oEmbed request');
+    spotifyCheck(strpos($html, 'Spotifyで開く') === false, 'intl-ja ' . $type . ' success embed emitted duplicate CTA');
 }
 
 $bad = $resolver->resolve('https://open.spotify.com/track/bad');
