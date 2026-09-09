@@ -10,6 +10,8 @@ final class ExternalUrlResolver
 {
     private const AMAZON_OEMBED = 'https://read.amazon.com.au/kp/api/oembed';
     private const AMAZON_HOSTS = ['read.amazon.com.au'];
+    private const APPLE_HOSTS = ['music.apple.com'];
+    private const SPOTIFY_HOSTS = ['open.spotify.com'];
 
     private ExternalUrlCache $cache;
     private ExternalUrlHttpClient $http;
@@ -31,6 +33,10 @@ final class ExternalUrlResolver
         $amazon = $this->amazonCard($line);
         if ($amazon !== null) {
             return $amazon;
+        }
+        $apple = $this->appleMusicCard($line);
+        if ($apple !== null) {
+            return $apple;
         }
         return null;
     }
@@ -87,6 +93,50 @@ final class ExternalUrlResolver
             $html .= '<p class="external-card-author">' . $this->escape((string) $metadata['author_name']) . '</p>';
         }
         return $html . '<p><a href="' . $href . '">Amazon.co.jpで見る →</a></p></div>';
+    }
+
+    private function appleMusicCard(string $sourceUrl): ?string
+    {
+        $parts = $this->parseHttpsHostUrl($sourceUrl, self::APPLE_HOSTS);
+        if ($parts === null) {
+            return null;
+        }
+        $rawPath = '';
+        $rawQuery = '';
+        if (preg_match('~\Ahttps://music\.apple\.com(?P<path>/[^?#]*)(?:\?(?P<query>[^#]*))?\z~', $sourceUrl, $rawUrlMatch) === 1) {
+            $rawPath = $rawUrlMatch['path'];
+            $rawQuery = $rawUrlMatch['query'] ?? '';
+        }
+        $match = [];
+        if (preg_match('~\A/([a-z]{2})/(song|album|playlist)/([^/]+)/([^/]+)\z~', $rawPath, $match) !== 1) {
+            return null;
+        }
+        $type = $match[2];
+        $id = $match[4];
+        if (($type === 'song' || $type === 'album') && preg_match('/\A\d+\z/', $id) !== 1) {
+            return null;
+        }
+        if ($type === 'playlist' && preg_match('/\Apl\.[A-Za-z0-9]+\z/', $id) !== 1) {
+            return null;
+        }
+        $valid = $this->cache->read('apple-source', $sourceUrl);
+        if ($valid === null) {
+            try {
+                $response = $this->http->get($sourceUrl, self::APPLE_HOSTS);
+                $status = (int) ($response['status'] ?? 0);
+                if ($status < 200 || $status >= 400) {
+                    throw new \RuntimeException('Apple Music source is unavailable.');
+                }
+                $valid = ['status' => $status];
+                $this->cache->write('apple-source', $sourceUrl, $valid);
+            } catch (Throwable $exception) {
+                return $this->providerFallback('Apple Music', 'Apple Musicで開く →', $sourceUrl);
+            }
+        }
+        $path = $rawPath;
+        $query = $rawQuery !== '' ? '?' . $rawQuery : '';
+        $embedUrl = 'https://embed.music.apple.com/' . ltrim($path, '/') . $query;
+        return '<div class="external-embed apple-music-embed"><iframe src="' . $this->escape($embedUrl) . '" title="Apple Music" loading="lazy" allow="autoplay *; encrypted-media *;"></iframe><p class="external-link"><a href="' . $this->escapeUrl($sourceUrl) . '">Apple Musicで開く →</a></p></div>';
     }
 
     private function providerFallback(string $provider, string $label, string $sourceUrl): string
