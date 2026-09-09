@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.6.6';
-$fromRef = 'c56a910';
+$fromVersion = '0.6.7';
+$fromRef = '616b9ca74d92f1a5e55d7b388551af21bcce3c95';
 require_once $root . '/tools/UpdateFileSet.php';
-// c56a910 is the v0.6.6 Core source baseline before the popup regression fix.
+// 616b9ca is the v0.6.7 private Core release baseline. Changes after this
+// baseline and before the v0.6.8 runtime fix were documentation-only.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 
-if ($targetVersion !== '0.6.7') {
-    throw new RuntimeException('release transition check requires VERSION 0.6.7');
+if ($targetVersion !== '0.6.8') {
+    throw new RuntimeException('release transition check requires VERSION 0.6.8');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -111,7 +112,7 @@ try {
 
         foreach ([
             'VERSION',
-            'post/assets/write-handoff.js',
+            'post/index.php',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
