@@ -48,6 +48,8 @@ foreach ($cases as $source => $embed) {
     appleCheck(strpos($html, 'href="' . htmlspecialchars($source, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"') !== false, 'Apple sourceUrl was not preserved');
     $expectedHeight = strpos($source, '/song/') !== false || strpos($source, '?i=') !== false ? '150' : '450';
     appleCheck(strpos($html, 'height="' . $expectedHeight . '"') !== false, 'Apple embed height is unsuitable for content type');
+    $expectedClass = $expectedHeight === '150' ? 'apple-music-embed--track' : 'apple-music-embed--collection';
+    appleCheck(strpos($html, $expectedClass) !== false, 'Apple content-type class is missing');
 }
 
 appleCheck($resolver->resolve('https://music.apple.com/jp/song/does-not-exist/9999999999') !== null, 'invalid Apple source did not produce safe fallback');

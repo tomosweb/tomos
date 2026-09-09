@@ -719,6 +719,7 @@ hr {
 .page-content .external-card-provider { font-weight: 700; }
 .page-content .external-embed { width: 100%; margin: 1.5em 0; }
 .page-content .external-embed iframe { display: block; width: 100%; max-width: 100%; border: 0; }
-.page-content .apple-music-embed iframe { min-height: 150px; }
+.page-content .apple-music-embed--track iframe { height: 150px; min-height: 150px; }
+.page-content .apple-music-embed--collection iframe { height: 450px; min-height: 450px; }
 .page-content .spotify-embed iframe { min-height: 152px; }
 .page-content .external-link { margin: 0.5em 0 0; }

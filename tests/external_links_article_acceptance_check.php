@@ -65,7 +65,7 @@ articleCheck(substr_count($html, 'class="youtube-embed"') === 1, 'article fixtur
 articleCheck(substr_count($html, 'class="external-card amazon-card"') === 3, 'article fixture Amazon card count mismatch');
 articleCheck(substr_count($html, 'href="https://www.amazon.co.jp/') === 2, 'article fixture regular Amazon sourceUrl count mismatch');
 articleCheck(substr_count($html, 'href="https://link.amazon/B0gc18lgC"') === 1, 'article fixture short Amazon sourceUrl missing');
-articleCheck(substr_count($html, 'apple-music-embed') === 3, 'article fixture Apple Music count mismatch');
+articleCheck(substr_count($html, 'class="external-embed apple-music-embed ') === 3, 'article fixture Apple Music count mismatch');
 articleCheck(substr_count($html, 'height="150"') === 1, 'article fixture Apple song height mismatch');
 articleCheck(substr_count($html, 'height="450"') === 2, 'article fixture Apple album/playlist height mismatch');
 articleCheck(substr_count($html, 'spotify-embed') === 3, 'article fixture Spotify count mismatch');
