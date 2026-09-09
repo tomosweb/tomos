@@ -40,6 +40,9 @@ $transport = static function (string $url) use (&$calls): array {
         if (strpos($url, '4409030949') !== false) {
             return ['status' => 200, 'headers' => ['content-type' => 'application/json'], 'body' => json_encode(['title' => '四方対象: オブジェクト指向存在論入門', 'author_name' => 'グレアム・ハーマン'])];
         }
+        if (strpos($url, 'B0GENRL001') !== false) {
+            return ['status' => 200, 'headers' => ['content-type' => 'application/json'], 'body' => json_encode(['title' => 'SwitchBot Hub 2.0'])];
+        }
         return ['status' => 404, 'body' => 'not found'];
     }
     if ($url === 'https://link.amazon/B001S989j') {
@@ -63,6 +66,7 @@ $amazon = $resolver->resolve('https://www.amazon.co.jp/dp/4409030949?tag=xxxxx-2
 check(is_string($amazon) && strpos($amazon, '四方対象: オブジェクト指向存在論入門') !== false, 'Amazon direct URL title was not rendered');
 check(strpos($amazon, 'グレアム・ハーマン') !== false, 'Amazon author_name was not rendered');
 check(strpos($amazon, 'href="https://www.amazon.co.jp/dp/4409030949?tag=xxxxx-22"') !== false, 'Amazon sourceUrl was not preserved');
+check(strpos((string) $resolver->resolve('https://www.amazon.co.jp/dp/B0GENRL001'), 'SwitchBot Hub 2.0') !== false, 'Amazon general product title was not rendered');
 check(is_string($resolver->resolve('https://www.amazon.co.jp/商品名/dp/4409030949')), 'Amazon title/dp URL was not recognized');
 check(is_string($resolver->resolve('https://www.amazon.co.jp/gp/product/4409030949?tag=test-22')), 'Amazon gp/product URL was not recognized');
 
