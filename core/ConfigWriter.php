@@ -52,7 +52,6 @@ final class ConfigWriter
 
         [$ga4MeasurementId, $ga4Errors] = Ga4::validateInput((string) ($input['ga4_measurement_id'] ?? ''));
         $errors = array_merge($errors, $ga4Errors);
-        $amazonConfig = is_array($currentConfig['amazon'] ?? null) ? $currentConfig['amazon'] : [];
 
         $config = [
             'site' => [
@@ -74,11 +73,6 @@ final class ConfigWriter
             ],
             'analytics' => [
                 'ga4_measurement_id' => $ga4MeasurementId,
-            ],
-            'amazon' => [
-                'client_id' => (string) (($amazonConfig['client_id'] ?? '') ?: ''),
-                'client_secret' => (string) (($amazonConfig['client_secret'] ?? '') ?: ''),
-                'partner_tag' => (string) (($amazonConfig['partner_tag'] ?? '') ?: ''),
             ],
             'features' => [
                 'search' => !empty($input['feature_search']),
