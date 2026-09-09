@@ -80,11 +80,11 @@ $fallback = $resolver->resolve('https://www.amazon.co.jp/dp/0123456789');
 check(is_string($fallback) && strpos($fallback, 'Amazon.co.jp') !== false && strpos($fallback, '商品を見る') !== false, 'Amazon failure did not fallback');
 check($resolver->resolve('https://amazon.co.jp.evil.example/dp/4409030949') === null, 'lookalike Amazon host was accepted');
 check($resolver->resolve('https://www.amazon.co.jp/dp/123') === null, 'invalid ASIN was accepted');
-check($resolver->resolve('https://link.amazon/loop') === null, 'redirect loop was accepted');
-check($resolver->resolve('https://link.amazon/evil') === null, 'non-Amazon redirect was accepted');
+check(strpos((string) $resolver->resolve('https://link.amazon/loop'), '商品を見る') !== false, 'redirect loop did not fallback safely');
+check(strpos((string) $resolver->resolve('https://link.amazon/evil'), '商品を見る') !== false, 'non-Amazon redirect did not fallback safely');
 
 $privateResolver = new ExternalUrlResolver('', $transport, static fn (string $host): array => ['192.168.1.10']);
-check($privateResolver->resolve('https://link.amazon/B001S989j') === null, 'private redirect address was accepted');
+check(strpos((string) $privateResolver->resolve('https://link.amazon/B001S989j'), '商品を見る') !== false, 'private redirect address did not fail safely');
 
 same('<p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">YouTube</a></p>', (new MarkdownParser())->toHtml('[YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ)'), 'Markdown link was embedded');
 check(strpos((new MarkdownParser())->toHtml('text https://www.amazon.co.jp/dp/4409030949'), 'external-card') === false, 'inline Amazon URL was embedded');

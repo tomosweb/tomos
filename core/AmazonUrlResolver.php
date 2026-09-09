@@ -49,6 +49,16 @@ final class AmazonUrlResolver
         }
     }
 
+    public function isShortUrl(string $sourceUrl): bool
+    {
+        try {
+            $parts = $this->parseUrl($sourceUrl);
+            return in_array(strtolower((string) $parts['host']), ['amzn.asia', 'link.amazon'], true);
+        } catch (Throwable $exception) {
+            return false;
+        }
+    }
+
     private function resolveShortUrl(string $sourceUrl): ?array
     {
         $current = $sourceUrl;

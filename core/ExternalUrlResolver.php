@@ -62,7 +62,9 @@ final class ExternalUrlResolver
     {
         $identity = $this->amazon->resolve($sourceUrl);
         if ($identity === null) {
-            return null;
+            return $this->amazon->isShortUrl($sourceUrl)
+                ? '<div class="external-card amazon-card"><p class="external-card-provider">Amazon.co.jp</p><p><a href="' . $this->escapeUrl($sourceUrl) . '">商品を見る →</a></p></div>'
+                : null;
         }
         $metadata = $this->cache->read('amazon-oembed', (string) $identity['resolvedUrl']);
         if ($metadata === null) {
