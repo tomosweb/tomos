@@ -26,6 +26,7 @@ $default = ContentSecurityPolicy::build(false, '');
 $frameDirective = preg_match('/(?:^|;)\s*frame-src\s+([^;]+)/', $default, $frameMatches) === 1 ? $frameMatches[1] : '';
 checkCsp(strpos($frameDirective, 'https://www.youtube.com') !== false, 'YouTube frame source must remain allowed');
 checkCsp(strpos($frameDirective, 'https://embed.music.apple.com') !== false, 'Apple Music frame source must be allowed');
+checkCsp(strpos($frameDirective, 'https://open.spotify.com') !== false, 'Spotify frame source must be allowed');
 checkCsp(strpos($frameDirective, '*') === false, 'frame CSP must not use a wildcard');
 $defaultScripts = scriptDirective($default);
 checkCsp($defaultScripts === "'none'", 'default CSP must disable scripts');

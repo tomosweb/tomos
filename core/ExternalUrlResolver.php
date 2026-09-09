@@ -38,7 +38,7 @@ final class ExternalUrlResolver
         if ($apple !== null) {
             return $apple;
         }
-        return null;
+        return $this->spotifyCard($line);
     }
 
     private function youtubeEmbedHtml(string $line): ?string
@@ -137,6 +137,48 @@ final class ExternalUrlResolver
         $query = $rawQuery !== '' ? '?' . $rawQuery : '';
         $embedUrl = 'https://embed.music.apple.com/' . ltrim($path, '/') . $query;
         return '<div class="external-embed apple-music-embed"><iframe src="' . $this->escape($embedUrl) . '" title="Apple Music" loading="lazy" allow="autoplay *; encrypted-media *;"></iframe><p class="external-link"><a href="' . $this->escapeUrl($sourceUrl) . '">Apple Musicで開く →</a></p></div>';
+    }
+
+    private function spotifyCard(string $sourceUrl): ?string
+    {
+        $parts = $this->parseHttpsHostUrl($sourceUrl, self::SPOTIFY_HOSTS);
+        if ($parts === null) {
+            return null;
+        }
+        $match = [];
+        if (preg_match('~\A/(track|album|artist|playlist|episode)/([A-Za-z0-9]+)\z~', (string) ($parts['path'] ?? ''), $match) !== 1) {
+            return null;
+        }
+        $metadata = $this->cache->read('spotify-oembed', $sourceUrl);
+        if ($metadata === null) {
+            try {
+                $endpoint = 'https://open.spotify.com/oembed?url=' . rawurlencode($sourceUrl);
+                $response = $this->http->get($endpoint, self::SPOTIFY_HOSTS);
+                if ((int) ($response['status'] ?? 0) !== 200) {
+                    throw new \RuntimeException('Spotify oEmbed request failed.');
+                }
+                $decoded = json_decode((string) ($response['body'] ?? ''), true, 8, JSON_THROW_ON_ERROR);
+                $iframeUrl = is_array($decoded) && is_string($decoded['iframe_url'] ?? null) ? $decoded['iframe_url'] : '';
+                $title = is_array($decoded) && is_string($decoded['title'] ?? null) ? trim($decoded['title']) : '';
+                if (!is_array($decoded) || ($decoded['type'] ?? '') !== 'rich' || ($decoded['provider_name'] ?? '') !== 'Spotify' || ($decoded['provider_url'] ?? '') !== 'https://spotify.com' || $title === '' || !$this->validSpotifyIframe($iframeUrl, $match[1], $match[2])) {
+                    throw new \RuntimeException('Spotify oEmbed response is not an allowed embed.');
+                }
+                $metadata = ['iframe_url' => $iframeUrl, 'title' => $title];
+                $this->cache->write('spotify-oembed', $sourceUrl, $metadata);
+            } catch (Throwable $exception) {
+                return $this->providerFallback('Spotify', 'Spotifyで開く →', $sourceUrl);
+            }
+        }
+        return '<div class="external-embed spotify-embed"><iframe src="' . $this->escape((string) $metadata['iframe_url']) . '" title="' . $this->escape((string) ($metadata['title'] ?? 'Spotify')) . '" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe><p class="external-link"><a href="' . $this->escapeUrl($sourceUrl) . '">Spotifyで開く →</a></p></div>';
+    }
+
+    private function validSpotifyIframe(string $url, string $type, string $id): bool
+    {
+        $parts = $this->parseHttpsHostUrl($url, self::SPOTIFY_HOSTS);
+        if ($parts === null) {
+            return false;
+        }
+        return preg_match('~\A/embed/' . preg_quote($type, '~') . '/' . preg_quote($id, '~') . '\z~', (string) ($parts['path'] ?? '')) === 1;
     }
 
     private function providerFallback(string $provider, string $label, string $sourceUrl): string
