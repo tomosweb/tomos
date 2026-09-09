@@ -138,7 +138,12 @@ final class ExternalUrlResolver
         $path = $rawPath;
         $query = $rawQuery !== '' ? '?' . $rawQuery : '';
         $embedUrl = 'https://embed.music.apple.com/' . ltrim($path, '/') . $query;
-        return '<div class="external-embed apple-music-embed"><iframe src="' . $this->escape($embedUrl) . '" title="Apple Music" loading="lazy" allow="autoplay *; encrypted-media *;"></iframe><p class="external-link"><a href="' . $this->escapeUrl($sourceUrl) . '">Apple Musicで開く →</a></p></div>';
+        $queryParameters = [];
+        parse_str($rawQuery, $queryParameters);
+        $isTrackView = $type === 'song'
+            || ($type === 'album' && preg_match('/\A\d+\z/', (string) ($queryParameters['i'] ?? '')) === 1);
+        $height = $isTrackView ? 150 : 450;
+        return '<div class="external-embed apple-music-embed"><iframe src="' . $this->escape($embedUrl) . '" title="Apple Music" width="100%" height="' . $height . '" loading="lazy" allow="autoplay *; encrypted-media *;"></iframe><p class="external-link"><a href="' . $this->escapeUrl($sourceUrl) . '">Apple Musicで開く →</a></p></div>';
     }
 
     private function spotifyCard(string $sourceUrl): ?string
