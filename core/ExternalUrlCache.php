@@ -13,11 +13,16 @@ final class ExternalUrlCache
 
     public function __construct(string $cacheDir)
     {
-        $this->directory = rtrim($cacheDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'external-url';
+        $this->directory = trim($cacheDir) === ''
+            ? ''
+            : rtrim($cacheDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'external-url';
     }
 
     public function read(string $namespace, string $key): ?array
     {
+        if ($this->directory === '') {
+            return null;
+        }
         $path = $this->path($namespace, $key);
         if (!is_file($path)) {
             return null;
@@ -39,6 +44,9 @@ final class ExternalUrlCache
 
     public function write(string $namespace, string $key, array $value): void
     {
+        if ($this->directory === '') {
+            return;
+        }
         $directory = $this->directory . DIRECTORY_SEPARATOR . $this->safePart($namespace);
         if (!@is_dir($directory) && !@mkdir($directory, 0700, true) && !@is_dir($directory)) {
             return;
