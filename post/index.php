@@ -1732,20 +1732,25 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
             return;
           }
           folderInput.value = normalizeFolder(sourceFolder);
-          setNotice("編集元の保存先を反映しました。変更すると、元の原稿を残して新しい記事として投稿します。");
         }
-        return;
       }
 
       if (selectedPageType() === "home" || selectedPageType() === "about") return;
       const folder = extractFolder(markdown);
-      if (folder === null || folder.trim() === "") return;
+      if (folder === null || folder.trim() === "") {
+        if (editableReupload && editableSourcePath !== "") {
+          setNotice("編集元の保存先を反映しました。必要に応じて変更できます。");
+        }
+        return;
+      }
       if (isUnsafeFolder(folder)) {
         setNotice("Markdown内の保存先情報を使用できません。保存先フォルダを確認してください。", true);
         return;
       }
       folderInput.value = normalizeFolder(folder);
-      setNotice("Markdown内の保存先情報を反映しました。必要に応じて変更できます。");
+      setNotice(editableReupload
+        ? "Markdown内で変更された保存先を反映しました。変更すると、元の原稿を残して新しい記事として投稿します。"
+        : "Markdown内の保存先情報を反映しました。必要に応じて変更できます。");
     });
     reader.readAsText(file);
   });

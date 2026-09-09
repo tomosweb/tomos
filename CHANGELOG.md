@@ -1,5 +1,19 @@
 # 更新履歴
 
+## v0.6.8 - 2026-09-09
+
+### Fixed
+
+- 公開済み記事をTomos Writeで編集し、Markdownの`folder`を変更してTomos Postへ戻した場合、変更後の保存先フォルダを投稿フォームへ反映するよう修正しました。
+- 編集元フォルダは初期値として保持しつつ、Markdown内に有効な`folder`がある場合はその値を優先します。
+- 保存先変更時は、元原稿を残して新しい保存先へ投稿することが分かる案内を表示します。
+
+### Compatibility
+
+- Tomos Writeとの既存handoff、承認、origin/source/session検証、ACK確認、自動公開しない仕様は変更ありません。
+- v0.6.7からv0.6.8へ、署名付きTomos Updateで更新できます。
+- `config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.6.7 - 2026-09-06
 
 ### Fixed
