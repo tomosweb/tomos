@@ -43,7 +43,11 @@ final class App
             // Public page rendering must continue when best-effort Inbox processing fails.
         }
         $metadataIndex = $this->createMetadataIndex($frontMatterParser);
-        $markdownParser = new MarkdownParser((bool) $this->config['security']['allow_raw_html'], $publicBasePath);
+        $markdownParser = new MarkdownParser(
+            (bool) $this->config['security']['allow_raw_html'],
+            $publicBasePath,
+            (string) ($this->config['paths']['cache_dir'] ?? '')
+        );
         $htmlCache = new HtmlCache(
             (string) $this->config['paths']['cache_dir'],
             (bool) ($this->config['features']['html_cache'] ?? false)

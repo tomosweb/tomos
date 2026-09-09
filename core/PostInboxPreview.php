@@ -55,7 +55,8 @@ final class PostInboxPreview
         $contentRaw = $wikiLinks->replace($contentRaw);
         $contentHtml = (new MarkdownParser(
             (bool) ($this->config['security']['allow_raw_html'] ?? false),
-            $this->publicBasePath
+            $this->publicBasePath,
+            (string) (($this->config['paths']['cache_dir'] ?? '') ?: ($this->rootDir . DIRECTORY_SEPARATOR . 'cache'))
         ))->toHtml($contentRaw);
         $contentHtml = $wikiLinks->restore($contentHtml);
         $contentHtml = $images->restore($contentHtml);

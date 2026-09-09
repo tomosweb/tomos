@@ -10,11 +10,11 @@ final class MarkdownParser
     private string $publicBasePath;
     private ExternalUrlResolver $externalUrlResolver;
 
-    public function __construct(bool $allowRawHtml = false, string $publicBasePath = '')
+    public function __construct(bool $allowRawHtml = false, string $publicBasePath = '', string $cacheDir = '', ?ExternalUrlResolver $externalUrlResolver = null)
     {
         $this->allowRawHtml = $allowRawHtml;
         $this->publicBasePath = $publicBasePath;
-        $this->externalUrlResolver = new ExternalUrlResolver();
+        $this->externalUrlResolver = $externalUrlResolver ?? new ExternalUrlResolver($cacheDir);
     }
 
     public function toHtml(string $markdown): string
