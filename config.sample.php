@@ -31,6 +31,14 @@ return [
         'ga4_measurement_id' => '',
     ],
 
+    // Optional Amazon Creators API credentials. Keep real values only in the
+    // server-side config.php; never commit them to the repository.
+    'amazon' => [
+        'client_id' => '',
+        'client_secret' => '',
+        'partner_tag' => '',
+    ],
+
     'features' => [
         'search' => true,
         'tags' => true,
