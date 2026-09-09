@@ -56,6 +56,13 @@ foreach (['track', 'album', 'artist', 'playlist', 'episode'] as $type) {
     spotifyCheck(strpos($html, 'evil.example') === false, 'untrusted Spotify html was emitted');
 }
 
+foreach (['track', 'album'] as $type) {
+    $source = 'https://open.spotify.com/intl-ja/' . $type . '/abc123?si=fixture';
+    $html = $resolver->resolve($source);
+    spotifyCheck(is_string($html) && strpos($html, 'https://open.spotify.com/embed/' . $type . '/abc123?utm_source=oembed') !== false, 'intl-ja ' . $type . ' was not embedded');
+    spotifyCheck(strpos($html, 'href="' . $source . '"') !== false, 'intl-ja ' . $type . ' sourceUrl was not preserved');
+}
+
 $bad = $resolver->resolve('https://open.spotify.com/track/bad');
 spotifyCheck(is_string($bad) && strpos($bad, 'Spotifyで開く') !== false && strpos($bad, 'external-embed') === false, 'malformed Spotify response did not fallback');
 spotifyCheck($resolver->resolve('https://open.spotify.com/search/example') === null, 'Spotify search URL was accepted');

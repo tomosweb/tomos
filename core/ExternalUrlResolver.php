@@ -124,7 +124,7 @@ final class ExternalUrlResolver
         $valid = $this->cache->read('apple-source', $sourceUrl);
         if ($valid === null) {
             try {
-                $response = $this->http->get($sourceUrl, self::APPLE_HOSTS);
+                $response = $this->http->head($sourceUrl, self::APPLE_HOSTS);
                 $status = (int) ($response['status'] ?? 0);
                 if ($status < 200 || $status >= 400) {
                     throw new \RuntimeException('Apple Music source is unavailable.');
@@ -148,7 +148,7 @@ final class ExternalUrlResolver
             return null;
         }
         $match = [];
-        if (preg_match('~\A/(track|album|artist|playlist|episode)/([A-Za-z0-9]+)\z~', (string) ($parts['path'] ?? ''), $match) !== 1) {
+        if (preg_match('~\A/(?:intl-[A-Za-z]{2}/)?(track|album|artist|playlist|episode)/([A-Za-z0-9]+)\z~', (string) ($parts['path'] ?? ''), $match) !== 1) {
             return null;
         }
         $metadata = $this->cache->read('spotify-oembed', $sourceUrl);

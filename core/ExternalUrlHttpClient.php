@@ -44,6 +44,32 @@ final class ExternalUrlHttpClient
         throw new \RuntimeException('HTTPS transport is unavailable.');
     }
 
+    public function head(string $url, array $allowedHosts): array
+    {
+        $parts = $this->parseHttpsUrl($url);
+        $host = strtolower((string) $parts['host']);
+        if (!in_array($host, $allowedHosts, true)) {
+            throw new \RuntimeException('External request host is not allowed.');
+        }
+
+        if ($this->fixtureTransport !== null) {
+            $response = call_user_func($this->fixtureTransport, $url);
+            if (!is_array($response)) {
+                throw new \RuntimeException('External fixture response is invalid.');
+            }
+            return $this->normalizeResponse($response);
+        }
+
+        if (function_exists('curl_init')) {
+            return $this->curl($url, true);
+        }
+        if ((bool) ini_get('allow_url_fopen')) {
+            return $this->stream($url, true);
+        }
+
+        throw new \RuntimeException('HTTPS transport is unavailable.');
+    }
+
     private function parseHttpsUrl(string $url): array
     {
         if (preg_match('/[\x00-\x20\x7f]/', $url) === 1) {
@@ -66,7 +92,7 @@ final class ExternalUrlHttpClient
         return $parts;
     }
 
-    private function curl(string $url): array
+    private function curl(string $url, bool $head = false): array
     {
         $body = '';
         $headers = [];
@@ -77,7 +103,9 @@ final class ExternalUrlHttpClient
         curl_setopt_array($curl, [
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_RETURNTRANSFER => false,
-            CURLOPT_HTTPGET => true,
+            CURLOPT_HTTPGET => !$head,
+            CURLOPT_NOBODY => $head,
+            CURLOPT_CUSTOMREQUEST => $head ? 'HEAD' : 'GET',
             CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_TIMEOUT => self::TOTAL_TIMEOUT,
             CURLOPT_SSL_VERIFYPEER => true,
@@ -111,11 +139,11 @@ final class ExternalUrlHttpClient
         return ['status' => $status, 'headers' => $headers, 'body' => $body];
     }
 
-    private function stream(string $url): array
+    private function stream(string $url, bool $head = false): array
     {
         $context = stream_context_create([
             'http' => [
-                'method' => 'GET',
+                'method' => $head ? 'HEAD' : 'GET',
                 'timeout' => self::TOTAL_TIMEOUT,
                 'follow_location' => 0,
                 'ignore_errors' => true,
