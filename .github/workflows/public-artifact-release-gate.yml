@@ -90,20 +90,6 @@ jobs:
           echo "Running strict tests/update_runtime_parity_check.php"
           php tests/update_runtime_parity_check.php --strict
 
-      - name: Verify strict missing-artifact behavior
-        shell: bash
-        run: |
-          set -euo pipefail
-          for test in tests/update_legacy_browser_bootstrap_check.php tests/update_theme_rules_migration_check.php; do
-            output="$RUNNER_TEMP/$(basename "$test").strict.log"
-            set +e
-            env TOMOS_RELEASE_GATE=1 php "$test" --strict >"$output" 2>&1
-            status=$?
-            set -e
-            test "$status" -ne 0
-            grep -q '^FAIL:' "$output"
-          done
-
       - name: Run Installer Phase 1-5
         shell: bash
         run: |

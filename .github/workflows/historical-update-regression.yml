@@ -1,0 +1,87 @@
+name: Historical Update Regression
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  historical-update-regression:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: openssl, mbstring, zip, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: Prepare WebAuthn runtime
+        run: composer install --working-dir=core/webauthn --no-dev --prefer-dist --no-interaction --classmap-authoritative
+
+      - name: Build historical fixtures from immutable refs
+        run: bash tools/build-historical-update-regression-fixtures.sh "$RUNNER_TEMP/tomos-historical-update"
+
+      - name: Run strict v0.6.2 historical regressions
+        env:
+          TOMOS_RELEASE_GATE: '1'
+          TOMOS_V061_DISTRIBUTION: ${{ runner.temp }}/tomos-historical-update/tomos-0.6.1.zip
+          TOMOS_V062_MIGRATION_PACKAGE: ${{ runner.temp }}/tomos-historical-update/tomos-update-0.6.2-migration.zip
+          TOMOS_V062_LEGACY_BOOTSTRAP_PACKAGE: ${{ runner.temp }}/tomos-historical-update/tomos-update-0.6.2-legacy-bootstrap.zip
+          TOMOS_HISTORICAL_PUBLIC_KEY: ${{ runner.temp }}/tomos-historical-update/historical-test-public-key.pem
+        run: |
+          set -euo pipefail
+          php tests/update_theme_rules_migration_check.php --strict
+          php tests/update_legacy_browser_bootstrap_check.php --strict
+
+      - name: Download public v0.6.3 transition artifacts
+        env:
+          TRANSITION_DIR: ${{ runner.temp }}/tomos-historical-update
+        run: |
+          set -euo pipefail
+          mkdir -p "$TRANSITION_DIR"
+          curl --fail --location --silent --show-error \
+            https://github.com/tomosweb/tomos/releases/download/v0.6.3/tomos-update-0.6.3-from-0.6.1.zip \
+            --output "$TRANSITION_DIR/tomos-update-0.6.3-from-0.6.1.zip"
+          curl --fail --location --silent --show-error \
+            https://github.com/tomosweb/tomos/releases/download/v0.6.3/tomos-update-0.6.3-from-0.6.2.zip \
+            --output "$TRANSITION_DIR/tomos-update-0.6.3-from-0.6.2.zip"
+          printf '%s  %s\n' \
+            6e56c4ded2aac95f04b5f2a175c65ee8ff08eca4902752f15f824832d4a88a71 \
+            "$TRANSITION_DIR/tomos-update-0.6.3-from-0.6.1.zip" | sha256sum --check --status
+          printf '%s  %s\n' \
+            07c38d737856be57fe50f000fae6cf1a4ccded41331058ad6cbdfb1ee2db15ad \
+            "$TRANSITION_DIR/tomos-update-0.6.3-from-0.6.2.zip" | sha256sum --check --status
+
+      - name: Materialize public v0.6.2 source
+        run: git clone --quiet https://github.com/tomosweb/tomos.git "$RUNNER_TEMP/tomos-public"
+
+      - name: Run strict v0.6.3 transition regression
+        env:
+          TOMOS_RELEASE_GATE: '1'
+          TOMOS_PUBLIC_REPO: ${{ runner.temp }}/tomos-public
+          TOMOS_V063_FROM_061: ${{ runner.temp }}/tomos-historical-update/tomos-update-0.6.3-from-0.6.1.zip
+          TOMOS_V063_FROM_062: ${{ runner.temp }}/tomos-historical-update/tomos-update-0.6.3-from-0.6.2.zip
+        run: php tests/update_v063_transition_matrix_check.php --strict
+
+      - name: Run strict runtime placement and rollback regressions
+        env:
+          TOMOS_RELEASE_GATE: '1'
+        run: |
+          set -euo pipefail
+          php tests/update_pending_runtime_rollback_check.php
+          php tests/update_pending_runtime_security_check.php
+          php tests/update_missing_runtime_directory_check.php
+          php tests/update_integrity_rollback_check.php
