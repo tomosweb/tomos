@@ -6,21 +6,9 @@ namespace Tomos;
 
 final class ExternalUrlResolver
 {
-    private AmazonUrlResolver $amazonUrlResolver;
-
-    public function __construct(?callable $amazonFixtureTransport = null, ?callable $amazonDnsResolver = null)
-    {
-        $this->amazonUrlResolver = new AmazonUrlResolver($amazonFixtureTransport, $amazonDnsResolver);
-    }
-
     public function resolve(string $line): ?string
     {
         return $this->youtubeEmbedHtml($line);
-    }
-
-    public function resolveAmazon(string $sourceUrl): ?array
-    {
-        return $this->amazonUrlResolver->resolve($sourceUrl);
     }
 
     private function youtubeEmbedHtml(string $line): ?string
