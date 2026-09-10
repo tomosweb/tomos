@@ -14,6 +14,17 @@ Tomosをすでに設置している場合の、データを保持した更新手
 
 手動の署名済みUpdate ZIPも正式な更新経路として利用できます。オンライン更新と手動更新のどちらも、同じ署名検証、`from_version`検証、backup、rollback、apply処理を使用します。
 
+### v0.6.8からv0.7.0への更新
+
+v0.6.8からv0.7.0へは、Tomos Updateによる通常の1-step updateを使用します。
+
+```text
+from_version: 0.6.8
+version: 0.7.0
+```
+
+更新後は、VERSIONが`0.7.0`になっていること、Amazonリンクカード、Apple Music公式Embed、Spotify公式Embed、既存YouTube Embedを確認してください。`config.php`、`content/`、uploads、custom theme、運用データは保持されます。
+
 ### v0.2.0からv0.3.0への更新
 
 0.2.0からv0.3.0へは、Tomos Updateによる通常の1-step updateを使用します。

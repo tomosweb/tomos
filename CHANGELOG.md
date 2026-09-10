@@ -1,5 +1,25 @@
 # 更新履歴
 
+## v0.7.0 - 2026-09-10
+
+### Added
+
+- Amazon URLを単独行で記述するとAmazonリンクカードを表示します。Amazonの商品情報取得に失敗した場合は汎用カードへ安全にfallbackします。
+- 通常のAmazon URL、`amzn.asia`、`link.amazon`を扱い、記事に記述した元URLを保持します。
+- Apple Musicのsong、album、playlistを公式Embedで表示します。
+- Spotifyのtrack、album、artist、playlist、episodeを公式Embedで表示します。
+
+### Fixed / Security
+
+- 外部サービスの障害時は通常リンクへ安全にfallbackし、外部URLのcache、HTTP取得安全性、CSPを強化しました。
+- description自動生成を修正し、6つの公式Themeで外部リンク表示に対応しました。
+- YouTubeの既存Embed機能は維持しています。
+
+### Compatibility
+
+- API keyやcredentialの設定は必要ありません。
+- v0.6.8からv0.7.0へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.6.8 - 2026-09-09
 
 ### Fixed

@@ -28,7 +28,7 @@ private source merge `9d71d9a` がv0.6.2 sourceです。public GitHub Release v0
 
 ### Current Release Acceptance
 
-毎回のReleaseで必須なのは、現在supportするsource versionからtarget versionへの実artifact更新です。v0.6.8では、v0.6.7実Release baselineからv0.6.8への更新、署名・SHA-256・manifest、runtime配置、保護データ保持、rollback、実サイト起動、公開URLからの再取得を必須とします。
+毎回のReleaseで必須なのは、現在supportするsource versionからtarget versionへの実artifact更新です。v0.7.0では、v0.6.8実Release baselineからv0.7.0への更新、署名・SHA-256・manifest、runtime配置、保護データ保持、rollback、実サイト起動、公開URLからの再取得を必須とします。
 
 ### Historical Update Regression
 

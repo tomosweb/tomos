@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.6.7';
-$fromRef = '616b9ca74d92f1a5e55d7b388551af21bcce3c95';
+$fromVersion = '0.6.8';
+$fromRef = 'b40152bb914b8a0a7b433db80823fe3474f7ef05';
 require_once $root . '/tools/UpdateFileSet.php';
-// 616b9ca is the v0.6.7 private Core release baseline. Changes after this
-// baseline and before the v0.6.8 runtime fix were documentation-only.
+// b40152b is the v0.6.8 private Core release baseline.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
+if (!in_array('VERSION', $runtimeFiles, true)) {
+    $runtimeFiles[] = 'VERSION';
+    sort($runtimeFiles);
+}
 
-if ($targetVersion !== '0.6.8') {
-    throw new RuntimeException('release transition check requires VERSION 0.6.8');
+if ($targetVersion !== '0.7.0') {
+    throw new RuntimeException('release transition check requires VERSION 0.7.0');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -38,8 +41,10 @@ try {
         . ' ' . escapeshellarg('--from=' . $fromVersion)
         . ' ' . escapeshellarg('--version=' . $targetVersion)
         . ' ' . escapeshellarg('--private-key=' . $keyPath)
-        . ' ' . escapeshellarg('--output=' . $output)
-        . ' ' . escapeshellarg('--from-ref=' . $fromRef);
+        . ' ' . escapeshellarg('--output=' . $output);
+    foreach ($runtimeFiles as $runtimeFile) {
+        $command .= ' ' . escapeshellarg('--file=' . $runtimeFile);
+    }
 
     $lines = [];
     $code = 0;
@@ -112,7 +117,17 @@ try {
 
         foreach ([
             'VERSION',
-            'post/index.php',
+            'core/AmazonUrlResolver.php',
+            'core/ExternalUrlCache.php',
+            'core/ExternalUrlHttpClient.php',
+            'core/ExternalUrlResolver.php',
+            'core/ContentSecurityPolicy.php',
+            'themes/tomos-90s/assets/style.css',
+            'themes/tomos-blog/assets/style.css',
+            'themes/tomos-dark/assets/style.css',
+            'themes/tomos-journal/assets/style.css',
+            'themes/tomos-minimal/assets/style.css',
+            'themes/tomos-note/assets/style.css',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
