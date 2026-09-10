@@ -44,6 +44,7 @@ $publishedQuery = trim((string) ($_GET['q'] ?? ''));
 $publishedYear = trim((string) ($_GET['year'] ?? ''));
 $publishedPage = (int) ($_GET['page'] ?? 1);
 $publishedWithdrawTarget = null;
+$completedWithdrawTarget = null;
 $activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'), $_GET);
 $returnTo = Tomos\PostAuthReturnTo::normalize($_SERVER['REQUEST_METHOD'] === 'POST' ? ($_POST['return_to'] ?? null) : ($_GET['return_to'] ?? null));
 $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -51,18 +52,18 @@ $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
     : Tomos\PostSubmissionGuard::issueId();
 
 if ($config === []) {
-    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, null, true, $activeSection, $submissionId);
     exit;
 }
 
 if (empty($config['features']['post'])) {
-    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, null, true, $activeSection, $submissionId);
     exit;
 }
 
 $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
 if ($postPasswordHash === '') {
-    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, null, true, $activeSection, $submissionId);
     exit;
 }
 
@@ -524,6 +525,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $withdrawResult = $withdraw->withdraw($publishedWithdrawTarget->contentPath);
                     if ($withdrawResult->ok) {
                         $messages[] = '投稿を取り下げました。';
+                        $completedWithdrawTarget = $publishedWithdrawTarget;
                         $warnings = array_merge($warnings, $withdrawResult->warnings);
                         $publishedWithdrawTarget = null;
                         $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -669,7 +671,7 @@ function isPostRequestTooLarge(): bool
     return $limit > 0 && $contentLength > $limit;
 }
 
-renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, false, $activeSection, $submissionId, $returnTo);
+renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $completedWithdrawTarget, false, $activeSection, $submissionId, $returnTo);
 
 function jsonResponse(array $data, int $status = 200): void
 {
@@ -720,7 +722,7 @@ function renderAuthenticationFields(string $id, string $ariaLabel = ''): void
         echo '<label for="' . e($id) . '">管理用合言葉</label>';
     }
     $aria = $ariaLabel !== '' ? ' aria-label="' . e($ariaLabel) . '" placeholder="管理用合言葉"' : '';
-    echo '<input id="' . e($id) . '" type="password" name="post_password" autocomplete="current-password"' . $aria . '>';
+    echo '<input id="' . e($id) . '" type="password" name="post_password" autocomplete="current-password" required' . $aria . '>';
     echo '<label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>';
 }
 
@@ -902,6 +904,7 @@ function renderPage(
     string $publishedYear,
     int $publishedPage,
     ?Tomos\PostContentResolveResult $publishedWithdrawTarget,
+    ?Tomos\PostContentResolveResult $completedWithdrawTarget,
     bool $disabled,
     string $activeSection,
     string $submissionId,
@@ -932,7 +935,7 @@ label{color:var(--tomos-text);display:block;font-weight:700;margin:1rem 0 0.35re
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,.nav a:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}button:disabled,.button[aria-disabled="true"]{background:var(--tomos-primary-disabled);border-color:var(--tomos-primary-disabled);color:#fff}button.danger{background:var(--tomos-danger);border-color:var(--tomos-danger)}button.danger:hover{background:var(--tomos-danger-hover);border-color:var(--tomos-danger-hover)}button.danger:active{background:var(--tomos-danger-active);border-color:var(--tomos-danger-active)}button.danger:focus-visible{outline:3px solid rgba(180,56,46,0.25);outline-offset:2px}button.secondary,.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}button.secondary:hover,.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}button.secondary:active,.button.secondary:active{background:var(--tomos-button-active)}button.danger.secondary{background:var(--tomos-input);color:var(--tomos-danger-text);border-color:var(--tomos-error-border)}button.danger.secondary:hover{background:var(--tomos-error-bg);border-color:var(--tomos-error-border)}
 code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}.result a{overflow-wrap:anywhere;word-break:break-word}.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}.grid>*{min-width:0}.nav{display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0}.nav a{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:999px;color:var(--tomos-text);padding:0.35rem 0.75rem;text-decoration:none}.nav a:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.meta p{margin:0.35rem 0;min-width:0}
 .image-status-list{list-style:none;margin:0.75rem 0;padding:0}.image-status-item{border-top:1px solid var(--tomos-border-soft);padding:0.75rem 0}.image-status-item:first-child{border-top:0}.image-status-line{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.image-status-ok{color:#2f6131;font-weight:700}.image-status-missing,.image-match-warning{color:var(--tomos-danger-text);font-weight:700}.image-omit-label,.remember-auth{align-items:flex-start;display:flex;font-weight:400;gap:0.5rem;margin:0.65rem 0}.image-omit-label input,.remember-auth input{margin-top:0.35rem}.auth-actions{align-items:center;display:flex;justify-content:flex-end;margin:-0.25rem 0 1rem}.auth-actions form{margin:0}
-.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}
+.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}.tomos-message{color:var(--tomos-muted);font-size:.9rem;margin:0 0 1rem}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 .result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}
 </style></head><body><main class="wrap">';
@@ -967,9 +970,12 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 }
 
     echo '<div class="section">';
+    if (!empty($_SESSION['tomos_post_authenticated']) && $activeSection === 'upload') {
+        renderTomosDailyMessage();
+    }
     renderMessages($errors, $messages, $warnings);
     if ($activeSection === 'published') {
-        renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $withdrawTarget, $withdrawResult, $trashSummary, $editableQuery, $editableSearchResult);
+        renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $completedWithdrawTarget, $withdrawTarget, $withdrawResult, $trashSummary, $editableQuery, $editableSearchResult);
     } elseif ($activeSection === 'drafts') {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
@@ -1023,6 +1029,27 @@ function renderSectionNav(string $activeSection, string $publicBasePath): void
         echo '<a href="' . e($url) . '"' . $current . '>' . e($label) . '</a>';
     }
 echo '</nav>';
+}
+
+function renderTomosDailyMessage(): void
+{
+    if (!empty($_SESSION['tomos_post_daily_message_shown'])) {
+        return;
+    }
+
+    $messages = [
+        '小さく書いて、すぐ届ける。',
+        '書いたものは、自分の場所に残ります。',
+        '公開したあとも、いつでも直せます。',
+    ];
+    try {
+        $message = $messages[random_int(0, count($messages) - 1)];
+    } catch (Throwable $exception) {
+        $message = $messages[0];
+    }
+
+    echo '<p class="tomos-message">' . e($message) . '</p>';
+    $_SESSION['tomos_post_daily_message_shown'] = true;
 }
 
 function passkeyLoginAvailable(array $config, string $rootDir): bool
@@ -1110,7 +1137,7 @@ function renderSettingsHomeSection(string $token, array $config, string $returnT
 function renderMessages(array $errors, array $messages, array $warnings): void
 {
     if ($errors !== []) {
-        echo '<div class="errors"><strong>処理できませんでした。</strong><ul>';
+        echo '<div class="errors" role="alert"><strong>処理できませんでした。</strong><ul>';
         foreach ($errors as $error) {
             echo '<li>' . e((string) $error) . '</li>';
         }
@@ -1118,7 +1145,7 @@ function renderMessages(array $errors, array $messages, array $warnings): void
     }
 
     if ($errors === [] && $messages !== []) {
-        echo '<div class="success"><ul>';
+        echo '<div class="success" role="status" aria-live="polite"><ul>';
         foreach ($messages as $message) {
             echo '<li>' . e((string) $message) . '</li>';
         }
@@ -1126,7 +1153,7 @@ function renderMessages(array $errors, array $messages, array $warnings): void
     }
 
     if ($errors === [] && $warnings !== []) {
-        echo '<div class="notice"><strong>注意</strong><ul>';
+        echo '<div class="notice" role="status" aria-live="polite"><strong>注意</strong><ul>';
         foreach ($warnings as $warning) {
             echo '<li>' . e((string) $warning) . '</li>';
         }
@@ -1369,13 +1396,18 @@ function renderEditableCancelForm(Tomos\PostUploadResult $result, string $token)
     echo '</form>';
 }
 
-function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, string $continueUrl): void
+function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, string $continueUrl, ?Tomos\PostContentResolveResult $context = null): void
 {
     if ($errors !== [] || !($result instanceof Tomos\PostWithdrawResult) || !$result->ok) {
         return;
     }
 
-    echo '<div class="result">';
+    echo '<div class="result" id="post-withdraw-complete">';
+    echo '<h3>取り下げました</h3>';
+    if ($context instanceof Tomos\PostContentResolveResult && $context->ok) {
+        echo '<p><strong>タイトル:</strong><br>' . e($context->title !== '' ? $context->title : '（タイトルなし）') . '</p>';
+        echo '<p><strong>保存先:</strong><br><code>content/' . e($context->contentPath) . '</code></p>';
+    }
     echo '<p>Markdownファイルは完全削除せず、取り下げ済みとして保管しました。</p>';
     echo '<p><strong>取り下げたページ:</strong><br><code>' . e($result->fromPath) . '</code></p>';
     echo '<p>一覧・検索・タグへの反映のため、インデックスキャッシュを更新対象にしました。</p>';
@@ -1412,6 +1444,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo <<<'HTML'
 <script>
 (() => {
+  const scrollBehavior = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   const fileInput = document.getElementById("markdown_file");
   const folderInput = document.getElementById("folder");
   const notice = document.getElementById("folder-frontmatter-notice");
@@ -1895,7 +1928,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       processingStatus.textContent = `画像が${missing.length}点不足しています。画像を追加で選ぶか、掲載をやめる画像を指定してください。`;
       processingStatus.style.color = "var(--tomos-danger-text)";
       renderImageMatches(omitted);
-      imageMatchStatus.scrollIntoView({ behavior: "smooth", block: "center" });
+      imageMatchStatus.scrollIntoView({ behavior: scrollBehavior, block: "center" });
       return;
     }
 
@@ -2133,6 +2166,7 @@ function renderPublishedSection(
     string $year,
     int $page,
     ?Tomos\PostContentResolveResult $withdrawTarget,
+    ?Tomos\PostContentResolveResult $completedWithdrawTarget,
     ?Tomos\PostContentResolveResult $manualWithdrawTarget,
     ?Tomos\PostWithdrawResult $withdrawResult,
     array $trashSummary,
@@ -2184,10 +2218,11 @@ function renderPublishedSection(
     $items = is_array($result['items'] ?? null) ? $result['items'] : [];
     $total = (int) ($result['total'] ?? 0);
     echo '<p class="hint">' . e((string) $total) . '件</p>';
+    renderWithdrawResult([], $withdrawResult, Tomos\Security::publicUrl('/post/?section=published', $publicBasePath), $completedWithdrawTarget ?? $manualWithdrawTarget);
 
     if ($withdrawTarget instanceof Tomos\PostContentResolveResult && $withdrawTarget->ok) {
-        echo '<div class="result meta">';
-        echo '<h3>取り下げの確認</h3>';
+        echo '<div class="result meta" id="post-withdraw-confirmation">';
+        echo '<h3>取り下げる記事</h3>';
         echo '<p><strong>タイトル:</strong><br>' . e($withdrawTarget->title !== '' ? $withdrawTarget->title : '（タイトルなし）') . '</p>';
         echo '<p><strong>公開日:</strong><br>' . e($withdrawTarget->date !== '' ? $withdrawTarget->date : '（未設定）') . '</p>';
         echo '<p><strong>更新日:</strong><br>' . e($withdrawTarget->updated !== '' ? $withdrawTarget->updated : '（未設定）') . '</p>';
@@ -2269,7 +2304,6 @@ function renderPublishedSection(
 
     echo '<details class="advanced-tools">';
     echo '<summary>高度な操作</summary>';
-    renderWithdrawResult([], $withdrawResult, Tomos\Security::publicUrl('/post/?section=published', $publicBasePath));
     renderWithdrawSection($token, $manualWithdrawTarget, true);
     renderTrashSection($token, $trashSummary, true);
     renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);

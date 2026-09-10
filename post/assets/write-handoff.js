@@ -6,6 +6,7 @@
   const WRITE_URL = `${WRITE_ORIGIN}/write/`;
   const MAX_MARKDOWN_BYTES = 2 * 1024 * 1024;
   const HANDSHAKE_TIMEOUT_MS = 10000;
+  const scrollBehavior = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 
   let writeWindow = null;
   let sessionId = "";
@@ -182,7 +183,7 @@
       type: "tomos:return-ack",
     }, WRITE_ORIGIN);
     history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-    document.getElementById("post-upload")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("post-upload")?.scrollIntoView({ behavior: scrollBehavior, block: "start" });
   };
 
   document.querySelectorAll(".tomos-write-edit").forEach((button) => {
