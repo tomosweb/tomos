@@ -79,14 +79,14 @@ try {
 
     $cookie = $testRoot . '/cookies.txt';
     $loginPage = curlRequest($baseUrl . '/post/', $cookie);
-    $login = curlRequest($baseUrl . '/post/?post_api=start', $cookie, [
+    assertContains('管理画面を開くには認証してください。', $loginPage);
+    $postPage = curlRequest($baseUrl . '/post/', $cookie, [
+        'action' => 'auth_gate_login',
         '_token' => csrfToken($loginPage),
         'post_password' => 'test-password',
-        'expected_images' => '[]',
-        'submission_id' => hiddenValue($loginPage, 'submission_id'),
     ]);
-    $loginJson = json_decode($login, true);
-    assertTrue(is_array($loginJson) && !empty($loginJson['ok']), 'Tomos Post authentication failed');
+    hiddenValue($postPage, 'submission_id');
+    assertContains('Tomos Post', $postPage);
 
     $publicBefore = curlRequest($baseUrl . '/', $cookie);
     assertNotContains('Fatal error', $publicBefore);
