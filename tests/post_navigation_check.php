@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-$source = file_get_contents(dirname(__DIR__) . '/post/index.php');
+$source = file_get_contents(dirname(__DIR__) . '/post/app.php');
 if (!is_string($source)) {
-    throw new RuntimeException('post/index.php could not be read');
+    throw new RuntimeException('post/app.php could not be read');
 }
 
 foreach (['upload\' => \'投稿', 'drafts\' => \'下書き', 'published\' => \'公開済み', 'settings\' => \'設定'] as $needle) {
