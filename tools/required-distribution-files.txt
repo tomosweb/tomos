@@ -17,6 +17,7 @@ cache/security/post-auth/.gitkeep
 cache/security/post-submissions/.gitkeep
 cache/post-upload-sessions/.gitkeep
 post/index.php
+post/.htaccess
 post/auth-gate.php
 post/inbox/api/index.php
 post/update-finalize/index.php
