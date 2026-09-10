@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-$postIndex = (string) file_get_contents($root . '/post/index.php');
+$postIndex = (string) file_get_contents($root . '/post/app.php');
 $authReturn = (string) file_get_contents($root . '/core/PostAuthReturnTo.php');
 $flatEntry = $root . '/post/site-settings.php';
 $legacyEntry = $root . '/post/settings/index.php';
