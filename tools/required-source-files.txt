@@ -9,6 +9,9 @@ CHANGELOG.md
 SECURITY.md
 KNOWN_LIMITATIONS.md
 post/index.php
+post/.htaccess
+post/app.php
+post/auth-gate.php
 post/inbox/api/index.php
 post/update-finalize/index.php
 update/index.php
