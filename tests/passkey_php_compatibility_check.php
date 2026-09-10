@@ -60,11 +60,9 @@ if (!empty($missingLibrary->diagnose()['available'])) {
     failCheck('Missing WebAuthn runtime must disable passkey authentication.');
 }
 
-// The stable Tomos Post body is intentionally kept byte-for-byte in app.php;
-// index.php is now only the authentication-wall entrypoint.
-$postApp = file_get_contents(dirname(__DIR__) . '/post/app.php');
-if (!is_string($postApp)) {
-    failCheck('Tomos Post application source must be readable.');
+$postIndex = file_get_contents(dirname(__DIR__) . '/post/index.php');
+if (!is_string($postIndex)) {
+    failCheck('Tomos Post source must be readable.');
 }
 foreach ([
     "function passkeyLoginAvailable(array \$config, string \$rootDir): bool",
@@ -74,7 +72,7 @@ foreach ([
     'パスキーで開く',
     '合言葉を忘れた場合',
 ] as $requiredSource) {
-    if (strpos($postApp, $requiredSource) === false) {
+    if (strpos($postIndex, $requiredSource) === false) {
         failCheck('Tomos Post passkey entry integration is missing: ' . $requiredSource);
     }
 }

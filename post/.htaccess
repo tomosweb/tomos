@@ -1,5 +1,9 @@
-<Files "app.php">
-  Order allow,deny
-  Deny from all
-  Require all denied
-</Files>
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Route only the Tomos Post canonical entrypoints through the authentication wall.
+# Subroutes such as passkey, security, settings, theme and Inbox API keep their
+# existing authentication contracts.
+RewriteRule ^$ auth-gate.php [L]
+RewriteRule ^index\.php$ auth-gate.php [L]
+</IfModule>
