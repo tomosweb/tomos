@@ -32,6 +32,8 @@ checkAuthWall(strpos($index, 'function renderPage(') !== false, 'stable Tomos Po
 checkAuthWall(strpos($index, 'PostUpload') !== false, 'stable Tomos Post features remain in post/index.php');
 checkAuthWall(strpos($gate, "require __DIR__ . '/index.php';") !== false, 'authenticated requests delegate to unchanged post/index.php');
 checkAuthWall(strpos($rootHtaccess, 'post/auth-gate.php') === false, 'auth wall does not depend on protected root .htaccess');
+checkAuthWall(strpos($postHtaccess, 'RewriteCond %{HTTP_REFERER}') !== false, 'nested Tomos Post referrals are detected before root auth routing');
+checkAuthWall(strpos($postHtaccess, 'RewriteRule ^(.*)$ %1/post/$1 [R=302,L,NE]') !== false, 'nested Tomos Post referrals stay in their install path');
 checkAuthWall(strpos($postHtaccess, 'RewriteRule ^$ auth-gate.php [L]') !== false, 'post directory entry is routed through auth wall');
 checkAuthWall(strpos($postHtaccess, 'RewriteRule ^index\\.php$ auth-gate.php [L]') !== false, 'direct post/index.php is routed through auth wall');
 
