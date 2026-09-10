@@ -59,8 +59,24 @@ if (empty($_SESSION['tomos_post_token'])) {
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath);
 $remember = new Tomos\PostAuthRememberToken($config, $rootDir);
+$authenticated = $remember->restoreSession();
+$action = $_SERVER['REQUEST_METHOD'] === 'POST' ? (string) ($_POST['action'] ?? '') : '';
 
-if ($remember->restoreSession()) {
+// Logout belongs to the authentication boundary. Handle only the already
+// existing logout action here so an unauthenticated Post body is never
+// rendered after the credential is cleared. Invalid CSRF requests stay with
+// the stable Post implementation and its existing error behavior.
+if ($authenticated && $action === 'logout') {
+    $token = (string) ($_POST['_token'] ?? '');
+    if ($token !== '' && hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
+        $remember->forgetCurrentBrowser();
+        header('Location: ' . $postUrl);
+        exit;
+    }
+    continueToStablePost();
+}
+
+if ($authenticated) {
     continueToStablePost();
 }
 
@@ -71,7 +87,7 @@ $returnTo = $hasReturnTo
     ? Tomos\PostAuthReturnTo::normalize($_POST['return_to'] ?? $_GET['return_to'] ?? null)
     : null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'auth_gate_login') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
     $token = (string) ($_POST['_token'] ?? '');
     if ($token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
         $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
@@ -86,17 +102,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
         } else {
             $rateLimiter->clearFailures();
             $_SESSION['tomos_post_authenticated'] = true;
-            if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$remember->rememberCurrentBrowser()) {
-                $warnings[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
+            if ((string) ($_POST['remember_post_auth'] ?? '') === '1') {
+                $remember->rememberCurrentBrowser();
             }
 
-            if ($warnings === []) {
-                $destination = $returnTo !== null
-                    ? Tomos\PostAuthReturnTo::url($returnTo, $publicBasePath)
-                    : $postUrl;
-                header('Location: ' . $destination);
-                exit;
-            }
+            $destination = $returnTo !== null
+                ? Tomos\PostAuthReturnTo::url($returnTo, $publicBasePath)
+                : $postUrl;
+            header('Location: ' . $destination);
+            exit;
         }
     }
 }
