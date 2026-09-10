@@ -1,5 +1,18 @@
 # 更新履歴
 
+## v0.7.1 - 2026-09-10
+
+### Added / Security
+
+- Tomos Postを開く前に認証画面を表示し、パスキーまたは管理用合言葉で認証してから既存のTomos Postへ進むようにしました。
+- 管理用合言葉の30日間の記憶認証を引き続き利用できます。
+
+### Compatibility
+
+- `post/index.php`の既存Tomos Post実装は変更せず、認証境界を`post/auth-gate.php`と`post/.htaccess`で追加しました。
+- Browser Updateで認証壁の追加ファイルを配布し、root `.htaccess`は更新対象にしません。
+- v0.7.0からv0.7.1へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.7.0 - 2026-09-10
 
 ### Added
@@ -194,7 +207,7 @@
 
 ### Compatibility
 
-- v0.5.1からv0.5.2へは、通常の署名付きTomos Updateで更新します。`from_version`は`0.5.1`、`version`は`0.5.2`です。
+- v0.5.1からv0.5.2へは、通常の署名付きTomos Updateで更新できます。`from_version`は`0.5.1`、`version`は`0.5.2`です。
 - v0.4.0からは、v0.5.0、v0.5.1を経由してv0.5.2へ更新します。
 - `config.php`、`content/`、サイト固有Theme、運用データは更新対象に含めません。
 
