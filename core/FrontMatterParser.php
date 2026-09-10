@@ -94,10 +94,19 @@ final class FrontMatterParser
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '' || preg_match('/^#{1,6}\s+/', $line) === 1) {
+            if ($line === '') {
+                if ($parts !== []) {
+                    break;
+                }
+                continue;
+            }
+            if (preg_match('/^#{1,6}\s+/', $line) === 1) {
                 continue;
             }
             if (preg_match('/^(-{3,}|\*{3,}|_{3,})$/', $line) === 1) {
+                break;
+            }
+            if (preg_match('~\Ahttps?://\S+\z~i', $line) === 1 || preg_match('/\A(?:[-*+]\s+|\d+[.)]\s+)/', $line) === 1) {
                 continue;
             }
 

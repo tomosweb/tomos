@@ -8,11 +8,13 @@ final class MarkdownParser
 {
     private bool $allowRawHtml;
     private string $publicBasePath;
+    private ExternalUrlResolver $externalUrlResolver;
 
-    public function __construct(bool $allowRawHtml = false, string $publicBasePath = '')
+    public function __construct(bool $allowRawHtml = false, string $publicBasePath = '', string $cacheDir = '', ?ExternalUrlResolver $externalUrlResolver = null)
     {
         $this->allowRawHtml = $allowRawHtml;
         $this->publicBasePath = $publicBasePath;
+        $this->externalUrlResolver = $externalUrlResolver ?? new ExternalUrlResolver($cacheDir);
     }
 
     public function toHtml(string $markdown): string
@@ -100,10 +102,10 @@ final class MarkdownParser
                 continue;
             }
 
-            $youtubeEmbed = $this->youtubeEmbedHtml($trimmed);
-            if ($youtubeEmbed !== null) {
+            $externalUrlHtml = $this->externalUrlResolver->resolve($trimmed);
+            if ($externalUrlHtml !== null) {
                 $this->flushParagraph($html, $paragraph);
-                $html[] = $youtubeEmbed;
+                $html[] = $externalUrlHtml;
                 $index++;
                 continue;
             }
@@ -260,25 +262,6 @@ final class MarkdownParser
         }
 
         return $this->inline($text);
-    }
-
-    private function youtubeEmbedHtml(string $line): ?string
-    {
-        $videoId = null;
-        if (preg_match('~\Ahttps://(?:www\.)?youtube\.com/watch\?v=([A-Za-z0-9_-]{11})(?:&[^#\s]*)?(?:#[^\s]*)?\z~', $line, $matches) === 1) {
-            $videoId = $matches[1];
-        } elseif (preg_match('~\Ahttps://youtu\.be/([A-Za-z0-9_-]{11})(?:\?[^#\s]*)?(?:#[^\s]*)?\z~', $line, $matches) === 1) {
-            $videoId = $matches[1];
-        } elseif (preg_match('~\Ahttps://(?:www\.)?youtube\.com/shorts/([A-Za-z0-9_-]{11})(?:\?[^#\s]*)?(?:#[^\s]*)?\z~', $line, $matches) === 1) {
-            $videoId = $matches[1];
-        }
-
-        if ($videoId === null) {
-            return null;
-        }
-
-        $embedUrl = 'https://www.youtube.com/embed/' . $videoId;
-        return '<div class="youtube-embed"><iframe src="' . $this->escape($embedUrl) . '" title="YouTube video player" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>';
     }
 
     private function isTableHeader(string $headerLine, string $separatorLine): bool

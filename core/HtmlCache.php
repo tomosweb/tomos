@@ -6,7 +6,10 @@ namespace Tomos;
 
 final class HtmlCache
 {
-    private const CACHE_VERSION = '8';
+    // Rendered HTML depends on MarkdownParser, ExternalUrlResolver, and their
+    // markup/CSS contract. A new generation prevents old rendered blocks from
+    // surviving an output change such as Apple Music embed dimensions.
+    private const CACHE_VERSION = '11';
 
     private string $htmlDir;
     private bool $enabled;

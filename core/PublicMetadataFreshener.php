@@ -6,7 +6,9 @@ namespace Tomos;
 
 final class PublicMetadataFreshener
 {
-    private const CACHE_SCHEMA = '3';
+    // The generated metadata includes parser-derived descriptions. Bump this
+    // whenever metadata semantics change so existing indexes are rebuilt.
+    private const CACHE_SCHEMA = '4';
 
     public static function ensure(array $config): void
     {

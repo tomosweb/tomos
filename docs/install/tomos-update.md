@@ -19,6 +19,17 @@ Tomos Updateは、公式オンライン更新と手動の署名済みUpdate ZIP�
 
 自動更新、バックグラウンド更新、一括多段更新は行いません。更新は常に1versionずつ進みます。
 
+## v0.6.8からv0.7.0への更新
+
+v0.6.8からv0.7.0へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。
+
+```text
+from_version: 0.6.8
+version: 0.7.0
+```
+
+更新後は、表示されるVERSIONが`0.7.0`であること、外部リンクカード・Apple Music・Spotify・既存YouTube Embedが表示できることを確認してください。外部サービスが利用できない場合は通常リンクへfallbackします。
+
 ## 更新元バージョンの必須一致
 
 Update ZIPの署名済み`manifest.json`には、適用できる唯一の現在版を示す`from_version`と、更新後の`version`が含まれます。

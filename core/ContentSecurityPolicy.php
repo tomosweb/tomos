@@ -19,7 +19,7 @@ final class ContentSecurityPolicy
 
         return "default-src 'self'; script-src " . $scriptSource
             . '; connect-src ' . $connectSource
-            . "; style-src 'self'; img-src 'self' data: http: https:; frame-src https://www.youtube.com;"
+            . "; style-src 'self'; img-src 'self' data: http: https:; frame-src https://www.youtube.com https://embed.music.apple.com https://open.spotify.com;"
             . " object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
     }
 }
