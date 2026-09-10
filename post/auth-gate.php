@@ -28,7 +28,7 @@ if (is_file($configPath)) {
 function continueToStablePost(): void
 {
     session_write_close();
-    require __DIR__ . '/index.php';
+    require __DIR__ . '/app.php';
     exit;
 }
 
