@@ -34,7 +34,7 @@ checkAuthWall(strpos($gate, 'PostPassword::verify') !== false, 'existing passphr
 checkAuthWall(strpos($gate, 'rememberCurrentBrowser()') !== false, 'existing 30-day remember behavior is reused');
 checkAuthWall(strpos($gate, '/post/passkey/login/') !== false, 'existing passkey login route is reused');
 checkAuthWall(strpos($gate, 'autocomplete="current-password"') !== false, 'browser password manager remains supported');
-checkAuthWall(strpos($gate, "$action === 'logout'") !== false, 'existing logout action is handled at the authentication boundary');
+checkAuthWall(strpos($gate, "\$action === 'logout'") !== false, 'existing logout action is handled at the authentication boundary');
 checkAuthWall(strpos($gate, 'forgetCurrentBrowser()') !== false, 'logout clears the existing browser authentication state');
 
 checkAuthWall(strpos($gate, "header('Cache-Control: no-store, private')") !== false, 'auth wall is not cached');
