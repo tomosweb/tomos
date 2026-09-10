@@ -14,6 +14,17 @@ Tomosをすでに設置している場合の、データを保持した更新手
 
 手動の署名済みUpdate ZIPも正式な更新経路として利用できます。オンライン更新と手動更新のどちらも、同じ署名検証、`from_version`検証、backup、rollback、apply処理を使用します。
 
+### v0.7.0からv0.7.1への更新
+
+v0.7.0からv0.7.1へは、Tomos Updateによる通常の1-step updateを使用します。
+
+```text
+from_version: 0.7.0
+version: 0.7.1
+```
+
+更新後は、VERSIONが`0.7.1`になっていること、`/post/`を開くと認証画面が表示され、パスキーまたは管理用合言葉で既存のTomos Postへ進めることを確認してください。`config.php`、`content/`、uploads、custom theme、運用データは保持されます。
+
 ### v0.6.8からv0.7.0への更新
 
 v0.6.8からv0.7.0へは、Tomos Updateによる通常の1-step updateを使用します。
@@ -49,7 +60,7 @@ version: 0.2.0
 
 ### v0.1.0-alpha.19からv0.1.0-beta.1への更新
 
-alpha.19からbeta.1へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。`from_version`は`0.1.0-alpha.19`、更新先は`0.1.0-beta.1`です。
+alpha.19からbeta.1へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。`from_version`は`0.1.0-alpha.19`、更新先は`v0.1.0-beta.1`です。
 
 この更新ではUpdater finalizeは必要ありません。更新完了後、「現在のバージョン」が`0.1.0-beta.1`になっていることを確認してください。
 
@@ -57,7 +68,7 @@ alpha.19からbeta.1へは、通常のオンライン更新または手動の署
 
 ### v0.1.0-alpha.18からv0.1.0-alpha.19への更新
 
-alpha.18からalpha.19へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。`from_version`は`0.1.0-alpha.18`、更新先は`0.1.0-alpha.19`です。この更新ではUpdater finalizeは必要ありません。
+alpha.18からalpha.19へは、通常のオンライン更新または手動の署名済みUpdate ZIPを使用します。`from_version`は`0.1.0-alpha.18`、更新先は`v0.1.0-alpha.19`です。この更新ではUpdater finalizeは必要ありません。
 
 ### v0.1.0-alpha.17からv0.1.0-alpha.18への移行
 
