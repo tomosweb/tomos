@@ -16,10 +16,10 @@ if (!is_file($distributionPath) || !class_exists(ZipArchive::class)) {
     failOrSkip('distribution ZIP or ZipArchive is unavailable.');
 }
 
-$fromVersion = '0.6.8';
+$fromVersion = '0.7.0';
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromRef = 'b40152bb914b8a0a7b433db80823fe3474f7ef05';
-// b40152b is the private Core source baseline used to build the public v0.6.8
+$fromRef = '000a511144e703541ef165ad3dbb8070daee0e7d';
+// 000a511 is the private Core source baseline used to build the public v0.7.0
 // runtime.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
@@ -42,7 +42,7 @@ try {
     $archiveCode = 0;
     exec($archiveCommand, $archiveOutput, $archiveCode);
     if ($archiveCode !== 0) {
-        throw new RuntimeException('could not materialize v0.6.8 fixture');
+        throw new RuntimeException('could not materialize v0.7.0 fixture');
     }
     foreach (['storage/update-tmp', 'storage/update-backups', 'storage/update-logs', 'core/updater-pending'] as $directory) {
         mkdir($fixture . '/' . $directory, 0700, true);
@@ -113,6 +113,7 @@ try {
     assertContains((string) file_get_contents($fixture . '/post/security/index.php'), 'return_to', 'Security return_to support missing after update');
     assertContains((string) file_get_contents($fixture . '/post/passkey/login/index.php'), 'refreshSessionCookiePath', 'Passkey cookie-path refresh missing after update');
     assertContains((string) file_get_contents($fixture . '/post/passkey/login/index.php'), 'returnUrl', 'Passkey returnUrl support missing after update');
+    assertContains((string) file_get_contents($fixture . '/post/auth-gate.php'), 'PostAuthRememberToken', 'Post auth wall missing after update');
     if (protectedSnapshot($fixture) !== $protectedBefore) {
         throw new RuntimeException('protected resources changed during update');
     }
