@@ -24,6 +24,11 @@ Options -Indexes
 RewriteEngine On
 # RewriteBase /tomos/
 
+# Keep the stable Tomos Post implementation unchanged and place the
+# authentication boundary in front of both canonical entry URLs.
+RewriteRule ^post/?$ post/auth-gate.php [L]
+RewriteRule ^post/index\.php$ post/auth-gate.php [L]
+
 # `docs/theme/theme-rules.json` is required runtime data, but `/docs/` itself
 # must remain an application route when that directory exists on the server.
 RewriteRule ^docs/?$ index.php [L]
