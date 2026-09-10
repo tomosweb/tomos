@@ -168,7 +168,7 @@ if (($drafts->delete('post', '../outside.md')['ok'] ?? false) || ($drafts->delet
     throw new RuntimeException('draft deletion traversal must be rejected');
 }
 
-$postSource = file_get_contents(dirname(__DIR__) . '/post/index.php');
+$postSource = file_get_contents(dirname(__DIR__) . '/post/app.php');
 if (!is_string($postSource)
     || strpos($postSource, '下書きとして保存') === false
     || strpos($postSource, '下書き投稿が完了しました。') === false
