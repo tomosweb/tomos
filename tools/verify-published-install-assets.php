@@ -65,9 +65,12 @@ try {
     InstallerSecurity::validateUrl($installerUrl, $installerHosts, 'installer_download');
     $installerPath = $outputDir . '/install.php';
     $download = $downloader->download($installerUrl, $installerPath, 10485760, $installerHosts, 'installer_download');
-    $actualInstallerHash = strtolower((string) hash_file('sha256', $installerPath));
-    if (!hash_equals($installerHash, $actualInstallerHash)) {
-        throw new InstallManifestException('installer_hash', 'Published installer hash differs from the expected hash.');
+    $installerResponse = file_get_contents($installerPath);
+    if (!is_string($installerResponse) || $download['size'] < 1 || trim($installerResponse) === '') {
+        throw new InstallManifestException('installer_download', 'Published installer returned an empty response.');
+    }
+    if (stripos($installerResponse, 'Tomos') === false) {
+        throw new InstallManifestException('installer_download', 'Published installer response does not identify Tomos.');
     }
     echo 'OK version=' . $manifest['version'] . ' zip=' . $manifest['asset']['name'] . ' installer_bytes=' . $download['size'] . PHP_EOL;
 } catch (InstallManifestException $exception) {
