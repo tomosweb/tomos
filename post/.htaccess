@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# A Tomos install may also be reachable below another path on the same host.
+# If that nested Post generated a root /post/... link, keep the request in the
+# Tomos installation it came from instead of letting the root auth wall take it.
+RewriteCond %{HTTP_REFERER} ^https?://[^/]+(/.+)/post(?:/|[?#]|$) [NC]
+RewriteRule ^(.*)$ %1/post/$1 [R=302,L,NE]
+
+# Route only the root Tomos Post canonical entrypoints through the auth wall.
+# Existing Post subroutes keep their current authentication contracts.
+RewriteRule ^$ auth-gate.php [L]
+RewriteRule ^index\.php$ auth-gate.php [L]
+</IfModule>
