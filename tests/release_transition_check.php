@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.7.1';
-$fromRef = '05089edafd3105025053b54436694c8b39022584';
+$fromVersion = '0.7.2';
+$fromRef = '55b5c6332af30c9a9a822a4f7b0e0ac4c97829aa';
 require_once $root . '/tools/UpdateFileSet.php';
-// 05089ed is the released v0.7.1 private Core baseline.
+// 55b5c633 is the released v0.7.2 private Core baseline.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
     sort($runtimeFiles);
 }
 
-if ($targetVersion !== '0.7.2') {
-    throw new RuntimeException('release transition check requires VERSION 0.7.2');
+if ($targetVersion !== '0.7.3') {
+    throw new RuntimeException('release transition check requires VERSION 0.7.3');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -117,10 +117,7 @@ try {
 
         foreach ([
             'VERSION',
-            'post/index.php',
             'post/.htaccess',
-            'post/auth-gate.php',
-            'post/assets/write-handoff.js',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
