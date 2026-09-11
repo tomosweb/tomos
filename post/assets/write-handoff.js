@@ -13,7 +13,6 @@
   let pendingDocument = null;
   let readyReceived = false;
   let handshakeTimer = null;
-  let reservedWindow = false;
 
   const byteLength = (value) => new TextEncoder().encode(value).byteLength;
 
@@ -37,16 +36,6 @@
     if (!selectedButton) return;
     selectedButton.textContent = label;
     selectedButton.disabled = disabled;
-  };
-
-  const closeReservedWindow = () => {
-    if (reservedWindow && writeWindow && !writeWindow.closed) {
-      writeWindow.close();
-    }
-    if (reservedWindow) {
-      writeWindow = null;
-    }
-    reservedWindow = false;
   };
 
   const failLaunch = (message) => {
@@ -86,26 +75,13 @@
       return;
     }
 
-    clearHandshakeTimer();
-    closeReservedWindow();
-    selectedButton = button;
-    writeWindow = window.open("about:blank", "_blank");
-    reservedWindow = Boolean(writeWindow);
-    if (!writeWindow) {
-      failLaunch("Tomos Writeを開けませんでした。ブラウザのポップアップ設定を確認してください。");
-      return;
-    }
-
     const approved = window.confirm(
       "この記事のMarkdownをTomos公式サイトのTomos Writeへ渡します。\n\n編集内容は自動では公開されません。Tomosへ戻した後に更新内容を確認できます。"
     );
-    if (!approved) {
-      closeReservedWindow();
-      selectedButton = null;
-      return;
-    }
+    if (!approved) return;
 
     sessionId = randomSessionId();
+    selectedButton = button;
     pendingDocument = null;
     readyReceived = false;
     setButtonState("Tomos Writeを開いています…", true);
@@ -116,11 +92,8 @@
       sourceOrigin: window.location.origin,
       sourceUrl: returnUrl,
     });
-    try {
-      writeWindow.location.href = `${WRITE_URL}#${fragment.toString()}`;
-      reservedWindow = false;
-    } catch {
-      closeReservedWindow();
+    writeWindow = window.open(`${WRITE_URL}#${fragment.toString()}`, "_blank");
+    if (!writeWindow) {
       failLaunch("Tomos Writeを開けませんでした。ブラウザのポップアップ設定を確認してください。");
       return;
     }

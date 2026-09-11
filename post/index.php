@@ -188,6 +188,9 @@ if ($postApi !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     jsonResponse(['ok' => false, 'message' => '投稿処理を確認できませんでした。'], 404);
 }
 
+$authenticated = !empty($_SESSION['tomos_post_authenticated']);
+require __DIR__ . '/auth-gate.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? 'upload');
     $activeSection = sectionForAction($action);

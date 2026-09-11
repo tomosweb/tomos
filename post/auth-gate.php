@@ -2,82 +2,31 @@
 
 declare(strict_types=1);
 
-session_start();
-
-spl_autoload_register(function (string $class): void {
-    $prefix = 'Tomos\\';
-    if (strpos($class, $prefix) !== 0) {
-        return;
-    }
-
-    $relativeClass = substr($class, strlen($prefix));
-    $file = dirname(__DIR__) . '/core/' . str_replace('\\', '/', $relativeClass) . '.php';
-    if (is_file($file)) {
-        require_once $file;
-    }
-});
-
-$rootDir = dirname(__DIR__);
-$configPath = $rootDir . '/config.php';
-$config = [];
-if (is_file($configPath)) {
-    $loadedConfig = require $configPath;
-    $config = is_array($loadedConfig) ? $loadedConfig : [];
-}
-
-function continueToStablePost(): void
-{
-    session_write_close();
-    require __DIR__ . '/index.php';
+if (!isset($config, $rootDir, $authRemember, $authenticated)) {
+    http_response_code(404);
     exit;
 }
 
-// Keep setup/disabled/error behavior exactly where it already lives.
-if ($config === [] || empty($config['features']['post']) || empty($config['security']['post_password_hash'])) {
-    continueToStablePost();
-}
-
-// Preserve the existing Post API and protected preview/download behavior.
-$delegatedQueryKeys = [
-    'post_api',
-    'preview_inbox',
-    'download_inbox_markdown',
-    'download_inbox',
-    'preview_draft',
-    'download_draft_markdown',
-];
-foreach ($delegatedQueryKeys as $key) {
-    if (array_key_exists($key, $_GET)) {
-        continueToStablePost();
-    }
-}
-
-if (empty($_SESSION['tomos_post_token'])) {
-    $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
-}
-
+// This file is an included authentication component. Required state is
+// initialized by post/index.php; do not bootstrap or delegate back to it.
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath);
-$remember = new Tomos\PostAuthRememberToken($config, $rootDir);
-$authenticated = $remember->restoreSession();
 $action = $_SERVER['REQUEST_METHOD'] === 'POST' ? (string) ($_POST['action'] ?? '') : '';
 
-// Logout belongs to the authentication boundary. Handle only the already
-// existing logout action here so an unauthenticated Post body is never
-// rendered after the credential is cleared. Invalid CSRF requests stay with
-// the stable Post implementation and its existing error behavior.
+// Logout remains CSRF protected. Invalid requests fall through to the
+// existing Post application so its normal form-error behavior is preserved.
 if ($authenticated && $action === 'logout') {
     $token = (string) ($_POST['_token'] ?? '');
     if ($token !== '' && hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
-        $remember->forgetCurrentBrowser();
+        $authRemember->forgetCurrentBrowser();
         header('Location: ' . $postUrl);
         exit;
     }
-    continueToStablePost();
+    return;
 }
 
 if ($authenticated) {
-    continueToStablePost();
+    return;
 }
 
 $errors = [];
@@ -103,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
             $rateLimiter->clearFailures();
             $_SESSION['tomos_post_authenticated'] = true;
             if ((string) ($_POST['remember_post_auth'] ?? '') === '1') {
-                $remember->rememberCurrentBrowser();
+                $authRemember->rememberCurrentBrowser();
             }
 
             $destination = $returnTo !== null
@@ -116,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
 }
 
 renderAuthGate($config, $errors, $warnings, $returnTo);
+exit;
 
 function clientIpForAuthGate(): string
 {
