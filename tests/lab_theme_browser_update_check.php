@@ -79,11 +79,18 @@ try {
 
     $cookie = $testRoot . '/cookies.txt';
     $loginPage = curlRequest($baseUrl . '/post/', $cookie);
-    $login = curlRequest($baseUrl . '/post/?post_api=start', $cookie, [
+    assertContains('auth_gate_login', $loginPage);
+    $postPage = curlRequest($baseUrl . '/post/', $cookie, [
+        'action' => 'auth_gate_login',
         '_token' => csrfToken($loginPage),
         'post_password' => 'test-password',
+    ]);
+    assertContains('submission_id', $postPage);
+    $login = curlRequest($baseUrl . '/post/?post_api=start', $cookie, [
+        '_token' => csrfToken($postPage),
+        'post_password' => 'test-password',
         'expected_images' => '[]',
-        'submission_id' => hiddenValue($loginPage, 'submission_id'),
+        'submission_id' => hiddenValue($postPage, 'submission_id'),
     ]);
     $loginJson = json_decode($login, true);
     assertTrue(is_array($loginJson) && !empty($loginJson['ok']), 'Tomos Post authentication failed');

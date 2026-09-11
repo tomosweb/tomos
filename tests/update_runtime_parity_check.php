@@ -113,7 +113,8 @@ try {
     assertContains((string) file_get_contents($fixture . '/post/security/index.php'), 'return_to', 'Security return_to support missing after update');
     assertContains((string) file_get_contents($fixture . '/post/passkey/login/index.php'), 'refreshSessionCookiePath', 'Passkey cookie-path refresh missing after update');
     assertContains((string) file_get_contents($fixture . '/post/passkey/login/index.php'), 'returnUrl', 'Passkey returnUrl support missing after update');
-    assertContains((string) file_get_contents($fixture . '/post/auth-gate.php'), 'PostAuthRememberToken', 'Post auth wall missing after update');
+    assertContains((string) file_get_contents($fixture . '/post/index.php'), "require __DIR__ . '/auth-gate.php';", 'Post auth boundary missing after update');
+    assertContains((string) file_get_contents($fixture . '/post/auth-gate.php'), 'auth_gate_login', 'Post auth gate login missing after update');
     if (protectedSnapshot($fixture) !== $protectedBefore) {
         throw new RuntimeException('protected resources changed during update');
     }

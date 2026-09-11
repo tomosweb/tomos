@@ -67,15 +67,14 @@ try {
 
     $unauthenticatedSettings = request($baseUrl . '/post/?section=settings', $testRoot . '/unauthenticated-settings-cookies.txt');
     assertSame(200, $unauthenticatedSettings['status'], 'unauthenticated settings status');
-    assertSettingsNavigationSemantics($unauthenticatedSettings['body']);
-    assertContains('href="/theme-labo/post/security/?return_to=%2Fpost%2Fsite-settings.php"', $unauthenticatedSettings['body'], 'unauthenticated Site Settings Security href');
-    assertContains('href="/theme-labo/post/security/?return_to=%2Fpost%2Ftheme%2F"', $unauthenticatedSettings['body'], 'unauthenticated Theme Security href');
+    assertContains('name="action" value="auth_gate_login"', $unauthenticatedSettings['body'], 'unauthenticated settings uses common auth wall');
+    assertNotContains('class="settings-link', $unauthenticatedSettings['body'], 'unauthenticated settings does not expose Post settings UI');
 
     $siteAuthPage = request($baseUrl . '/post/?section=settings&return_to=%2Fpost%2Fsite-settings.php', $testRoot . '/site-auth-cookies.txt');
     assertSame(200, $siteAuthPage['status'], 'Site Settings auth page status');
-    assertContains('認証が必要です。', $siteAuthPage['body'], 'Site Settings auth notice');
+    assertContains('name="action" value="auth_gate_login"', $siteAuthPage['body'], 'Site Settings common auth wall');
     $siteAuth = request($baseUrl . '/post/', $testRoot . '/site-auth-cookies.txt', [
-        'action' => 'site_settings_auth',
+        'action' => 'auth_gate_login',
         '_token' => hiddenValue($siteAuthPage['body'], '_token'),
         'post_password' => 'test-password',
         'return_to' => '/post/site-settings.php',
@@ -88,9 +87,9 @@ try {
 
     $themeAuthPage = request($baseUrl . '/post/?section=settings&return_to=%2Fpost%2Ftheme%2F', $testRoot . '/theme-auth-cookies.txt');
     assertSame(200, $themeAuthPage['status'], 'Theme auth page status');
-    assertContains('認証が必要です。', $themeAuthPage['body'], 'Theme auth notice');
+    assertContains('name="action" value="auth_gate_login"', $themeAuthPage['body'], 'Theme common auth wall');
     $themeAuth = request($baseUrl . '/post/', $testRoot . '/theme-auth-cookies.txt', [
-        'action' => 'theme_auth',
+        'action' => 'auth_gate_login',
         '_token' => hiddenValue($themeAuthPage['body'], '_token'),
         'post_password' => 'test-password',
         'return_to' => '/post/theme/',
@@ -101,8 +100,21 @@ try {
     assertSame(200, $themeAfterAuth['status'], 'Theme after auth status');
     assertSame($baseUrl . '/post/theme/', $themeAfterAuth['url'], 'Theme after auth URL');
 
+    $postAuthPage = request($baseUrl . '/post/', $cookie);
+    assertSame(200, $postAuthPage['status'], 'Tomos Post auth-wall response');
+    assertContains('name="action" value="auth_gate_login"', $postAuthPage['body'], 'Tomos Post auth-wall form');
+    assertTrue(stripos($postAuthPage['headers'], 'path=/theme-labo/post/') !== false, 'session cookie path: ' . $postAuthPage['headers']);
+    $postAuth = request($baseUrl . '/post/', $cookie, [
+        'action' => 'auth_gate_login',
+        '_token' => hiddenValue($postAuthPage['body'], '_token'),
+        'post_password' => 'test-password',
+    ]);
+    assertSame(302, $postAuth['status'], 'Tomos Post common auth redirect');
+    assertContains('location: /theme-labo/post/', strtolower($postAuth['headers']), 'Tomos Post common auth destination');
+
     $postHome = request($baseUrl . '/post/', $cookie);
-    assertSame(200, $postHome['status'], 'Tomos Post initial response');
+    assertSame(200, $postHome['status'], 'Tomos Post authenticated response');
+    assertContains('submission_id', $postHome['body'], 'authenticated Tomos Post form');
     $login = request($baseUrl . '/post/?post_api=start', $cookie, [
         '_token' => hiddenValue($postHome['body'], '_token'),
         'post_password' => 'test-password',
@@ -111,8 +123,7 @@ try {
     ]);
     assertSame(200, $login['status'], 'Tomos Post login response');
     $loginJson = json_decode($login['body'], true);
-    assertTrue(is_array($loginJson) && !empty($loginJson['ok']), 'normal Tomos Post login failed');
-    assertTrue(stripos($postHome['headers'], 'path=/theme-labo/post/') !== false, 'session cookie path: ' . $postHome['headers']);
+    assertTrue(is_array($loginJson) && !empty($loginJson['ok']), 'normal Tomos Post API authentication failed');
 
     $settingsHome = request($baseUrl . '/post/?section=settings', $cookie);
     assertSame(200, $settingsHome['status'], 'settings card response');
@@ -229,7 +240,7 @@ try {
     assertSame(200, $legacy['status'], 'legacy Site Settings status');
     assertContains('サイト設定', $legacy['body'], 'legacy Site Settings response marker');
 
-    echo "site_settings_subdirectory_http_check: fresh /theme-labo/ login, rendered links, status, cookies, final URLs, control Theme, and legacy bookmark passed\n";
+    echo "site_settings_subdirectory_http_check: fresh /theme-labo/ auth wall, base-path redirects, settings, Theme, and legacy bookmark passed\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
     if (is_file($testRoot . '/php-server.log')) {

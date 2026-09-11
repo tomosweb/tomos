@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.7.0';
-$fromRef = '000a511144e703541ef165ad3dbb8070daee0e7d';
+$fromVersion = '0.7.2';
+$fromRef = '55b5c6332af30c9a9a822a4f7b0e0ac4c97829aa';
 require_once $root . '/tools/UpdateFileSet.php';
-// 000a511 is the v0.7.0 private Core release baseline.
+// 55b5c633 is the released v0.7.2 private Core baseline.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
     sort($runtimeFiles);
 }
 
-if ($targetVersion !== '0.7.1') {
-    throw new RuntimeException('release transition check requires VERSION 0.7.1');
+if ($targetVersion !== '0.7.3') {
+    throw new RuntimeException('release transition check requires VERSION 0.7.3');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -99,7 +99,7 @@ try {
                     : (string) (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'))[0] ?? '');
                 $metadataBytes = $zip->getFromName('files/' . $metadataPath);
                 if (!is_string($metadataBytes)) {
-                    throw new RuntimeException($targetVersion . ' package pending updater metadata missing');
+                    throw new RuntimeException($targetVersion . ' pending updater metadata missing');
                 }
                 $metadata = json_decode($metadataBytes, true);
                 if (!is_array($metadata) || ($metadata['target'] ?? null) !== $path) {
@@ -118,7 +118,6 @@ try {
         foreach ([
             'VERSION',
             'post/.htaccess',
-            'post/auth-gate.php',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
