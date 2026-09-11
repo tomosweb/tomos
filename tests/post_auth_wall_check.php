@@ -35,8 +35,8 @@ checkAuthWall(strpos($gate, '/post/passkey/login/') !== false, 'passkey route is
 checkAuthWall(strpos($postHtaccess, 'RewriteEngine') === false && strpos($postHtaccess, 'RewriteCond') === false && strpos($postHtaccess, 'RewriteRule') === false, 'post/.htaccess has no rewrite routing');
 checkAuthWall(stripos($postHtaccess, 'referer') === false, 'post/.htaccess has no Referer dependency');
 checkAuthWall(strpos($rootHtaccess, 'post/auth-gate.php') === false, 'root .htaccess does not own auth wall');
-checkAuthWall(preg_match('/^post\/\.htaccess$/m', $distribution) !== 1, 'post/.htaccess is not a distribution requirement');
-checkAuthWall(preg_match('/^post\/\.htaccess$/m', $installed) !== 1, 'post/.htaccess is not an installed runtime requirement');
+checkAuthWall(preg_match('/^post\/\.htaccess$/m', $distribution) === 1, 'post/.htaccess is a distribution requirement');
+checkAuthWall(preg_match('/^post\/\.htaccess$/m', $installed) === 1, 'post/.htaccess is an installed runtime requirement');
 checkAuthWall(preg_match('/^post\/auth-gate\.php$/m', $distribution) === 1 && preg_match('/^post\/auth-gate\.php$/m', $installed) === 1, 'PHP auth component remains required');
 checkAuthWall(!is_file($root . '/post/app.php'), 'Post body was not split into a new web endpoint');
 

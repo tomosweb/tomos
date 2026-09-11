@@ -1,2 +1,5 @@
-# v0.7.2 compatibility tombstone.
-# Tomos Post authentication routing is owned by post/index.php.
+# Tomos Post cross-origin Write handoff compatibility.
+# Authentication routing is owned by post/index.php; this file only sets browser opener policy.
+<IfModule mod_headers.c>
+    Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+</IfModule>
