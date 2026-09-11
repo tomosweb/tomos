@@ -85,13 +85,27 @@ assertNotContains($index, 'stroke-dasharray', 'Daily message mark must not use a
 $messageCall = strpos($index, 'renderTomosDailyMessage();');
 $navCall = strpos($index, 'renderSectionNav($activeSection, $publicBasePath);');
 assertTrue($messageCall !== false && $navCall !== false && $messageCall < $navCall, 'Daily message must appear before Post navigation');
-foreach (['小さく書いて、すぐ届ける。', '書いたものは、自分の場所に残ります。', '公開したあとも、いつでも直せます。'] as $message) {
-    assertContains($index, $message, 'Temporary Tomos Message is missing: ' . $message);
-}
 $messageStart = strpos($index, 'function renderTomosDailyMessage(');
 $messageEnd = strpos($index, 'function passkeyLoginAvailable(', $messageStart === false ? 0 : $messageStart);
 assertTrue($messageStart !== false && $messageEnd !== false, 'Daily message function boundaries must be present');
 $messageFunction = substr($index, $messageStart, $messageEnd - $messageStart);
+$corpusStart = strpos($messageFunction, "\$messages = [");
+$corpusEnd = strpos($messageFunction, '    ];', $corpusStart === false ? 0 : $corpusStart);
+assertTrue($corpusStart !== false && $corpusEnd !== false, 'Daily message corpus boundaries must be present');
+$corpusSource = substr($messageFunction, $corpusStart, $corpusEnd - $corpusStart);
+preg_match_all("/^        '([^']*)',$/mu", $corpusSource, $corpusMatches);
+$corpus = $corpusMatches[1] ?? [];
+assertTrue(count($corpus) === 125, 'Daily message corpus must contain exactly the 125 Human Review approved messages');
+assertTrue(hash('sha256', implode("\n", $corpus)) === '13d3d7ce961d6ed2ea4b258d70b58fc9c852baa61b68a2e519f68769399a01cd', 'Daily message corpus must exactly match the Human Review approved text and order');
+foreach ([
+    'うまく書けない日も、投稿してもいい。',
+    '書いた日の自分も、未来の自分も読み返せます。',
+    '自分さえ読めば良い。の気分で投稿するか。',
+    '今日の小さな気づきを、そのまま私のSmall Webへ。',
+    '今日の投稿が、明日の私の居場所になります。',
+] as $message) {
+    assertContains($messageFunction, $message, 'Human Review approved Tomos Message is missing: ' . $message);
+}
 assertNotContains($messageFunction, 'aria-live=', 'Daily message must not be announced as a notification');
 assertNotContains($messageFunction, 'window.fetch', 'Daily message must not use external browser I/O');
 assertNotContains($messageFunction, 'curl_', 'Daily message must not use external server I/O');
