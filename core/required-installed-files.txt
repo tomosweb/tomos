@@ -2,7 +2,6 @@ index.php
 .htaccess
 VERSION
 post/index.php
-post/.htaccess
 post/auth-gate.php
 post/inbox/api/index.php
 post/inbox/image/index.php

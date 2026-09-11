@@ -1,5 +1,19 @@
 # 更新履歴
 
+## v0.7.2 - 2026-09-11
+
+### Fixed / Security
+
+- サブディレクトリ設置環境でTomos Postの認証後にリダイレクトループする深刻な不具合を修正しました。
+- Tomos Postの共通認証境界をApacheのRewrite/Referer推測からPHPへ移し、`post/index.php`が認証境界を所有する構造へ変更しました。
+- `post/.htaccess`の認証用Rewriteを廃止し、Browser Update互換のためコメントのみのtombstoneとして残します。
+
+### Fixed / Compatibility
+
+- 認証境界変更後も、公開済み記事からTomos Writeを開き、原稿を渡し、編集後にTomos Postへ戻す既存handoffを維持しました。
+- サブディレクトリ設置でPost API、保護preview/download、Passkey、Settings、Theme、Security、Updateの既存経路を維持します。
+- v0.7.1からv0.7.2へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.7.1 - 2026-09-10
 
 ### Added / Security
