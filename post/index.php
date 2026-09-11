@@ -952,7 +952,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 .result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}
 </style></head><body><main class="wrap">';
 
-    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}.tomos-message{align-items:center;background:#fffaf2;border:1px solid rgba(164,74,29,.1);border-radius:8px;box-shadow:0 2px 8px rgba(47,47,47,.05);box-sizing:border-box;display:flex;gap:1rem;justify-content:space-between;margin:1.25rem 0 1.5rem;padding:1rem 1.25rem}.tomos-message-text{color:#3b332e;flex:1 1 auto;font-family:"Klee One","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-size:clamp(1rem,1.35vw,1.125rem);font-weight:400;line-height:1.7;margin:0}.tomos-message-airplane{color:rgba(164,74,29,.42);flex:0 0 4.25rem;height:3.25rem;width:4.25rem}@media(max-width:560px){.tomos-message{gap:.5rem;padding:1rem}.tomos-message-airplane{flex-basis:3rem;height:2.5rem;width:3rem}}</style>';
+    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}.tomos-message{align-items:center;background:#fffaf2;border:1px solid rgba(164,74,29,.1);border-radius:8px;box-shadow:0 2px 8px rgba(47,47,47,.05);box-sizing:border-box;display:flex;gap:1rem;justify-content:space-between;margin:1.25rem 0 1.5rem;padding:1rem 1.25rem}.tomos-message-text{color:#3b332e;flex:1 1 auto;font-family:"Klee One","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-size:clamp(1rem,1.35vw,1.125rem);font-weight:400;line-height:1.7;margin:0}.tomos-message-mark{flex:0 0 2rem;height:2rem;width:2rem}@media(max-width:560px){.tomos-message{gap:.5rem;padding:1rem}.tomos-message-mark{flex-basis:1.625rem;height:1.625rem;width:1.625rem}}</style>';
     echo '<h1>' . e($title) . '</h1>';
     if ($showTomosDailyMessage) {
         renderTomosDailyMessage();
@@ -1061,10 +1061,10 @@ function renderTomosDailyMessage(): void
 
     echo '<div class="tomos-message">';
     echo '<p class="tomos-message-text">' . e($message) . '</p>';
-    echo '<svg class="tomos-message-airplane" viewBox="0 0 88 56" aria-hidden="true" focusable="false">';
-    echo '<path d="M4 46C18 25 24 49 40 38S60 17 78 11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".45"></path>';
-    echo '<path d="M63 19 84 6 76 29 70 21 63 19Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>';
-    echo '<path d="M70 21 84 6 74 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"></path>';
+    echo '<svg class="tomos-message-mark" viewBox="0 0 32 40" aria-hidden="true" focusable="false">';
+    echo '<path d="M16 3C11 8 10 12 13 16c-4 1-6 5-5 9 1 6 4 9 8 9s7-3 8-9c1-4-1-8-5-9 1-4-1-8-3-13Z" fill="var(--tomos-accent)"></path>';
+    echo '<path d="M10 18h12v15c0 1-1 2-2 2h-8c-1 0-2-1-2-2V18Z" fill="#2c3e50"></path>';
+    echo '<ellipse cx="16" cy="18" rx="6" ry="2" fill="#2c3e50"></ellipse>';
     echo '</svg>';
     echo '</div>';
     $_SESSION['tomos_post_daily_message_shown'] = true;
