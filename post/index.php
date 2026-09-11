@@ -921,12 +921,21 @@ function renderPage(
         ? ($uploadResult->absoluteUrl !== '' ? $uploadResult->absoluteUrl : Tomos\Security::publicUrl($uploadResult->internalUrl, $publicBasePath))
         : '';
     $trashSummary = trashSummary();
+    $showTomosDailyMessage = !$disabled
+        && !empty($_SESSION['tomos_post_authenticated'])
+        && $activeSection === 'upload'
+        && empty($_SESSION['tomos_post_daily_message_shown']);
 
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
     echo '<link rel="icon" href="../themes/tomos-minimal/assets/favicon.png" type="image/png">';
     echo '<link rel="apple-touch-icon" href="../themes/tomos-minimal/assets/apple-touch-icon.png">';
     echo '<title>' . e($title) . '</title>';
+    if ($showTomosDailyMessage) {
+        echo '<link rel="preconnect" href="https://fonts.googleapis.com">';
+        echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+        echo '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One&display=swap">';
+    }
     echo '<style>
 :root{--tomos-bg:#f6f4ef;--tomos-surface:#fcfbf8;--tomos-input:#fff;--tomos-text:#2f2f2f;--tomos-muted:#6b6b6b;--tomos-placeholder:#747470;--tomos-border:#d9d6cf;--tomos-border-soft:#e7e3dc;--tomos-border-hover:#cfcbc3;--tomos-accent:#a44a1d;--tomos-primary:#9a431c;--tomos-primary-hover:#853919;--tomos-primary-active:#713018;--tomos-primary-disabled:#c7b6ad;--tomos-danger:#b4382e;--tomos-danger-hover:#982e27;--tomos-danger-active:#7e261f;--tomos-danger-text:#8a2e26;--tomos-notice-bg:#fbf4e8;--tomos-notice-text:#6f4b1d;--tomos-notice-border:#e5c998;--tomos-error-bg:#f8ecea;--tomos-error-border:#d9a39e;--tomos-info-bg:#f7f7f4;--tomos-code-bg:#f1f1ee;--tomos-code-text:#555;--tomos-button-hover:#f7f5f0;--tomos-button-active:#efece6;--tomos-shadow:0 1px 2px rgba(47,47,47,0.04)}
 html,body{width:100%;overflow-x:hidden}
@@ -943,9 +952,11 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 .result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}
 </style></head><body><main class="wrap">';
 
-    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}</style>';
+    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}.tomos-message{align-items:center;background:#fffaf2;border:1px solid rgba(164,74,29,.1);border-radius:8px;box-shadow:0 2px 8px rgba(47,47,47,.05);box-sizing:border-box;display:flex;gap:1rem;justify-content:space-between;margin:1.25rem 0 1.5rem;padding:1rem 1.25rem}.tomos-message-text{color:#3b332e;flex:1 1 auto;font-family:"Klee One","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-size:clamp(1.05rem,1.6vw,1.25rem);font-weight:400;line-height:1.7;margin:0}.tomos-message-airplane{color:rgba(164,74,29,.42);flex:0 0 3rem;height:2.5rem;width:3rem}@media(max-width:560px){.tomos-message{gap:.5rem;padding:1rem}.tomos-message-airplane{flex-basis:2.25rem;height:2rem;width:2.25rem}}</style>';
     echo '<h1>' . e($title) . '</h1>';
-    echo '<p class="hint">Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。</p>';
+    if ($showTomosDailyMessage) {
+        renderTomosDailyMessage();
+    }
     renderSectionNav($activeSection, $publicBasePath);
     if (!empty($_SESSION['tomos_post_authenticated'])) {
         echo '<div class="auth-actions"><form method="post" action="">';
@@ -973,9 +984,6 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 }
 
     echo '<div class="section">';
-    if (!empty($_SESSION['tomos_post_authenticated']) && $activeSection === 'upload') {
-        renderTomosDailyMessage();
-    }
     renderMessages($errors, $messages, $warnings);
     if ($activeSection === 'published') {
         renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $completedWithdrawTarget, $withdrawTarget, $withdrawResult, $trashSummary, $editableQuery, $editableSearchResult);
@@ -1051,7 +1059,14 @@ function renderTomosDailyMessage(): void
         $message = $messages[0];
     }
 
-    echo '<p class="tomos-message">' . e($message) . '</p>';
+    echo '<div class="tomos-message">';
+    echo '<p class="tomos-message-text">' . e($message) . '</p>';
+    echo '<svg class="tomos-message-airplane" viewBox="0 0 48 32" aria-hidden="true" focusable="false">';
+    echo '<path d="M3 25C15 24 28 18 39 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2 4" opacity=".35"></path>';
+    echo '<path d="M18 19 43 4 33 28 28 20 18 19Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>';
+    echo '<path d="M28 20 43 4 31 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".75"></path>';
+    echo '</svg>';
+    echo '</div>';
     $_SESSION['tomos_post_daily_message_shown'] = true;
 }
 

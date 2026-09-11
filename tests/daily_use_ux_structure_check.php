@@ -60,10 +60,25 @@ foreach (['PostWithdraw', 'name="_token"', 'trash', 'PostContentResolver'] as $w
     assertContains($index, $withdrawSafetyMarker, 'Withdraw safety marker must remain: ' . $withdrawSafetyMarker);
 }
 
-assertContains($index, "if (!empty(\$_SESSION['tomos_post_authenticated']) && \$activeSection === 'upload')", 'Daily message must be restricted to authenticated Upload');
+assertContains($index, "!empty(\$_SESSION['tomos_post_authenticated'])", 'Daily message must require Post authentication');
+assertContains($index, "\$activeSection === 'upload'", 'Daily message must be restricted to Upload');
+assertContains($index, "empty(\$_SESSION['tomos_post_daily_message_shown'])", 'Daily message must be restricted to an unseen session');
 assertContains($index, 'renderTomosDailyMessage();', 'Daily message must be rendered from the normal Post page');
 assertContains($index, "\$_SESSION['tomos_post_daily_message_shown']", 'Daily message must use a session shown flag');
-assertContains($index, '<p class="tomos-message">', 'Daily message must use the quiet text presentation');
+assertContains($index, '$showTomosDailyMessage', 'Daily message display must be decided before the page head is rendered');
+assertContains($index, 'https://fonts.googleapis.com/css2?family=Klee+One&display=swap', 'Daily message response must load Klee One');
+assertNotContains($index, 'Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', 'Daily Post description must be removed');
+assertContains($index, '<div class="tomos-message">', 'Daily message must use the letter card presentation');
+assertContains($index, '<p class="tomos-message-text">', 'Daily message text must remain the only message copy');
+assertContains($index, '<svg class="tomos-message-airplane"', 'Daily message must include the lightweight airplane decoration');
+assertContains($index, 'aria-hidden="true" focusable="false"', 'Daily message decoration must be hidden from assistive technology');
+assertContains($index, 'font-family:"Klee One"', 'Daily message must use Klee One with a local fallback');
+assertContains($index, 'font-size:clamp(1.05rem,1.6vw,1.25rem)', 'Daily message font size must remain restrained and responsive');
+assertContains($index, 'background:#fffaf2', 'Daily message must use a subtle warm cream surface');
+assertContains($index, 'box-shadow:0 2px 8px rgba(47,47,47,.05)', 'Daily message shadow must remain subtle');
+$messageCall = strpos($index, 'renderTomosDailyMessage();');
+$navCall = strpos($index, 'renderSectionNav($activeSection, $publicBasePath);');
+assertTrue($messageCall !== false && $navCall !== false && $messageCall < $navCall, 'Daily message must appear before Post navigation');
 foreach (['小さく書いて、すぐ届ける。', '書いたものは、自分の場所に残ります。', '公開したあとも、いつでも直せます。'] as $message) {
     assertContains($index, $message, 'Temporary Tomos Message is missing: ' . $message);
 }
@@ -74,9 +89,14 @@ $messageFunction = substr($index, $messageStart, $messageEnd - $messageStart);
 assertNotContains($messageFunction, 'aria-live=', 'Daily message must not be announced as a notification');
 assertNotContains($messageFunction, 'window.fetch', 'Daily message must not use external browser I/O');
 assertNotContains($messageFunction, 'curl_', 'Daily message must not use external server I/O');
-$messageOutput = strpos($messageFunction, 'echo \'<p class="tomos-message">\'');
+$messageOutput = strpos($messageFunction, 'echo \'<div class="tomos-message">\'');
 $messageFlag = strpos($messageFunction, "\$_SESSION['tomos_post_daily_message_shown'] = true;");
 assertTrue($messageOutput !== false && $messageFlag !== false && $messageOutput < $messageFlag, 'Daily message shown flag must be set after rendering');
+
+$csp = readSource($root . '/core/ContentSecurityPolicy.php');
+assertContains($csp, "style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;", 'CSP must allow only the Google Fonts hosts needed by the message');
+assertNotContains($csp, 'style-src *', 'CSP style sources must not use a wildcard');
+assertNotContains($csp, 'font-src *', 'CSP font sources must not use a wildcard');
 
 echo "daily_use_ux_structure_check: PASS\n";
 

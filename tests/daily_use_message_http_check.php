@@ -73,12 +73,19 @@ try {
     $first = request($baseUrl . '/post/', $cookie);
     assertSame(1, messageCount($first['body']), 'first authenticated Upload must show one message');
     assertContains('class="tomos-message"', $first['body'], 'first Upload message markup');
+    assertSame(1, fontLinkCount($first['body']), 'first Upload must load Klee One exactly once');
+    assertTrue(strpos($first['body'], 'class="tomos-message"') < strpos($first['body'], 'class="nav"'), 'first Upload message must appear before navigation');
+    assertNotContains('Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', $first['body'], 'old Post description must not be rendered');
+    assertNotContains('TOMOS MESSAGE', $first['body'], 'Tomos Message heading must not be rendered');
     assertContains('1. Markdownを投稿する', $first['body'], 'first Upload section');
 
-    assertSame(0, messageCount(request($baseUrl . '/post/', $cookie)['body']), 'same-session reload must hide the message');
+    $reload = request($baseUrl . '/post/', $cookie);
+    assertSame(0, messageCount($reload['body']), 'same-session reload must hide the message');
+    assertSame(0, fontLinkCount($reload['body']), 'same-session reload must not load Klee One');
     foreach (['published', 'drafts', 'settings', 'upload'] as $section) {
         $page = request($baseUrl . '/post/?section=' . rawurlencode($section), $cookie);
         assertSame(0, messageCount($page['body']), 'same-session section must hide the message: ' . $section);
+        assertSame(0, fontLinkCount($page['body']), 'same-session section must not load Klee One: ' . $section);
     }
 
     $logoutPage = request($baseUrl . '/post/', $cookie);
@@ -104,7 +111,9 @@ try {
         'post_password' => 'test-password',
     ]);
     assertSame(302, $newLogin['status'], 'new-session login status');
-    assertSame(1, messageCount(request($baseUrl . '/post/', $newCookie)['body']), 'new PHP session must be eligible for one message');
+    $newFirst = request($baseUrl . '/post/', $newCookie);
+    assertSame(1, messageCount($newFirst['body']), 'new PHP session must be eligible for one message');
+    assertSame(1, fontLinkCount($newFirst['body']), 'new PHP session first Upload must load Klee One');
 
     echo "daily_use_message_http_check: PASS\n";
 } catch (Throwable $exception) {
@@ -124,6 +133,11 @@ try {
 function messageCount(string $body): int
 {
     return substr_count($body, 'class="tomos-message"');
+}
+
+function fontLinkCount(string $body): int
+{
+    return substr_count($body, 'fonts.googleapis.com/css2?family=Klee+One&display=swap');
 }
 
 function request(string $url, string $cookie, ?array $fields = null): array
@@ -178,6 +192,20 @@ function assertContains(string $needle, string $haystack, string $label): void
 {
     if (strpos($haystack, $needle) === false) {
         throw new RuntimeException($label . ': missing ' . $needle);
+    }
+}
+
+function assertNotContains(string $needle, string $haystack, string $label): void
+{
+    if (strpos($haystack, $needle) !== false) {
+        throw new RuntimeException($label . ': unexpected ' . $needle);
+    }
+}
+
+function assertTrue(bool $condition, string $label): void
+{
+    if (!$condition) {
+        throw new RuntimeException($label);
     }
 }
 

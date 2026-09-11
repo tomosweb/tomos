@@ -31,6 +31,9 @@ checkCsp(strpos($frameDirective, '*') === false, 'frame CSP must not use a wildc
 $defaultScripts = scriptDirective($default);
 checkCsp($defaultScripts === "'none'", 'default CSP must disable scripts');
 checkCsp(strpos($defaultScripts, "'self'") === false, 'default CSP must not allow local scripts');
+checkCsp(strpos($default, "style-src 'self' https://fonts.googleapis.com;") !== false, 'Google Fonts stylesheet host must be explicitly allowed');
+checkCsp(strpos($default, 'font-src \'self\' https://fonts.gstatic.com;') !== false, 'Google Fonts font host must be explicitly allowed');
+checkCsp(strpos($default, 'style-src *') === false && strpos($default, 'font-src *') === false, 'Google Fonts CSP additions must not use wildcards');
 checkCsp(strpos($default, "'unsafe-inline'") === false, 'CSP must not allow unsafe inline scripts');
 
 $analytics = ContentSecurityPolicy::build(true, 'nonce-test-123');
