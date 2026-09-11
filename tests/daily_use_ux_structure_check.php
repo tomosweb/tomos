@@ -99,7 +99,7 @@ assertNotContains($messageFunction, '<svg', 'Daily message mark must not be redr
 assertNotContains($messageFunction, 'f0dfc6', 'Daily message mark must not use the rejected ivory candle treatment');
 assertNotContains($messageFunction, 'stroke=', 'Daily message mark must not contain SVG stroke instructions');
 $assetInfo = @getimagesize($root . '/post/assets/tomos-message-mark.png');
-assertTrue(is_array($assetInfo) && ($assetInfo[0] ?? 0) === 471 && ($assetInfo[1] ?? 0) === 1291, 'Daily message PNG dimensions must remain the extracted central motif');
+assertTrue(is_array($assetInfo) && ($assetInfo[0] ?? 0) === 651 && ($assetInfo[1] ?? 0) === 1291, 'Daily message PNG dimensions must retain the wider flame surround crop');
 $assetBytes = readSource($root . '/post/assets/tomos-message-mark.png');
 assertTrue(($assetInfo['mime'] ?? '') === 'image/png' && strlen($assetBytes) >= 26 && ord($assetBytes[25]) === 6, 'Daily message PNG must be RGBA');
 assertContains($distribution, "post/assets/tomos-message-mark.png", 'Daily message PNG must be included in distribution packaging');
