@@ -77,6 +77,8 @@ try {
     assertTrue(strpos($first['body'], 'class="tomos-message"') < strpos($first['body'], 'class="nav"'), 'first Upload message must appear before navigation');
     assertContains('class="tomos-message-mark"', $first['body'], 'first Upload must render the Tomos mark');
     assertContains('viewBox="0 0 32 40"', $first['body'], 'first Upload must render the compact Tomos mark');
+    assertContains('fill="#f0dfc6"', $first['body'], 'first Upload must render an ivory-beige candle');
+    assertContains('M16 18v-4', $first['body'], 'first Upload must render the candle wick');
     assertNotContains('tomos-message-airplane', $first['body'], 'first Upload must not render the paper airplane');
     assertNotContains('stroke-dasharray', $first['body'], 'first Upload must not render a dotted trajectory');
     assertNotContains('Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', $first['body'], 'old Post description must not be rendered');

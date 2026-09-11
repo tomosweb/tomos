@@ -78,8 +78,12 @@ assertContains($index, 'background:#fffaf2', 'Daily message must use a subtle wa
 assertContains($index, 'box-shadow:0 2px 8px rgba(47,47,47,.05)', 'Daily message shadow must remain subtle');
 assertContains($index, 'viewBox="0 0 32 40"', 'Daily message Tomos mark must remain compact');
 assertContains($index, 'M16 3C11 8 10 12 13 16c-4 1-6 5-5 9', 'Daily message Tomos mark must include a simple flame');
-assertContains($index, 'fill="#2c3e50"', 'Daily message candle must use the existing dark navy family');
+assertContains($index, 'fill="#f0dfc6"', 'Daily message candle must use a visible ivory-beige fill');
+assertContains($index, 'stroke="var(--tomos-text)" stroke-opacity=".6"', 'Daily message candle must use a restrained existing text-color outline');
+assertContains($index, 'M16 18v-4', 'Daily message candle must include a short wick');
 assertContains($index, 'fill="var(--tomos-accent)"', 'Daily message flame must use the existing Tomos accent');
+assertContains($index, 'flex:0 0 2.5rem;height:2.5rem;width:2.5rem', 'Daily message mark must render at 40px on desktop');
+assertContains($index, 'flex-basis:2rem;height:2rem;width:2rem', 'Daily message mark must render at 32px on mobile');
 assertNotContains($index, 'tomos-message-airplane', 'Paper airplane decoration must be removed');
 assertNotContains($index, 'stroke-dasharray', 'Daily message mark must not use a dotted trajectory');
 $messageCall = strpos($index, 'renderTomosDailyMessage();');
