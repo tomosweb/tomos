@@ -15,10 +15,14 @@ assertContains($writeHandoff, 'scrollIntoView({ behavior: scrollBehavior', 'Writ
 assertNotContains($index, 'scrollIntoView({ behavior: "smooth"', 'Post upload must not hard-code smooth scrolling');
 assertNotContains($writeHandoff, 'scrollIntoView({ behavior: "smooth"', 'Write handoff must not hard-code smooth scrolling');
 
-$open = strpos($writeHandoff, 'window.open(');
 $confirm = strpos($writeHandoff, 'window.confirm(');
-$navigate = strpos($writeHandoff, 'writeWindow.location.href =');
-assertTrue($open !== false && $confirm !== false && $navigate !== false && $open < $confirm && $confirm < $navigate, 'Write handoff popup order must remain open, confirm, navigate');
+assertContains($writeHandoff, 'const approved = window.confirm(', 'Write handoff must require approval before opening Tomos Write');
+assertContains($writeHandoff, 'if (!approved) return;', 'Write handoff approval rejection must stop the launch');
+$open = strpos($writeHandoff, 'writeWindow = window.open(`${WRITE_URL}#${fragment.toString()}`, "_blank");');
+assertTrue($confirm !== false && $open !== false && $confirm < $open, 'Write handoff must confirm before opening the final Tomos Write URL');
+assertNotContains($writeHandoff, 'window.open("about:blank", "_blank")', 'Write handoff must not reserve an about:blank popup');
+assertNotContains($writeHandoff, 'reservedWindow', 'Write handoff must not retain reserved popup state');
+assertNotContains($writeHandoff, 'writeWindow.location.href = `${WRITE_URL}#${fragment.toString()}`;', 'Write handoff must not navigate a reserved popup after approval');
 
 assertContains($authGate, 'autocomplete="current-password" required', 'Auth gate passphrase input must use native required validation');
 assertContains($index, 'autocomplete="current-password" required', 'Post authentication fields must use native required validation');
@@ -26,9 +30,11 @@ assertContains($authGate, 'button:focus-visible,.button:focus-visible,input[type
 assertContains($authGate, 'rgba(164,74,29,0.28)', 'Auth gate focus styling must reuse the existing Tomos focus color');
 assertContains($securityCss, 'button:focus-visible,.button:focus-visible,input[type=password]:focus-visible,input[type=text]:focus-visible', 'Shared security controls must have focus-visible styling');
 assertContains($securityCss, 'rgba(164,74,29,.28)', 'Shared security focus styling must reuse the existing Tomos focus color');
-foreach (['PostRateLimiter', 'PostAuthRememberToken', 'PostPassword::verify', 'rememberCurrentBrowser()', 'passkey'] as $authBoundary) {
+foreach (['PostRateLimiter', 'PostPassword::verify', 'rememberCurrentBrowser()', 'passkey'] as $authBoundary) {
     assertContains($authGate, $authBoundary, 'Auth boundary marker must remain: ' . $authBoundary);
 }
+assertContains($index, 'PostAuthRememberToken', 'Post auth remember-token service must remain in the current v0.7.3 bootstrap');
+assertContains($authGate, '$authRemember', 'Current v0.7.3 auth component must use the initialized remember-token service');
 
 assertContains($authGate, '<div class="errors" role="alert">', 'Auth gate errors must be announced as blocking errors');
 assertContains($authGate, '<div class="notice" role="status" aria-live="polite">', 'Auth gate warnings must be announced politely');
