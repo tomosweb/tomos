@@ -77,10 +77,13 @@ try {
     assertTrue(strpos($first['body'], 'class="tomos-message"') < strpos($first['body'], 'class="nav"'), 'first Upload message must appear before navigation');
     assertContains('class="tomos-message-mark"', $first['body'], 'first Upload must render the Tomos mark');
     assertContains('viewBox="0 0 32 40"', $first['body'], 'first Upload must render the compact Tomos mark');
-    assertContains('fill="#19344d"', $first['body'], 'first Upload must render the official dark navy candle body');
-    assertContains('v-8.1c-.7 0-1.4-.2-2-.6L13 27.6V37', $first['body'], 'first Upload must render the official two-leg body structure');
+    assertContains('stroke="#19344d"', $first['body'], 'first Upload must render the official dark navy candle body');
+    assertContains('stroke-width="2.25"', $first['body'], 'first Upload must render a restrained candle line weight');
+    assertContains('M22 25v12', $first['body'], 'first Upload must render the second downward body structure');
     assertNotContains('f0dfc6', $first['body'], 'first Upload must not render the rejected ivory candle treatment');
-    assertNotContains('stroke=', $first['body'], 'first Upload must not render the rejected outlined candle treatment');
+    assertNotContains('fill="#2c3e50"', $first['body'], 'first Upload must not render the older heavy navy fill treatment');
+    assertNotContains('<circle', $first['body'], 'first Upload must not render the official outer circle');
+    assertNotContains('<ellipse', $first['body'], 'first Upload must not render a background ellipse');
     assertNotContains('tomos-message-airplane', $first['body'], 'first Upload must not render the paper airplane');
     assertNotContains('stroke-dasharray', $first['body'], 'first Upload must not render a dotted trajectory');
     assertNotContains('Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', $first['body'], 'old Post description must not be rendered');

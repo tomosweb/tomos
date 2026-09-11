@@ -1062,8 +1062,9 @@ function renderTomosDailyMessage(): void
     echo '<div class="tomos-message">';
     echo '<p class="tomos-message-text">' . e($message) . '</p>';
     echo '<svg class="tomos-message-mark" viewBox="0 0 32 40" aria-hidden="true" focusable="false">';
-    echo '<path d="M16 3C11 8 10 12 13 16c-4 1-6 5-5 9 1 6 4 9 8 9s7-3 8-9c1-4-1-8-5-9 1-4-1-8-3-13Zm0 8c-2 2.5-2.5 3.6-2.5 5 0 1.8 1 3 2.5 3s2.5-1.2 2.5-3c0-1.4-.8-2.8-2.5-5Z" fill="var(--tomos-accent)" fill-rule="evenodd"></path>';
-    echo '<path d="M10 37V19a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v5a5 5 0 0 1-2 4v9h-3v-8.1c-.7 0-1.4-.2-2-.6L13 27.6V37h-3Zm3-18v4.2l3.5 2.1c1 .6 2.5-.1 2.5-1.3V19c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2Z" fill="#19344d" fill-rule="evenodd"></path>';
+    echo '<path d="M16 3c-2.8 3.5-4.2 6.1-4.2 8.5 0 2.8 1.8 4.8 4.2 4.8s4.2-2 4.2-4.8C20.2 9.1 18.8 6.5 16 3Zm0 5c-1.2 1.7-1.7 2.8-1.7 3.8 0 1.2.7 2 1.7 2s1.7-.8 1.7-2c0-1-.5-2.1-1.7-3.8Z" fill="var(--tomos-accent)" fill-rule="evenodd"></path>';
+    echo '<path d="M10 37V20a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v5c0 2.5-2.8 3.8-4.8 2.4L13 25" fill="none" stroke="#19344d" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25"></path>';
+    echo '<path d="M22 25v12" fill="none" stroke="#19344d" stroke-linecap="round" stroke-width="2.25"></path>';
     echo '</svg>';
     echo '</div>';
     $_SESSION['tomos_post_daily_message_shown'] = true;
