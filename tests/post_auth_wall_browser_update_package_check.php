@@ -18,9 +18,10 @@ function assertCheck(bool $condition, string $message): void
     }
 }
 
-$baselineRef = 'tomos-public-v0.7.0';
+$baselineRef = '05089edafd3105025053b54436694c8b39022584';
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $baselineRef, 'HEAD');
 
+assertCheck(in_array('post/index.php', $runtimeFiles, true), 'post/index.php is selected for Browser Update');
 assertCheck(in_array('post/.htaccess', $runtimeFiles, true), 'post/.htaccess is selected for Browser Update');
 assertCheck(in_array('post/auth-gate.php', $runtimeFiles, true), 'post/auth-gate.php is selected for Browser Update');
 assertCheck(!in_array('.htaccess', $runtimeFiles, true), 'protected root .htaccess is excluded from Browser Update');
@@ -41,10 +42,10 @@ try {
         . ' archive ' . escapeshellarg($baselineRef)
         . ' | tar -x -C ' . escapeshellarg($baselineDir);
     passthru($archiveCmd, $archiveStatus);
-    assertCheck($archiveStatus === 0, 'could not create public v0.7.0 baseline fixture');
+    assertCheck($archiveStatus === 0, 'could not create released v0.7.1 baseline fixture');
 
     $baselineRootHtaccess = file_get_contents($baselineDir . '/.htaccess');
-    assertCheck(is_string($baselineRootHtaccess), 'public v0.7.0 root .htaccess is available');
+    assertCheck(is_string($baselineRootHtaccess), 'released v0.7.1 root .htaccess is available');
 
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     assertCheck($key !== false, 'could not create temporary signing key');
@@ -52,10 +53,10 @@ try {
     assertCheck(openssl_pkey_export($key, $privateKeyPem), 'could not export temporary signing key');
     assertCheck(file_put_contents($keyPath, $privateKeyPem) !== false, 'could not write temporary signing key');
 
-    // The branch intentionally remains VERSION 0.7.0 until release work starts.
+    // The branch intentionally remains VERSION 0.7.1 until release work starts.
     // Use a temporary version only in this CI workspace so the real package builder
     // can exercise its normal version and signing gates without committing a release version.
-    $testVersion = '0.7.1-dev';
+    $testVersion = '0.7.2-dev';
     assertCheck(file_put_contents($root . '/VERSION', $testVersion . "\n") !== false, 'could not set temporary package version');
 
     $packageFiles = $runtimeFiles;
@@ -66,7 +67,7 @@ try {
 
     $command = escapeshellarg(PHP_BINARY)
         . ' ' . escapeshellarg($root . '/tools/build-update-package.php')
-        . ' --from=0.7.0'
+        . ' --from=0.7.1'
         . ' --version=' . escapeshellarg($testVersion)
         . ' --private-key=' . escapeshellarg($keyPath)
         . ' --output=' . escapeshellarg($zipPath);
@@ -81,6 +82,7 @@ try {
     $zip = new ZipArchive();
     assertCheck($zip->open($zipPath) === true, 'could not open generated Update ZIP');
     try {
+        assertCheck($zip->locateName('files/post/index.php') !== false, 'generated Update ZIP contains post/index.php');
         assertCheck($zip->locateName('files/post/.htaccess') !== false, 'generated Update ZIP contains post/.htaccess');
         assertCheck($zip->locateName('files/post/auth-gate.php') !== false, 'generated Update ZIP contains post/auth-gate.php');
         assertCheck($zip->locateName('files/.htaccess') === false, 'generated Update ZIP excludes root .htaccess');
@@ -91,6 +93,7 @@ try {
         assertCheck(is_array($manifest), 'manifest.json is valid JSON');
         $manifestFiles = $manifest['files'] ?? null;
         assertCheck(is_array($manifestFiles), 'manifest contains files map');
+        assertCheck(isset($manifestFiles['post/index.php']), 'manifest includes post/index.php');
         assertCheck(isset($manifestFiles['post/.htaccess']), 'manifest includes post/.htaccess');
         assertCheck(isset($manifestFiles['post/auth-gate.php']), 'manifest includes post/auth-gate.php');
         assertCheck(!isset($manifestFiles['.htaccess']), 'manifest excludes root .htaccess');
@@ -115,8 +118,12 @@ try {
     }
 
     assertCheck(is_file($baselineDir . '/post/.htaccess'), 'applied v0.7.0 fixture contains post/.htaccess');
-    assertCheck(is_file($baselineDir . '/post/auth-gate.php'), 'applied v0.7.0 fixture contains post/auth-gate.php');
-    assertCheck(file_get_contents($baselineDir . '/.htaccess') === $baselineRootHtaccess, 'Browser Update leaves public v0.7.0 root .htaccess unchanged');
+    assertCheck(is_file($baselineDir . '/post/auth-gate.php'), 'applied v0.7.1 fixture contains post/auth-gate.php');
+    $appliedIndex = (string) file_get_contents($baselineDir . '/post/index.php');
+    $appliedPostHtaccess = (string) file_get_contents($baselineDir . '/post/.htaccess');
+    assertCheck(strpos($appliedIndex, "require __DIR__ . '/auth-gate.php';") !== false, 'applied Post index owns auth wall');
+    assertCheck(strpos($appliedPostHtaccess, 'RewriteEngine') === false && strpos($appliedPostHtaccess, 'RewriteCond') === false && strpos($appliedPostHtaccess, 'RewriteRule') === false && stripos($appliedPostHtaccess, 'referer') === false, 'applied post/.htaccess neutralizes obsolete routing');
+    assertCheck(file_get_contents($baselineDir . '/.htaccess') === $baselineRootHtaccess, 'Browser Update leaves released v0.7.1 root .htaccess unchanged');
 
     echo "post_auth_wall_browser_update_package_check: PASS\n";
 } finally {

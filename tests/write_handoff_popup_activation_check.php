@@ -14,23 +14,29 @@ function requireNeedle(string $source, string $needle, string $message): void
     }
 }
 
-requireNeedle($source, 'let reservedWindow = false;', 'reserved popup state is missing');
-requireNeedle($source, 'writeWindow = window.open("about:blank", "_blank");', 'popup must be reserved synchronously as about:blank');
-requireNeedle($source, "if (!approved) {\n      closeReservedWindow();", 'approval rejection must close the reserved popup');
-requireNeedle($source, 'writeWindow.location.href = `${WRITE_URL}#${fragment.toString()}`;', 'the reserved popup must be navigated after approval');
+requireNeedle($source, 'const approved = window.confirm(', 'approval must precede the outbound popup');
+requireNeedle($source, 'if (!approved) return;', 'approval rejection must stop before opening Tomos Write');
+requireNeedle($source, 'writeWindow = window.open(`${WRITE_URL}#${fragment.toString()}`, "_blank");', 'the approved final Tomos Write URL must be opened directly');
 requireNeedle($source, "if (!writeWindow) {\n      failLaunch(", 'a blocked popup must stop the handoff');
-requireNeedle($source, 'writeWindow.postMessage({', 'the existing document handoff must use the retained window handle');
+requireNeedle($source, 'writeWindow.postMessage({', 'the document handoff must use the opened window handle');
 requireNeedle($source, '}, WRITE_ORIGIN);', 'postMessage must retain the exact target origin');
 
-$openPosition = strpos($source, 'writeWindow = window.open("about:blank", "_blank");');
 $confirmPosition = strpos($source, 'const approved = window.confirm(');
-$navigatePosition = strpos($source, 'writeWindow.location.href = `${WRITE_URL}#${fragment.toString()}`;');
-if ($openPosition === false || $confirmPosition === false || $navigatePosition === false || !($openPosition < $confirmPosition && $confirmPosition < $navigatePosition)) {
-    throw new RuntimeException('popup reservation and post-approval navigation order is invalid');
+$openPosition = strpos($source, 'writeWindow = window.open(`${WRITE_URL}#${fragment.toString()}`, "_blank");');
+if ($confirmPosition === false || $openPosition === false || !($confirmPosition < $openPosition)) {
+    throw new RuntimeException('approval must occur before opening the final Tomos Write URL');
 }
 
-if (strpos($source, 'window.open(`${WRITE_URL}') !== false) {
-    throw new RuntimeException('handoff must not open the final URL after the approval boundary');
+if (strpos($source, 'window.open("about:blank", "_blank")') !== false) {
+    throw new RuntimeException('outbound handoff must not reserve an about:blank popup');
 }
 
-echo "write_handoff_popup_activation_check: synchronous reservation, approval cleanup, retained window, and exact-origin handoff checks passed\n";
+if (strpos($source, 'reservedWindow') !== false) {
+    throw new RuntimeException('outbound handoff must not retain reserved popup state');
+}
+
+if (strpos($source, 'writeWindow.location.href = `${WRITE_URL}#${fragment.toString()}`;') !== false) {
+    throw new RuntimeException('outbound handoff must not navigate a reserved popup after approval');
+}
+
+echo "write_handoff_popup_activation_check: approval-first direct final-URL popup and exact-origin handoff checks passed\n";

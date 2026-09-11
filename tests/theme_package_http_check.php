@@ -55,16 +55,12 @@ try {
 
     $cookie = $testRoot . '/cookies.txt';
     $loginPage = curlRequest($baseUrl . '/post/', $cookie);
-    $postToken = csrfToken($loginPage);
-    $submissionId = hiddenValue($loginPage, 'submission_id');
-    $login = curlRequest($baseUrl . '/post/?post_api=start', $cookie, [
-        '_token' => $postToken,
+    $login = curlRequest($baseUrl . '/post/', $cookie, [
+        'action' => 'auth_gate_login',
+        '_token' => csrfToken($loginPage),
         'post_password' => 'test-password',
-        'expected_images' => '[]',
-        'submission_id' => $submissionId,
     ]);
-    $loginJson = json_decode($login, true);
-    assertTrue(is_array($loginJson) && !empty($loginJson['ok']), 'Tomos Post authentication failed');
+    assertTrue(hiddenValue($login, 'submission_id') !== '', 'Tomos Post authentication failed');
 
     $themePage = curlRequest($baseUrl . '/post/theme/', $cookie);
     assertContains('テーマZIPを追加', $themePage);
