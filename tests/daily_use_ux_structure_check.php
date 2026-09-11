@@ -73,9 +73,12 @@ assertContains($index, '<p class="tomos-message-text">', 'Daily message text mus
 assertContains($index, '<svg class="tomos-message-airplane"', 'Daily message must include the lightweight airplane decoration');
 assertContains($index, 'aria-hidden="true" focusable="false"', 'Daily message decoration must be hidden from assistive technology');
 assertContains($index, 'font-family:"Klee One"', 'Daily message must use Klee One with a local fallback');
-assertContains($index, 'font-size:clamp(1.05rem,1.6vw,1.25rem)', 'Daily message font size must remain restrained and responsive');
+assertContains($index, 'font-size:clamp(1rem,1.35vw,1.125rem)', 'Daily message font size must remain restrained and responsive');
 assertContains($index, 'background:#fffaf2', 'Daily message must use a subtle warm cream surface');
 assertContains($index, 'box-shadow:0 2px 8px rgba(47,47,47,.05)', 'Daily message shadow must remain subtle');
+assertContains($index, 'viewBox="0 0 88 56"', 'Daily message airplane must have room for its trajectory');
+assertContains($index, 'M4 46C18 25 24 49 40 38S60 17 78 11', 'Daily message airplane must use a continuous curved trajectory');
+assertNotContains($index, 'stroke-dasharray', 'Daily message airplane must not use a dotted trajectory');
 $messageCall = strpos($index, 'renderTomosDailyMessage();');
 $navCall = strpos($index, 'renderSectionNav($activeSection, $publicBasePath);');
 assertTrue($messageCall !== false && $navCall !== false && $messageCall < $navCall, 'Daily message must appear before Post navigation');

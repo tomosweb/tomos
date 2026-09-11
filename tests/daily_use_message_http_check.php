@@ -75,6 +75,8 @@ try {
     assertContains('class="tomos-message"', $first['body'], 'first Upload message markup');
     assertSame(1, fontLinkCount($first['body']), 'first Upload must load Klee One exactly once');
     assertTrue(strpos($first['body'], 'class="tomos-message"') < strpos($first['body'], 'class="nav"'), 'first Upload message must appear before navigation');
+    assertContains('viewBox="0 0 88 56"', $first['body'], 'first Upload must render the curved airplane treatment');
+    assertNotContains('stroke-dasharray', $first['body'], 'first Upload must not render a dotted airplane trajectory');
     assertNotContains('Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', $first['body'], 'old Post description must not be rendered');
     assertNotContains('TOMOS MESSAGE', $first['body'], 'Tomos Message heading must not be rendered');
     assertContains('1. Markdownを投稿する', $first['body'], 'first Upload section');
