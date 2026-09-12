@@ -16,6 +16,12 @@ function checkDistribution(bool $condition, string $message): void
     $passes++;
 }
 
+function hasRemovedDocsReference(string $contents): bool
+{
+    return preg_match('/\]\(\s*(?:(?:\.\.\/)|(?:\.\/))?docs\/(?!theme\/theme-rules\.json)/i', $contents) === 1
+        || preg_match('/`(?:(?:\.\.\/)|(?:\.\/))?docs\/(?!theme\/theme-rules\.json)[^`]*`/i', $contents) === 1;
+}
+
 try {
     checkDistribution(is_dir($distribution), 'fresh Distribution folder exists');
     $guardContents = "Order allow,deny\nDeny from all\nRequire all denied\n";
@@ -36,6 +42,18 @@ try {
         }
     }
     checkDistribution($docs === ['docs/theme/theme-rules.json'], 'Distribution docs contains only the runtime allowlist');
+
+    $markdownReferences = [];
+    $markdownIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($distribution, FilesystemIterator::SKIP_DOTS));
+    foreach ($markdownIterator as $file) {
+        if (strtolower($file->getExtension()) !== 'md') {
+            continue;
+        }
+        if (hasRemovedDocsReference((string) file_get_contents($file->getPathname()))) {
+            $markdownReferences[] = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($distribution) + 1));
+        }
+    }
+    checkDistribution($markdownReferences === [], 'Distribution Markdown has no relative links to removed docs');
 
     foreach ([
         'core/webauthn/vendor/lbuchs/webauthn/_test',
@@ -74,6 +92,18 @@ try {
         }
         sort($zipDocs);
         checkDistribution($zipDocs === ['docs/theme/theme-rules.json'], 'Distribution ZIP docs matches the allowlist');
+        $zipMarkdownReferences = [];
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $name = (string) $zip->getNameIndex($index);
+            if (substr($name, -3) !== '.md') {
+                continue;
+            }
+            $contents = $zip->getFromIndex($index);
+            if ($contents !== false && hasRemovedDocsReference($contents)) {
+                $zipMarkdownReferences[] = $name;
+            }
+        }
+        checkDistribution($zipMarkdownReferences === [], 'Distribution ZIP Markdown has no relative links to removed docs');
         checkDistribution($zip->locateName('core/webauthn/vendor/lbuchs/webauthn/_test/server.php') === false, 'Distribution ZIP excludes WebAuthn _test');
         foreach (['core/.htaccess', 'cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess'] as $guard) {
             checkDistribution($zip->locateName($guard) !== false, 'Distribution ZIP contains ' . $guard);
