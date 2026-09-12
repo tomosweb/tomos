@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="${ROOT_DIR}/VERSION"
 REQUIRED_FILES_FILE="${ROOT_DIR}/tools/required-distribution-files.txt"
 WEBAUTHN_DIR="${ROOT_DIR}/core/webauthn"
+WEBAUTHN_TEST_DIR="${WEBAUTHN_DIR}/vendor/lbuchs/webauthn/_test"
 
 if [[ ! -f "${VERSION_FILE}" ]]; then
   echo "Error: VERSION file is missing."
@@ -55,6 +56,8 @@ copy_item() {
       --exclude='.htpasswd' \
       --exclude='*.tmp' \
       --exclude='*.log' \
+      --exclude='*.bak' \
+      --exclude='*.orig' \
       --exclude='pages.json' \
       --exclude='link-aliases.json' \
       --exclude='image-references.json' \
@@ -105,9 +108,16 @@ copy_item "update"
 copy_item "storage"
 copy_item "trash"
 copy_item "themes"
-copy_item "docs"
 copy_item "content"
 copy_item "cache"
+
+if [[ -L "${WEBAUTHN_TEST_DIR}" || -e "${WEBAUTHN_TEST_DIR}" ]]; then
+  echo "Error: WebAuthn _test must be absent before Distribution build: core/webauthn/vendor/lbuchs/webauthn/_test"
+  exit 1
+fi
+
+mkdir -p "${BUILD_DIR}/docs/theme"
+rsync -a "${ROOT_DIR}/docs/theme/theme-rules.json" "${BUILD_DIR}/docs/theme/"
 
 rm -f "${BUILD_DIR}/config.php"
 rm -f "${BUILD_DIR}/post-reset.enable"
@@ -171,7 +181,7 @@ require_file() {
 
 reject_path() {
   local path="$1"
-  if [[ -e "${BUILD_DIR}/${path}" ]]; then
+  if [[ -e "${BUILD_DIR}/${path}" || -L "${BUILD_DIR}/${path}" ]]; then
     echo "Error: build/tomos/${path} must not be included in distribution."
     exit 1
   fi
@@ -195,7 +205,22 @@ reject_path "tomos_logo_web_assets"
 reject_path "書類"
 reject_path "themes/tomos-creator"
 reject_path "themes/tomos-radical-poster"
-reject_path "docs/theme/ai-theme-safe-workflow-draft.md"
+reject_path "core/webauthn/vendor/lbuchs/webauthn/_test"
+
+if [[ -d "${BUILD_DIR}/docs" ]]; then
+  while IFS= read -r -d '' path; do
+    relative="${path#${BUILD_DIR}/}"
+    if [[ "${relative}" != "docs/theme/theme-rules.json" ]]; then
+      echo "Error: ${relative} must not be included in distribution docs."
+      exit 1
+    fi
+  done < <(find "${BUILD_DIR}/docs" -type f -print0)
+fi
+
+while IFS= read -r -d '' path; do
+  echo "Error: temporary or backup residue must not be included: ${path#${BUILD_DIR}/}"
+  exit 1
+done < <(find "${BUILD_DIR}" -type f \( -name '*.tmp' -o -name '*.log' -o -name '*.bak' -o -name '*.orig' \) -print0)
 
 if grep -RhoE 'G-[A-Z0-9]{8,}' "${BUILD_DIR}" \
   --exclude='*.png' --exclude='*.jpg' --exclude='*.jpeg' --exclude='*.gif' --exclude='*.webp' \
@@ -248,6 +273,30 @@ if [[ -n "$(find "${BUILD_DIR}/trash" -type f \( -name '*.json' -o -name '*.tmp'
   echo "Error: generated trash metadata files must not be included in distribution."
   exit 1
 fi
+
+while IFS= read -r -d '' path; do
+  relative="${path#${BUILD_DIR}/}"
+  case "${relative}" in
+    cache/.htaccess|cache/.gitkeep|cache/index/.gitkeep|cache/html/.gitkeep|cache/logs/.gitkeep|cache/post-upload-sessions/.gitkeep|cache/security/post-rate-limit/.gitkeep|cache/security/post-auth/.gitkeep|cache/security/post-submissions/.gitkeep) ;;
+    *) echo "Error: unexpected cache data in distribution: ${relative}"; exit 1 ;;
+  esac
+done < <(find "${BUILD_DIR}/cache" -type f -print0)
+
+while IFS= read -r -d '' path; do
+  relative="${path#${BUILD_DIR}/}"
+  case "${relative}" in
+    storage/.htaccess|storage/.gitkeep|storage/update-backups/.gitkeep|storage/update-logs/.gitkeep|storage/update-tmp/.gitkeep) ;;
+    *) echo "Error: unexpected storage data in distribution: ${relative}"; exit 1 ;;
+  esac
+done < <(find "${BUILD_DIR}/storage" -type f -print0)
+
+while IFS= read -r -d '' path; do
+  relative="${path#${BUILD_DIR}/}"
+  case "${relative}" in
+    trash/.htaccess|trash/.gitkeep) ;;
+    *) echo "Error: unexpected trash data in distribution: ${relative}"; exit 1 ;;
+  esac
+done < <(find "${BUILD_DIR}/trash" -type f -print0)
 
 if [[ -n "$(find "${BUILD_DIR}" -name '.DS_Store' -print -quit)" ]]; then
   echo "Error: .DS_Store must not be included in distribution."
@@ -343,6 +392,15 @@ if command -v unzip >/dev/null 2>&1; then
   zip_reject_prefix "tests/"
   zip_reject_prefix "tomos_logo_web_assets/"
   zip_reject_prefix "書類/"
+  zip_reject_prefix "core/webauthn/vendor/lbuchs/webauthn/_test/"
+  if grep -E '^docs/' <<< "${ZIP_LIST}" | grep -v '/$' | grep -Fvx 'docs/theme/theme-rules.json' >/dev/null; then
+    echo "Error: Distribution docs contains a non-runtime file."
+    exit 1
+  fi
+  if grep -Eq '(^|/)[^/]+\.(tmp|log|bak|orig)$' <<< "${ZIP_LIST}"; then
+    echo "Error: temporary or backup residue must not be included in ZIP."
+    exit 1
+  fi
 
   if grep -Eq '(^|/)\.DS_Store$' <<< "${ZIP_LIST}"; then
     echo "Error: .DS_Store must not be included in ZIP."

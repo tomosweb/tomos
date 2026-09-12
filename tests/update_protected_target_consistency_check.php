@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+require_once $root . '/tools/UpdateFileSet.php';
 $updateService = (string) file_get_contents($root . '/core/UpdateService.php');
 $selfUpdate = (string) file_get_contents($root . '/core/UpdaterSelfUpdate.php');
 $builder = (string) file_get_contents($root . '/tools/build-update-package.php');
@@ -23,6 +24,17 @@ foreach (['core/UpdateLock.php', 'core/UpdateService.php'] as $target) {
     checkProtected(in_array($target, $required, true), $target . ' is a required installed file');
     checkProtected(strpos($selfUpdate, "'" . $target . "' => [") !== false, $target . ' is an atomic self-update target');
     checkProtected(strpos($builder, "'" . $target . "' => [") !== false, $target . ' is staged by the package builder');
+}
+
+foreach (['cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess'] as $target) {
+    $name = substr($target, 0, strpos($target, '/'));
+    checkProtected(in_array($target, $required, true), $target . ' is a required installed file');
+    checkProtected(strpos($selfUpdate, "'" . $target . "' => [") !== false, $target . ' is a fixed self-update target');
+    checkProtected(strpos($builder, "'" . $target . "' => [") !== false, $target . ' is a fixed builder target');
+    checkProtected(strpos($builder, "'pending' => 'core/updater-pending/" . $name . "-htaccess'") !== false, $target . ' has a fixed pending payload');
+    checkProtected(strpos($fileSet, "'" . $target . "'") !== false, $target . ' is represented by the derived update set');
+    checkProtected(UpdateFileSet::isProtectedPath($target), $target . ' remains protected from general Update');
+    checkProtected(!UpdateFileSet::isAllowedUpdatePath($target), $target . ' is not generally updateable');
 }
 
 checkProtected(

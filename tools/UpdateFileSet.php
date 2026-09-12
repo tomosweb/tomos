@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 final class UpdateFileSet
 {
+    private const PROTECTED_GUARD_TARGETS = [
+        'cache/.htaccess',
+        'storage/.htaccess',
+        'trash/.htaccess',
+    ];
+
     public static function fromGitDiff(string $rootDir, string $fromRef, string $toRef = 'HEAD'): array
     {
         $command = 'git -C ' . escapeshellarg($rootDir)
@@ -21,7 +27,16 @@ final class UpdateFileSet
             $parts = explode("\t", (string) $line);
             $kind = (string) ($parts[0] ?? '');
             $path = (string) ($parts[count($parts) - 1] ?? '');
-            if ($path === '' || self::isProtectedPath($path)) {
+            if ($path === '') {
+                continue;
+            }
+            if (self::isProtectedGuardTarget($path)) {
+                if ($kind !== 'D') {
+                    $files[$path] = true;
+                }
+                continue;
+            }
+            if (self::isProtectedPath($path)) {
                 continue;
             }
             if ($kind === 'D') {
@@ -74,6 +89,10 @@ final class UpdateFileSet
             } elseif ($path === 'docs/theme/theme-rules.json') {
                 $paths[] = 'core/updater-pending/theme-rules.json';
                 $paths[] = 'core/updater-pending/theme-rules.meta.json';
+            } elseif (self::isProtectedGuardTarget($path)) {
+                $name = substr($path, 0, strpos($path, '/'));
+                $paths[] = 'core/updater-pending/' . $name . '-htaccess';
+                $paths[] = 'core/updater-pending/' . $name . '-htaccess.meta.json';
             } else {
                 $paths[] = $path;
             }
@@ -97,5 +116,10 @@ final class UpdateFileSet
             || $path === 'docs/theme/theme-rules.json'
             || $path === 'index.php'
             || preg_match('#\A(core|post|setup|assets)/[A-Za-z0-9._/-]+\z#', $path) === 1;
+    }
+
+    private static function isProtectedGuardTarget(string $path): bool
+    {
+        return in_array($path, self::PROTECTED_GUARD_TARGETS, true);
     }
 }

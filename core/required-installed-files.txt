@@ -11,6 +11,7 @@ update/index.php
 update/public-key.pem
 core/UpdateLock.php
 core/UpdateService.php
+core/.htaccess
 core/InstalledIntegrityVerifier.php
 core/UpdaterSelfUpdate.php
 core/required-installed-files.txt
@@ -47,6 +48,9 @@ core/ThemePackagePolicy.php
 core/ContentSecurityPolicy.php
 core/ThemeRules.php
 docs/theme/theme-rules.json
+cache/.htaccess
+storage/.htaccess
+trash/.htaccess
 core/PasskeyEnvironment.php
 core/PasskeyCredentialStore.php
 core/PasskeyChallengeStore.php

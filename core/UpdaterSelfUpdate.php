@@ -9,6 +9,9 @@ use Throwable;
 
 final class UpdaterSelfUpdate
 {
+    private const LEGACY_MIGRATION_VERSION = '0.9.0';
+    private const LEGACY_WEBAUTHN_TEST_PATH = 'core/webauthn/vendor/lbuchs/webauthn/_test';
+
     private const TARGETS = [
         'update/index.php' => [
             'pending_file' => 'update-index.php',
@@ -30,6 +33,24 @@ final class UpdaterSelfUpdate
             'metadata_file' => 'theme-rules.meta.json',
             'directory' => 'docs/theme',
             'format' => 'json',
+        ],
+        'cache/.htaccess' => [
+            'pending_file' => 'cache-htaccess',
+            'metadata_file' => 'cache-htaccess.meta.json',
+            'directory' => 'cache',
+            'format' => 'guard',
+        ],
+        'storage/.htaccess' => [
+            'pending_file' => 'storage-htaccess',
+            'metadata_file' => 'storage-htaccess.meta.json',
+            'directory' => 'storage',
+            'format' => 'guard',
+        ],
+        'trash/.htaccess' => [
+            'pending_file' => 'trash-htaccess',
+            'metadata_file' => 'trash-htaccess.meta.json',
+            'directory' => 'trash',
+            'format' => 'guard',
         ],
         'core/required-installed-files.txt' => [
             'pending_file' => 'required-installed-files.txt',
@@ -84,6 +105,11 @@ final class UpdaterSelfUpdate
         $rollbackAttempted = false;
         $rollbackSucceeded = false;
         $bundle = [];
+        $legacyCleanup = [
+            'target' => self::LEGACY_WEBAUTHN_TEST_PATH,
+            'moved' => false,
+            'backup_path' => '',
+        ];
         $createdDirectories = [];
         $temporaryPaths = [];
         $lockHandle = null;
@@ -103,6 +129,8 @@ final class UpdaterSelfUpdate
             $stage = 'backup';
             $this->createBackup($backupDir, $bundle);
             $backupCreated = true;
+            $stage = 'legacy_cleanup';
+            $legacyCleanup = $this->prepareLegacyCleanup($backupDir);
 
             $stage = 'temporary_copy';
             foreach ($bundle as $target => $entry) {
@@ -161,15 +189,18 @@ final class UpdaterSelfUpdate
 
             $targetMeta = $this->targetMeta($bundle);
             $meta = $this->resultMeta($startedAt, $backupId, $targetMeta, true, 'complete', false, false);
+            $meta['legacy_cleanup'] = $this->legacyCleanupMeta($legacyCleanup);
             $recordingOk = $this->recordOutcome($backupDir, $meta);
             $cleanupOk = $recordingOk ? $this->removePendingFiles($backupId, $bundle) : false;
 
-            return $this->publicResult($backupId, $targetMeta, $recordingOk, $cleanupOk);
+            return $this->publicResult($backupId, $targetMeta, $recordingOk, $cleanupOk, $legacyCleanup);
         } catch (Throwable $exception) {
-            if ($replacementStarted) {
-                $rollbackAttempted = true;
-                $rollbackSucceeded = $this->restoreBundle($backupDir, $bundle);
-                if ($rollbackSucceeded) {
+            $rollbackAttempted = $replacementStarted || $legacyCleanup['moved'];
+            if ($rollbackAttempted) {
+                $bundleRollbackSucceeded = !$replacementStarted || $this->restoreBundle($backupDir, $bundle);
+                $legacyRollbackSucceeded = !$legacyCleanup['moved'] || $this->restoreLegacyCleanup($legacyCleanup);
+                $rollbackSucceeded = $bundleRollbackSucceeded && $legacyRollbackSucceeded;
+                if ($bundleRollbackSucceeded) {
                     foreach ($bundle as &$entry) {
                         $entry['installed_sha256'] = $entry['old_sha256'];
                     }
@@ -188,6 +219,7 @@ final class UpdaterSelfUpdate
                 $rollbackAttempted,
                 $rollbackSucceeded
             );
+            $meta['legacy_cleanup'] = $this->legacyCleanupMeta($legacyCleanup);
             $recordingOk = $this->recordOutcome(
                 ($backupCreated || (is_dir($backupDir) && !is_link($backupDir))) ? $backupDir : '',
                 $meta
@@ -371,17 +403,146 @@ final class UpdaterSelfUpdate
     {
         $rootReal = realpath($this->rootDir);
         $targetDirReal = realpath($targetDir);
-        $isNewThemeRules = $target === 'docs/theme/theme-rules.json' && !file_exists($targetPath);
+        $isNewTarget = in_array($target, [
+            'docs/theme/theme-rules.json',
+            'cache/.htaccess',
+            'storage/.htaccess',
+            'trash/.htaccess',
+        ], true) && !file_exists($targetPath);
         if (!isset(self::TARGETS[$target])
             || !is_dir($targetDir) || is_link($targetDir)
-            || (!$isNewThemeRules && (!is_file($targetPath) || is_link($targetPath) || !is_readable($targetPath)))
-            || ($isNewThemeRules && (is_link($targetPath) || file_exists($targetPath)))
+            || (!$isNewTarget && (!is_file($targetPath) || is_link($targetPath) || !is_readable($targetPath)))
+            || ($isNewTarget && (is_link($targetPath) || file_exists($targetPath)))
             || !is_writable($targetDir)
             || $rootReal === false || $targetDirReal === false
             || $targetDirReal !== $rootReal . DIRECTORY_SEPARATOR . $expectedDirectory
         ) {
             throw new RuntimeException('current_target');
         }
+    }
+
+    private function prepareLegacyCleanup(string $backupDir): array
+    {
+        $state = [
+            'target' => self::LEGACY_WEBAUTHN_TEST_PATH,
+            'moved' => false,
+            'backup_path' => '',
+        ];
+        if ($this->currentVersion() !== self::LEGACY_MIGRATION_VERSION) {
+            return $state;
+        }
+
+        $target = $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, self::LEGACY_WEBAUTHN_TEST_PATH);
+        $this->assertLegacyPathWithinRoot(self::LEGACY_WEBAUTHN_TEST_PATH, true);
+        if (!file_exists($target)) {
+            return $state;
+        }
+        if (is_link($target) || !is_dir($target)) {
+            throw new RuntimeException('legacy_cleanup_target');
+        }
+
+        $backupRelative = 'files/' . self::LEGACY_WEBAUTHN_TEST_PATH;
+        $backupPath = $backupDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $backupRelative);
+        $backupParent = dirname($backupPath);
+        if (file_exists($backupPath) || is_link($backupPath)
+            || (is_link($backupParent) || (!is_dir($backupParent) && !@mkdir($backupParent, 0700, true)))
+            || !@rename($target, $backupPath)
+            || file_exists($target) || is_link($target)
+            || !is_dir($backupPath) || is_link($backupPath)
+        ) {
+            throw new RuntimeException('legacy_cleanup_move');
+        }
+        $state['moved'] = true;
+        $state['backup_path'] = $backupPath;
+        return $state;
+    }
+
+    private function restoreLegacyCleanup(array $state): bool
+    {
+        $relative = (string) ($state['target'] ?? '');
+        $backupPath = (string) ($state['backup_path'] ?? '');
+        if ($relative !== self::LEGACY_WEBAUTHN_TEST_PATH || $backupPath === '') {
+            return false;
+        }
+        $target = $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        $parentRelative = dirname($relative);
+        $parent = $this->rootDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $parentRelative);
+        $rootReal = realpath($this->rootDir);
+        $parentReal = realpath($parent);
+        if ($rootReal === false || $parentReal === false
+            || $parentReal !== $rootReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $parentRelative)
+            || !is_dir($parent) || is_link($parent)
+            || file_exists($target) || is_link($target)
+            || !is_dir($backupPath) || is_link($backupPath)
+            || !@rename($backupPath, $target)
+        ) {
+            return false;
+        }
+        return is_dir($target) && !is_link($target)
+            && realpath($target) === $rootReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    }
+
+    private function assertLegacyPathWithinRoot(string $relative, bool $allowMissingLeaf): void
+    {
+        $rootReal = realpath($this->rootDir);
+        if ($rootReal === false || !$this->isSafeRelativePath($relative)) {
+            throw new RuntimeException('legacy_cleanup_path');
+        }
+        $parts = explode('/', $relative);
+        $cursor = $this->rootDir;
+        foreach ($parts as $index => $part) {
+            $cursor .= DIRECTORY_SEPARATOR . $part;
+            if (!file_exists($cursor) && !is_link($cursor)) {
+                if ($allowMissingLeaf || $index < count($parts) - 1) {
+                    return;
+                }
+                throw new RuntimeException('legacy_cleanup_path');
+            }
+            if (is_link($cursor)) {
+                throw new RuntimeException('legacy_cleanup_path');
+            }
+            $real = realpath($cursor);
+            $expected = $rootReal . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, array_slice($parts, 0, $index + 1));
+            if ($real === false || $real !== $expected || ($index < count($parts) - 1 && !is_dir($cursor))) {
+                throw new RuntimeException('legacy_cleanup_path');
+            }
+        }
+    }
+
+    private function legacyCleanupMeta(array $state): array
+    {
+        return [
+            'target' => (string) ($state['target'] ?? self::LEGACY_WEBAUTHN_TEST_PATH),
+            'moved' => !empty($state['moved']),
+            'backup_path' => !empty($state['moved']) ? 'storage/update-backups/.../files/' . self::LEGACY_WEBAUTHN_TEST_PATH : '',
+        ];
+    }
+
+    private function currentVersion(): string
+    {
+        $contents = @file_get_contents($this->rootDir . DIRECTORY_SEPARATOR . 'VERSION');
+        return is_string($contents) ? trim($contents) : '';
+    }
+
+    private function isDenyOnlyGuard(string $contents): bool
+    {
+        $allowed = [
+            'Order allow,deny',
+            'Deny from all',
+            'Require all denied',
+        ];
+        $seen = [];
+        foreach (preg_split('/\R/', trim($contents)) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) {
+                continue;
+            }
+            if (!in_array($line, $allowed, true) || isset($seen[$line])) {
+                return false;
+            }
+            $seen[$line] = true;
+        }
+        return count($seen) === count($allowed);
     }
 
     private function createBackup(string $backupDir, array $bundle): void
@@ -519,6 +680,11 @@ final class UpdaterSelfUpdate
                         throw new RuntimeException('required_files_path');
                     }
                 }
+            }
+        } elseif ($format === 'guard') {
+            $contents = @file_get_contents($path);
+            if (!is_string($contents) || !$this->isDenyOnlyGuard($contents)) {
+                throw new RuntimeException('guard_file');
             }
         } else {
             throw new RuntimeException('payload_format');
@@ -673,7 +839,7 @@ final class UpdaterSelfUpdate
         ];
     }
 
-    private function publicResult(string $backupId, array $targets, bool $recordingOk, bool $cleanupOk): array
+    private function publicResult(string $backupId, array $targets, bool $recordingOk, bool $cleanupOk, array $legacyCleanup): array
     {
         $primary = $targets['update/index.php'] ?? reset($targets);
         $applied = false;
@@ -682,6 +848,9 @@ final class UpdaterSelfUpdate
                 $applied = true;
                 break;
             }
+        }
+        if ($legacyCleanup['moved']) {
+            $applied = true;
         }
         return [
             'ok' => true,
@@ -692,6 +861,7 @@ final class UpdaterSelfUpdate
             'recording_ok' => $recordingOk,
             'cleanup_ok' => $cleanupOk,
             'targets' => $targets,
+            'legacy_cleanup' => $this->legacyCleanupMeta($legacyCleanup),
         ];
     }
 

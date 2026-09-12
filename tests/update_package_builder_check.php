@@ -249,6 +249,28 @@ try {
     }
     $allZip->close();
 
+    $guardOutput = $tmp . '/protected-guards.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $guardOutput,
+        'file' => ['cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess', 'VERSION'],
+    ]);
+    check($code === 0, 'protected guard bundle build succeeds: ' . $outputText);
+    $guardZip = new ZipArchive();
+    check($guardZip->open($guardOutput) === true, 'protected guard bundle opens');
+    foreach (['cache', 'storage', 'trash'] as $directory) {
+        $pending = 'core/updater-pending/' . $directory . '-htaccess';
+        $metadata = $pending . '.meta.json';
+        check($guardZip->locateName('files/' . $pending) !== false, $directory . ' guard is carried in pending data');
+        check($guardZip->locateName('files/' . $metadata) !== false, $directory . ' guard metadata is carried in pending data');
+        check($guardZip->locateName('files/' . $directory . '/.htaccess') === false, $directory . ' guard is not a direct protected target');
+        $guardMetadata = json_decode((string) $guardZip->getFromName('files/' . $metadata), true);
+        check(($guardMetadata['target'] ?? null) === $directory . '/.htaccess', $directory . ' metadata has the fixed target');
+    }
+    $guardZip->close();
+
     foreach ([
         'missing from' => ['minimum' => $fromVersion],
         'from equals version' => ['from' => $targetVersion, 'version' => $targetVersion],
