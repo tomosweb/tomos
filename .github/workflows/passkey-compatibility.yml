@@ -49,7 +49,7 @@ jobs:
 
       - name: Install pinned WebAuthn runtime
         if: matrix.php-version != '7.4'
-        run: composer install --working-dir=core/webauthn --no-dev --prefer-dist --no-interaction --classmap-authoritative
+        run: bash tools/prepare-distribution-dependencies.sh
 
       - name: Verify distribution runtime
         if: matrix.php-version != '7.4'
