@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '0.7.2';
-$fromRef = '55b5c6332af30c9a9a822a4f7b0e0ac4c97829aa';
+$fromVersion = '0.9.0';
+$fromRef = 'b88bc1ab7111783863352585feb675f1338b17de';
 require_once $root . '/tools/UpdateFileSet.php';
-// 55b5c633 is the released v0.7.2 private Core baseline.
+// b88bc1ab is the formally released v0.9.0 source baseline.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
     sort($runtimeFiles);
 }
 
-if ($targetVersion !== '0.7.3') {
-    throw new RuntimeException('release transition check requires VERSION 0.7.3');
+if ($targetVersion !== '1.0.0') {
+    throw new RuntimeException('release transition check requires VERSION 1.0.0');
 }
 if (!version_compare($fromVersion, $targetVersion, '<')) {
     throw new RuntimeException($fromVersion . ' must compare older than ' . $targetVersion);
@@ -123,7 +123,9 @@ try {
 
         foreach ([
             'VERSION',
-            'post/.htaccess',
+            'core/ContentSecurityPolicy.php',
+            'post/index.php',
+            'post/assets/tomos-message-mark.png',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
