@@ -62,6 +62,7 @@ try {
     $cookie = $testRoot . '/first-session.txt';
     $auth = request($baseUrl . '/post/', $cookie);
     assertSame(200, $auth['status'], 'initial auth wall status');
+    assertSame(null, messageCookieValue($cookie), 'unauthenticated Post must not write a recurrence cookie');
     $login = request($baseUrl . '/post/', $cookie, [
         'action' => 'auth_gate_login',
         '_token' => hiddenValue($auth['body'], '_token'),
@@ -69,6 +70,7 @@ try {
     ]);
     assertSame(302, $login['status'], 'initial login status');
     assertContains('location: /tomos-edit/post/', strtolower($login['headers']), 'initial login destination');
+    assertSame(null, messageCookieValue($cookie), 'authentication alone must not write a recurrence cookie');
 
     $first = request($baseUrl . '/post/', $cookie);
     assertSame(1, messageCount($first['body']), 'first authenticated Upload must show one message');
@@ -86,15 +88,26 @@ try {
     assertNotContains('Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', $first['body'], 'old Post description must not be rendered');
     assertNotContains('TOMOS MESSAGE', $first['body'], 'Tomos Message heading must not be rendered');
     assertContains('1. Markdownを投稿する', $first['body'], 'first Upload section');
+    assertContains('set-cookie: tomos_post_daily_message_at=', strtolower($first['headers']), 'first rendered message must set the recurrence cookie');
+    assertContains('path=/tomos-edit/post/', strtolower($first['headers']), 'recurrence cookie must be isolated to the subdirectory Post path');
+    assertContains('httponly', strtolower($first['headers']), 'recurrence cookie must be HttpOnly');
+    assertContains('samesite=lax', strtolower($first['headers']), 'recurrence cookie must be SameSite Lax');
+    $firstTimestamp = messageCookieValue($cookie);
+    assertTrue($firstTimestamp !== null, 'first rendered message must persist a recurrence timestamp');
 
     $reload = request($baseUrl . '/post/', $cookie);
-    assertSame(0, messageCount($reload['body']), 'same-session reload must hide the message');
-    assertSame(0, fontLinkCount($reload['body']), 'same-session reload must not load Klee One');
-    foreach (['published', 'drafts', 'settings', 'upload'] as $section) {
+    assertSame(0, messageCount($reload['body']), 'reload inside the recurrence interval must hide the message');
+    assertSame(0, fontLinkCount($reload['body']), 'reload inside the recurrence interval must not load Klee One');
+    assertSame($firstTimestamp, messageCookieValue($cookie), 'reload must not refresh the recurrence timestamp');
+    foreach (['published', 'drafts', 'settings', 'theme'] as $section) {
         $page = request($baseUrl . '/post/?section=' . rawurlencode($section), $cookie);
-        assertSame(0, messageCount($page['body']), 'same-session section must hide the message: ' . $section);
-        assertSame(0, fontLinkCount($page['body']), 'same-session section must not load Klee One: ' . $section);
+        assertSame(0, messageCount($page['body']), 'excluded section must hide the message: ' . $section);
+        assertSame(0, fontLinkCount($page['body']), 'excluded section must not load Klee One: ' . $section);
+        assertSame($firstTimestamp, messageCookieValue($cookie), 'excluded section must not refresh the recurrence timestamp: ' . $section);
     }
+    $uploadReturn = request($baseUrl . '/post/?section=upload', $cookie);
+    assertSame(0, messageCount($uploadReturn['body']), 'returning to Upload inside the recurrence interval must hide the message');
+    assertSame($firstTimestamp, messageCookieValue($cookie), 'returning to Upload inside the recurrence interval must not refresh the timestamp');
 
     $logoutPage = request($baseUrl . '/post/', $cookie);
     $logout = request($baseUrl . '/post/', $cookie, [
@@ -109,9 +122,11 @@ try {
         'post_password' => 'test-password',
     ]);
     assertSame(302, $reLogin['status'], 'same-session relogin status');
-    assertSame(0, messageCount(request($baseUrl . '/post/', $cookie)['body']), 'logout and relogin in the same PHP session must not show the message again');
+    assertSame(0, messageCount(request($baseUrl . '/post/', $cookie)['body']), 'logout and relogin inside the recurrence interval must not show the message again');
+    assertSame($firstTimestamp, messageCookieValue($cookie), 'logout and relogin must not refresh the recurrence timestamp');
 
     $newCookie = $testRoot . '/new-session.txt';
+    copyMessageCookie($cookie, $newCookie);
     $newAuth = request($baseUrl . '/post/', $newCookie);
     $newLogin = request($baseUrl . '/post/', $newCookie, [
         'action' => 'auth_gate_login',
@@ -120,8 +135,16 @@ try {
     ]);
     assertSame(302, $newLogin['status'], 'new-session login status');
     $newFirst = request($baseUrl . '/post/', $newCookie);
-    assertSame(1, messageCount($newFirst['body']), 'new PHP session must be eligible for one message');
-    assertSame(1, fontLinkCount($newFirst['body']), 'new PHP session first Upload must load Klee One');
+    assertSame(0, messageCount($newFirst['body']), 'new PHP session inside the recurrence interval must not show the message');
+    assertSame(0, fontLinkCount($newFirst['body']), 'new PHP session inside the recurrence interval must not load Klee One');
+    assertSame($firstTimestamp, messageCookieValue($newCookie), 'new PHP session must retain the browser recurrence timestamp');
+
+    $boundaryTimestamp = (string) (time() - 21600);
+    replaceMessageCookieValue($cookie, $boundaryTimestamp);
+    $afterInterval = request($baseUrl . '/post/', $cookie);
+    assertSame(1, messageCount($afterInterval['body']), 'Upload at the six-hour boundary must show the message again');
+    $refreshedTimestamp = messageCookieValue($cookie);
+    assertTrue($refreshedTimestamp !== null && $refreshedTimestamp !== $boundaryTimestamp, 'new display after the interval must refresh the recurrence timestamp');
 
     echo "daily_use_message_http_check: PASS\n";
 } catch (Throwable $exception) {
@@ -146,6 +169,59 @@ function messageCount(string $body): int
 function fontLinkCount(string $body): int
 {
     return substr_count($body, 'fonts.googleapis.com/css2?family=Klee+One&display=swap');
+}
+
+function messageCookieValue(string $cookiePath): ?string
+{
+    if (!is_file($cookiePath)) {
+        return null;
+    }
+    foreach (file($cookiePath, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        $line = preg_replace('/^#HttpOnly_/', '', $line);
+        if (!is_string($line) || $line === '' || $line[0] === '#') {
+            continue;
+        }
+        $parts = explode("\t", $line);
+        if (count($parts) === 7 && $parts[5] === 'tomos_post_daily_message_at') {
+            return $parts[6];
+        }
+    }
+
+    return null;
+}
+
+function copyMessageCookie(string $source, string $destination): void
+{
+    $lines = file($source, FILE_IGNORE_NEW_LINES) ?: [];
+    $messageLines = array_filter($lines, static function (string $line): bool {
+        return strpos($line, "\ttomos_post_daily_message_at\t") !== false;
+    });
+    if ($messageLines === []) {
+        throw new RuntimeException('recurrence cookie could not be copied to the new browser session');
+    }
+    file_put_contents($destination, implode("\n", $messageLines) . "\n", LOCK_EX);
+}
+
+function replaceMessageCookieValue(string $cookiePath, string $timestamp): void
+{
+    $lines = file($cookiePath, FILE_IGNORE_NEW_LINES) ?: [];
+    $replaced = false;
+    foreach ($lines as &$line) {
+        $isHttpOnly = strpos($line, '#HttpOnly_') === 0;
+        $normalized = $isHttpOnly ? substr($line, strlen('#HttpOnly_')) : $line;
+        $parts = explode("\t", $normalized);
+        if (count($parts) !== 7 || $parts[5] !== 'tomos_post_daily_message_at') {
+            continue;
+        }
+        $parts[6] = $timestamp;
+        $line = ($isHttpOnly ? '#HttpOnly_' : '') . implode("\t", $parts);
+        $replaced = true;
+    }
+    unset($line);
+    if (!$replaced) {
+        throw new RuntimeException('recurrence cookie could not be adjusted for the six-hour boundary check');
+    }
+    file_put_contents($cookiePath, implode("\n", $lines) . "\n", LOCK_EX);
 }
 
 function request(string $url, string $cookie, ?array $fields = null): array
