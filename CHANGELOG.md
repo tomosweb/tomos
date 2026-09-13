@@ -1,5 +1,13 @@
 # 更新履歴
 
+## v0.9.0 - 2026-09-13
+
+### Cleanup / Stabilization
+
+- v0.9.0は、既存runtimeの整理と安定化を行うpre-releaseです。新機能は追加しません。
+- Browser Updateの保護対象ディレクトリ、Updaterの段階的な反映、更新後の整合性確認を整理し、既存データを保持する更新経路を安定化しました。
+- v0.7.3からv0.9.0へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+
 ## v0.7.3 - 2026-09-11
 
 ### Fixed / Compatibility
