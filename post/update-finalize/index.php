@@ -24,7 +24,6 @@ $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($con
 $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
 $errors = [];
 $criticalErrors = [];
-$messages = [];
 $warnings = [];
 
 if (empty($_SESSION['tomos_updater_finalize_token'])) {
@@ -61,20 +60,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
     if ($errors === [] && (class_exists(Tomos\UpdateLock::class) && Tomos\UpdateLock::isActive($rootDir))) {
         $errors[] = 'Tomosの更新中です。完了してからもう一度お試しください。';
-    } elseif ($errors === [] && !$pending) {
-        $messages[] = '反映待ちのUpdater更新はありません。';
-    } elseif ($errors === []) {
+    } elseif ($errors === [] && $pending) {
         try {
             $result = $selfUpdate->apply();
-            if (!empty($result['applied'])) {
-                $messages[] = 'Updater本体を更新しました。';
-            } else {
-                $messages[] = 'Updater本体はすでに同じ内容です。不要な置換は行いませんでした。';
-            }
             if (empty($result['recording_ok'])) {
-                $warnings[] = 'Updater本体の確認は完了しましたが、結果記録を保存できませんでした。反映待ちデータは再確認のため保持しています。';
+                $warnings[] = '更新は完了しましたが、結果記録を保存できませんでした。更新の仕上げ情報は再確認のため保持しています。';
             } elseif (empty($result['cleanup_ok'])) {
-                $warnings[] = 'Updater本体の確認は完了しましたが、反映待ちデータの後処理を完了できませんでした。';
+                $warnings[] = '更新は完了しましたが、仕上げ情報の後処理を完了できませんでした。';
             }
             $_SESSION['tomos_updater_finalize_token'] = bin2hex(random_bytes(32));
             $pending = $selfUpdate->hasPendingUpdate();
@@ -84,9 +76,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 : 'unexpected';
             error_log('Tomos updater finalize failed at stage: ' . $stage);
             if ($exception instanceof Tomos\UpdaterSelfUpdateException && $exception->rollbackFailed()) {
-                $criticalErrors[] = 'Updater更新に失敗し、自動復元も完了できませんでした。保存されたバックアップを管理者が確認してください。';
+                $criticalErrors[] = '更新に失敗し、自動復元も完了できませんでした。保存されたバックアップを管理者が確認してください。';
             } else {
-                $errors[] = 'Updater更新を完了できませんでした。現在のUpdaterは変更されていないか、更新前の状態へ復元されています。';
+                $errors[] = '更新を完了できませんでした。更新前の状態へ復元されています。もう一度お試しください。';
             }
             if ($exception instanceof Tomos\UpdaterSelfUpdateException && $exception->recordingFailed()) {
                 $warnings[] = '更新結果の記録を完了できませんでした。';
@@ -106,12 +98,12 @@ function h(string $value): string
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Updater更新の反映 | Tomos Post</title>
+<title><?= $pending ? 'Tomos Updateを完了します' : 'Tomos Updateがすべて完了しました' ?> | Tomos Post</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7;margin:0;background:#f6f6f4;color:#222}
 main{max-width:720px;margin:48px auto;padding:0 20px}
 section{background:#fff;border:1px solid #ddd;border-radius:12px;padding:28px}
-h1{font-size:1.6rem;margin-top:0}.notice{padding:12px 14px;border-radius:8px;margin:0 0 16px}.error{background:#fff0f0}.critical{background:#ffe1e1;border:2px solid #a40000}.warning{background:#fff7df}.success{background:#edf8ef}
+h1{font-size:1.6rem;margin-top:0}.notice{padding:12px 14px;border-radius:8px;margin:0 0 16px}.error{background:#fff0f0}.critical{background:#ffe1e1;border:2px solid #a40000}.warning{background:#fff7df}
 label{display:block;font-weight:700;margin:18px 0 6px}input[type=password]{box-sizing:border-box;width:100%;padding:10px;border:1px solid #aaa;border-radius:6px}
 button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#222;color:#fff;font-weight:700;cursor:pointer}a{color:inherit}
 </style>
@@ -119,7 +111,7 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <body>
 <main>
 <section>
-<h1>Updater更新の反映</h1>
+<h1><?= $pending ? 'Tomos Updateを完了します' : 'Tomos Updateがすべて完了しました' ?></h1>
 <?php foreach ($criticalErrors as $error): ?>
 <p class="notice critical"><?= h((string) $error) ?></p>
 <?php endforeach; ?>
@@ -129,12 +121,8 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <?php foreach ($warnings as $warning): ?>
 <p class="notice warning"><?= h((string) $warning) ?></p>
 <?php endforeach; ?>
-<?php foreach ($messages as $message): ?>
-<p class="notice success"><?= h((string) $message) ?></p>
-<?php endforeach; ?>
 <?php if ($pending): ?>
-<p>署名済みUpdate ZIPで受け取ったUpdater本体の更新が、反映待ちです。</p>
-<p>管理認証後に反映してください。現在のUpdaterは先にバックアップされ、置換に失敗した場合は自動復元されます。</p>
+<p>更新の仕上げが残っています。<br>「更新を完了する」を押してください。</p>
 <form method="post">
 <input type="hidden" name="_token" value="<?= h((string) $_SESSION['tomos_updater_finalize_token']) ?>">
 <?php if (empty($_SESSION['tomos_post_authenticated'])): ?>
@@ -142,10 +130,10 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <input id="post_password" name="post_password" type="password" autocomplete="current-password" required>
 <label><input name="remember_post_auth" type="checkbox" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
 <?php endif; ?>
-<button type="submit">Updater更新を反映する</button>
+<button type="submit">更新を完了する</button>
 </form>
 <?php else: ?>
-<p>反映待ちのUpdater更新はありません。</p>
+<p>Tomosの更新が完了しました。</p>
 <?php endif; ?>
 <p><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
 </section>

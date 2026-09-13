@@ -2,7 +2,7 @@
 
 Tomosは、Markdownで書いた文章を自分のWebサイトとして公開するための、軽量なMarkdown公開プログラムです。
 
-現在のバージョンは `v0.7.3` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
+現在のバージョンは `v0.9.0` です。Tomosは現在0.x開発系列であり、1.0の安定版ではありません。
 
 > **v0.1.0-alpha.17から更新する方へ**
 >
@@ -13,7 +13,7 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 >
 > 2まで完了するとalpha.18の新しいUpdaterへ完全に移行します。その後、Tomos Updateからalpha.19、beta.1へ1バージョンずつ更新できます。
 
-詳しくは [v0.7.3の更新案内](docs/releases/v0.7.3.md) を確認してください。過去のalpha/betaからの移行手順は[既存環境の更新手順](docs/install/update.md)に履歴として掲載しています。
+詳しくは [v0.9.0の更新案内](https://github.com/tomosweb/tomos/releases/tag/v0.9.0) を確認してください。過去のalpha/betaからの移行手順は[公式サイトの更新手順](https://tomoswords.org/docs/update/)に掲載しています。
 
 ## 主な機能
 
@@ -76,7 +76,7 @@ PHP 7.4 / 8.0 / 8.2 / 8.5を互換CIの対象としています。
 4. setup完了時に表示される管理用合言葉を安全な場所に保存します。
 5. 動作確認後、`setup/` を削除または公開領域外へ移動します。
 
-すでにTomosを設置している場合は、データを保持するために[既存環境の更新手順](docs/install/update.md)を確認してください。
+すでにTomosを設置している場合は、データを保持するために[公式サイトの更新手順](https://tomoswords.org/docs/update/)を確認してください。
 
 Tomos Updateを今後も安定して提供するため、`v0.1.0-alpha.6`で署名確認に使用する信頼点を更新します。既存環境では、alpha.6への更新だけ専用の手動移行ZIPを使用します。`VERSION`と`update/public-key.pem`だけを上書きし、`config.php`、`content/`、独自テーマは上書きしません。
 
