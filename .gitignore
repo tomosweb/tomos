@@ -1,7 +1,16 @@
 /config.php
 /cache/
+!/cache/
+/cache/*
+!/cache/.htaccess
 /storage/
+!/storage/
+/storage/*
+!/storage/.htaccess
 /trash/
+!/trash/
+/trash/*
+!/trash/.htaccess
 /backups/
 /staging/
 /test-results/

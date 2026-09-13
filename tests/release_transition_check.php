@@ -83,9 +83,15 @@ try {
         }
         foreach ($runtimeFiles as $path) {
             $packagePaths = UpdateFileSet::packagePaths([$path]);
+            $protectedGuardPayloads = [
+                'cache/.htaccess' => 'core/updater-pending/cache-htaccess',
+                'storage/.htaccess' => 'core/updater-pending/storage-htaccess',
+                'trash/.htaccess' => 'core/updater-pending/trash-htaccess',
+            ];
             $payloadPath = $path === 'docs/theme/theme-rules.json'
                 ? 'core/updater-pending/theme-rules.json'
-                : (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -4) === '.php'))[0] ?? $path);
+                : (($protectedGuardPayloads[$path] ?? null)
+                    ?: (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -4) === '.php'))[0] ?? $path));
             $bytes = $zip->getFromName('files/' . $payloadPath);
             if (!is_string($bytes)) {
                 throw new RuntimeException($targetVersion . ' package payload missing: ' . $path);
@@ -93,7 +99,7 @@ try {
             if (($manifest['files'][$payloadPath] ?? null) !== hash('sha256', $bytes)) {
                 throw new RuntimeException($targetVersion . ' manifest hash mismatch: ' . $path);
             }
-            if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php', 'docs/theme/theme-rules.json'], true)) {
+            if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php', 'docs/theme/theme-rules.json', 'cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess'], true)) {
                 $metadataPath = $path === 'docs/theme/theme-rules.json'
                     ? 'core/updater-pending/theme-rules.meta.json'
                     : (string) (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'))[0] ?? '');

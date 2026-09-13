@@ -44,7 +44,7 @@ jobs:
           done < <(find . -path './core/webauthn/vendor' -prune -o -name '*.php' -print0)
 
       - name: Prepare WebAuthn runtime
-        run: composer install --working-dir=core/webauthn --no-dev --prefer-dist --no-interaction --classmap-authoritative
+        run: bash tools/prepare-distribution-dependencies.sh
 
       - name: Build distribution fixture
         run: bash tools/build-distribution.sh

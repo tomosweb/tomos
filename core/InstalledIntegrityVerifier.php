@@ -15,6 +15,20 @@ final class InstalledIntegrityVerifier
             'metadata' => 'core/updater-pending/theme-rules.meta.json',
         ],
     ];
+    private const PENDING_PROTECTED_GUARDS = [
+        'cache/.htaccess' => [
+            'pending' => 'core/updater-pending/cache-htaccess',
+            'metadata' => 'core/updater-pending/cache-htaccess.meta.json',
+        ],
+        'storage/.htaccess' => [
+            'pending' => 'core/updater-pending/storage-htaccess',
+            'metadata' => 'core/updater-pending/storage-htaccess.meta.json',
+        ],
+        'trash/.htaccess' => [
+            'pending' => 'core/updater-pending/trash-htaccess',
+            'metadata' => 'core/updater-pending/trash-htaccess.meta.json',
+        ],
+    ];
 
     private $rootDir;
     private $storageDir;
@@ -219,10 +233,39 @@ final class InstalledIntegrityVerifier
                 throw new RuntimeException('required_files_list');
             }
             if (!is_file($this->targetPath($relative))) {
+                if (isset(self::PENDING_PROTECTED_GUARDS[$relative]) && $this->hasValidPendingGuard($relative)) {
+                    continue;
+                }
                 $missing[] = $relative;
             }
         }
         return $missing;
+    }
+
+    private function hasValidPendingGuard(string $targetRelative): bool
+    {
+        $definition = self::PENDING_PROTECTED_GUARDS[$targetRelative] ?? null;
+        if (!is_array($definition)) {
+            return false;
+        }
+        $pending = $this->targetPath((string) $definition['pending']);
+        $metadataPath = $this->targetPath((string) $definition['metadata']);
+        if (!is_file($pending) || is_link($pending) || !is_readable($pending)
+            || !is_file($metadataPath) || is_link($metadataPath) || !is_readable($metadataPath)
+        ) {
+            return false;
+        }
+        $metadata = json_decode((string) @file_get_contents($metadataPath), true);
+        if (!is_array($metadata)
+            || ($metadata['target'] ?? null) !== $targetRelative
+            || !is_string($metadata['sha256'] ?? null)
+            || preg_match('/\A[a-f0-9]{64}\z/i', $metadata['sha256']) !== 1
+        ) {
+            return false;
+        }
+        $payload = @file_get_contents($pending);
+        return is_string($payload)
+            && hash_equals(strtolower($metadata['sha256']), strtolower((string) hash('sha256', $payload)));
     }
 
     private function rollback(string $backupDir, array $files): bool

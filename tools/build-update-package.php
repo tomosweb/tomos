@@ -111,6 +111,18 @@ $pendingTargets = [
         'pending' => 'core/updater-pending/theme-rules.json',
         'metadata' => 'core/updater-pending/theme-rules.meta.json',
     ],
+    'cache/.htaccess' => [
+        'pending' => 'core/updater-pending/cache-htaccess',
+        'metadata' => 'core/updater-pending/cache-htaccess.meta.json',
+    ],
+    'storage/.htaccess' => [
+        'pending' => 'core/updater-pending/storage-htaccess',
+        'metadata' => 'core/updater-pending/storage-htaccess.meta.json',
+    ],
+    'trash/.htaccess' => [
+        'pending' => 'core/updater-pending/trash-htaccess',
+        'metadata' => 'core/updater-pending/trash-htaccess.meta.json',
+    ],
 ];
 $bootstrapPendingTargets = [
     'core/required-installed-files.txt' => [

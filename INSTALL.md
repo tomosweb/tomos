@@ -9,7 +9,7 @@ Tomos は、Zipアップロード方式またはFTPアップロード方式で�
 
 本番環境で利用する前に、十分な動作確認とバックアップを行い、`DISCLAIMER.md` を確認してください。
 
-すでにTomosを設置している場合は、Zipを既存ルートへ上書き展開せず、[既存環境の更新](docs/install/update.md) に従ってください。
+すでにTomosを設置している場合は、Zipを既存ルートへ上書き展開せず、[公式サイトの更新手順](https://tomoswords.org/docs/update/) に従ってください。
 
 推奨は Zipアップロード方式です。`.htaccess` のアップロード漏れやファイル転送漏れを防ぎやすいためです。
 
@@ -149,7 +149,7 @@ public_base_path:
 
 ## 初期セットアップ後にサイト情報を変更する
 
-GA4測定IDは、Tomos Postの「GA4設定」から管理用合言葉を使って変更・削除できます。空欄で保存するとGoogleタグの出力を停止します。詳細は [Google Analytics 4の設定](docs/user/analytics.md) を参照してください。
+GA4測定IDは、Tomos Postの「GA4設定」から管理用合言葉を使って変更・削除できます。空欄で保存するとGoogleタグの出力を停止します。詳細は [公式サイトのサイト設定手順](https://tomoswords.org/docs/settings/) を参照してください。
 
 初期セットアップ完了後は、Tomos Postの「サイト設定」（`/post/settings/`）から、サイト名、サイト説明、タイムゾーン、RSSの有効・無効と対象パス、Sitemapの有効・無効を変更できます。
 
@@ -238,7 +238,7 @@ Markdown変換後の本文HTMLを `cache/html/` に保存します。`cache/html
 
 設置後は、Tomos WriteでMarkdownを書き、Tomos Postで投稿し、Tomosで公開ページを確認します。
 
-Tomos Writeなどで作成した `.md` / `.markdown` / `.txt` ファイルは、Tomos Postの `/post/` から投稿できます。詳しくは `docs/user/writing.md` を参照してください。
+Tomos Writeなどで作成した `.md` / `.markdown` / `.txt` ファイルは、Tomos Postの `/post/` から投稿できます。詳しくは [公式サイトの記事投稿手順](https://tomoswords.org/docs/post/) を参照してください。
 
 ## .htaccess の注意
 
