@@ -192,6 +192,13 @@ if ($postApi !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 $authenticated = !empty($_SESSION['tomos_post_authenticated']);
 require __DIR__ . '/auth-gate.php';
 
+$updaterCompletionRequired = false;
+try {
+    $updaterCompletionRequired = (new Tomos\UpdaterSelfUpdate($rootDir))->hasPendingUpdate();
+} catch (Throwable $exception) {
+    error_log('Tomos Post updater pending check failed: ' . get_class($exception));
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? 'upload');
     $activeSection = sectionForAction($action);
@@ -674,7 +681,7 @@ function isPostRequestTooLarge(): bool
     return $limit > 0 && $contentLength > $limit;
 }
 
-renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $completedWithdrawTarget, false, $activeSection, $submissionId, $returnTo);
+renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $completedWithdrawTarget, false, $activeSection, $submissionId, $returnTo, $updaterCompletionRequired);
 
 function jsonResponse(array $data, int $status = 200): void
 {
@@ -911,7 +918,8 @@ function renderPage(
     bool $disabled,
     string $activeSection,
     string $submissionId,
-    string $returnTo = ''
+    string $returnTo = '',
+    bool $updaterCompletionRequired = false
 ): void {
     header('Content-Type: text/html; charset=utf-8');
     $token = (string) ($_SESSION['tomos_post_token'] ?? '');
@@ -958,6 +966,12 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
         renderTomosDailyMessage();
     }
     renderSectionNav($activeSection, $publicBasePath);
+    if ($updaterCompletionRequired) {
+        $finalizeUrl = Tomos\Security::publicUrl('/post/update-finalize/', $publicBasePath);
+        echo '<div class="notice"><strong>Tomos Updateの仕上げが必要です。</strong>';
+        echo '<p>更新の仕上げが残っています。</p>';
+        echo '<p><a class="button" href="' . e($finalizeUrl) . '">更新を完了する</a></p></div>';
+    }
     if (!empty($_SESSION['tomos_post_authenticated'])) {
         echo '<div class="auth-actions"><form method="post" action="">';
         echo '<input type="hidden" name="action" value="logout">';
