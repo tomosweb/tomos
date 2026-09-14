@@ -1,12 +1,17 @@
 # 更新履歴
 
-## v0.9.0 - 2026-09-13
+## v1.0.0 - 2026-09-13
 
-### Cleanup / Stabilization
+### Stable Release
 
-- v0.9.0は、既存runtimeの整理と安定化を行うpre-releaseです。新機能は追加しません。
-- Browser Updateの保護対象ディレクトリ、Updaterの段階的な反映、更新後の整合性確認を整理し、既存データを保持する更新経路を安定化しました。
-- v0.7.3からv0.9.0へ、署名付きTomos Updateで更新できます。`config.php`、`content/`、uploads、サイト固有Theme、運用データはCore Updateの更新対象に含めません。
+- v0.9.0で確立した保護領域、Browser Update migration、Distribution境界、Updater仕上げフローをv1.0.0へ引き継ぎました。
+- Daily Use UX、Withdraw context retention、認証アクセシビリティ、Reduced Motion、Tomos Messageを含む凍結済みv1.0 scopeを収録しました。
+- Human device/browser acceptanceと自動Release Gateを完了した正式版です。
+
+### Compatibility / Update
+
+- v0.9.0からv1.0.0へ、署名付きTomos Updateで更新できます。
+- 更新時も`config.php`、`content/`、uploads、カスタムTheme、運用データを保持します。
 
 ## v0.7.3 - 2026-09-11
 

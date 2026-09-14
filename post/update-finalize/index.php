@@ -103,7 +103,7 @@ function h(string $value): string
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7;margin:0;background:#f6f6f4;color:#222}
 main{max-width:720px;margin:48px auto;padding:0 20px}
 section{background:#fff;border:1px solid #ddd;border-radius:12px;padding:28px}
-h1{font-size:1.6rem;margin-top:0}.notice{padding:12px 14px;border-radius:8px;margin:0 0 16px}.error{background:#fff0f0}.critical{background:#ffe1e1;border:2px solid #a40000}.warning{background:#fff7df}
+h1{font-size:1.6rem;margin-top:0}.notice{padding:12px 14px;border-radius:8px;margin:0 0 16px}.error{background:#fff0f0}.critical{background:#ffe1e1;border:2px solid #a40000}.warning{background:#fff7df}.success{background:#edf8ef}
 label{display:block;font-weight:700;margin:18px 0 6px}input[type=password]{box-sizing:border-box;width:100%;padding:10px;border:1px solid #aaa;border-radius:6px}
 button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#222;color:#fff;font-weight:700;cursor:pointer}a{color:inherit}
 </style>
