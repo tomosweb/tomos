@@ -44,6 +44,7 @@ $publishedQuery = trim((string) ($_GET['q'] ?? ''));
 $publishedYear = trim((string) ($_GET['year'] ?? ''));
 $publishedPage = (int) ($_GET['page'] ?? 1);
 $publishedWithdrawTarget = null;
+$completedWithdrawTarget = null;
 $activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'), $_GET);
 $returnTo = Tomos\PostAuthReturnTo::normalize($_SERVER['REQUEST_METHOD'] === 'POST' ? ($_POST['return_to'] ?? null) : ($_GET['return_to'] ?? null));
 $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -51,18 +52,18 @@ $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
     : Tomos\PostSubmissionGuard::issueId();
 
 if ($config === []) {
-    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['config.php が見つかりません。先にsetupを完了してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, null, true, $activeSection, $submissionId);
     exit;
 }
 
 if (empty($config['features']['post'])) {
-    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['Tomos Post は現在無効です。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, null, true, $activeSection, $submissionId);
     exit;
 }
 
 $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
 if ($postPasswordHash === '') {
-    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, true, $activeSection, $submissionId);
+    renderPage('Tomos Post', $config, ['管理用合言葉が設定されていません。setupを確認するか、/post/reset/ で再発行してください。'], [], [], null, null, null, null, null, '', null, $publishedQuery, $publishedYear, $publishedPage, null, null, true, $activeSection, $submissionId);
     exit;
 }
 
@@ -534,6 +535,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $withdrawResult = $withdraw->withdraw($publishedWithdrawTarget->contentPath);
                     if ($withdrawResult->ok) {
                         $messages[] = '投稿を取り下げました。';
+                        $completedWithdrawTarget = $publishedWithdrawTarget;
                         $warnings = array_merge($warnings, $withdrawResult->warnings);
                         $publishedWithdrawTarget = null;
                         $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
@@ -679,7 +681,7 @@ function isPostRequestTooLarge(): bool
     return $limit > 0 && $contentLength > $limit;
 }
 
-renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, false, $activeSection, $submissionId, $returnTo, $updaterCompletionRequired);
+renderPage('Tomos Post', $config, $errors, $messages, $warnings, $uploadResult, $withdrawTarget, $withdrawResult, $trashResult, $editableSearchResult, $editableQuery, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $completedWithdrawTarget, false, $activeSection, $submissionId, $returnTo, $updaterCompletionRequired);
 
 function jsonResponse(array $data, int $status = 200): void
 {
@@ -730,7 +732,7 @@ function renderAuthenticationFields(string $id, string $ariaLabel = ''): void
         echo '<label for="' . e($id) . '">管理用合言葉</label>';
     }
     $aria = $ariaLabel !== '' ? ' aria-label="' . e($ariaLabel) . '" placeholder="管理用合言葉"' : '';
-    echo '<input id="' . e($id) . '" type="password" name="post_password" autocomplete="current-password"' . $aria . '>';
+    echo '<input id="' . e($id) . '" type="password" name="post_password" autocomplete="current-password" required' . $aria . '>';
     echo '<label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>';
 }
 
@@ -912,6 +914,7 @@ function renderPage(
     string $publishedYear,
     int $publishedPage,
     ?Tomos\PostContentResolveResult $publishedWithdrawTarget,
+    ?Tomos\PostContentResolveResult $completedWithdrawTarget,
     bool $disabled,
     string $activeSection,
     string $submissionId,
@@ -926,12 +929,28 @@ function renderPage(
         ? ($uploadResult->absoluteUrl !== '' ? $uploadResult->absoluteUrl : Tomos\Security::publicUrl($uploadResult->internalUrl, $publicBasePath))
         : '';
     $trashSummary = trashSummary();
+    $tomosMessageShownAt = time();
+    $showTomosDailyMessage = !$disabled
+        && !empty($_SESSION['tomos_post_authenticated'])
+        && $activeSection === 'upload'
+        && Tomos\TomosMessageRecurrence::isEligible(
+            $_COOKIE[Tomos\TomosMessageRecurrence::COOKIE_NAME] ?? null,
+            $tomosMessageShownAt
+        );
+    if ($showTomosDailyMessage) {
+        $showTomosDailyMessage = setTomosDailyMessageCookie($config, $tomosMessageShownAt);
+    }
 
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
     echo '<link rel="icon" href="../themes/tomos-minimal/assets/favicon.png" type="image/png">';
     echo '<link rel="apple-touch-icon" href="../themes/tomos-minimal/assets/apple-touch-icon.png">';
     echo '<title>' . e($title) . '</title>';
+    if ($showTomosDailyMessage) {
+        echo '<link rel="preconnect" href="https://fonts.googleapis.com">';
+        echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+        echo '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One&display=swap">';
+    }
     echo '<style>
 :root{--tomos-bg:#f6f4ef;--tomos-surface:#fcfbf8;--tomos-input:#fff;--tomos-text:#2f2f2f;--tomos-muted:#6b6b6b;--tomos-placeholder:#747470;--tomos-border:#d9d6cf;--tomos-border-soft:#e7e3dc;--tomos-border-hover:#cfcbc3;--tomos-accent:#a44a1d;--tomos-primary:#9a431c;--tomos-primary-hover:#853919;--tomos-primary-active:#713018;--tomos-primary-disabled:#c7b6ad;--tomos-danger:#b4382e;--tomos-danger-hover:#982e27;--tomos-danger-active:#7e261f;--tomos-danger-text:#8a2e26;--tomos-notice-bg:#fbf4e8;--tomos-notice-text:#6f4b1d;--tomos-notice-border:#e5c998;--tomos-error-bg:#f8ecea;--tomos-error-border:#d9a39e;--tomos-info-bg:#f7f7f4;--tomos-code-bg:#f1f1ee;--tomos-code-text:#555;--tomos-button-hover:#f7f5f0;--tomos-button-active:#efece6;--tomos-shadow:0 1px 2px rgba(47,47,47,0.04)}
 html,body{width:100%;overflow-x:hidden}
@@ -943,14 +962,16 @@ label{color:var(--tomos-text);display:block;font-weight:700;margin:1rem 0 0.35re
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,.nav a:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}button:disabled,.button[aria-disabled="true"]{background:var(--tomos-primary-disabled);border-color:var(--tomos-primary-disabled);color:#fff}button.danger{background:var(--tomos-danger);border-color:var(--tomos-danger)}button.danger:hover{background:var(--tomos-danger-hover);border-color:var(--tomos-danger-hover)}button.danger:active{background:var(--tomos-danger-active);border-color:var(--tomos-danger-active)}button.danger:focus-visible{outline:3px solid rgba(180,56,46,0.25);outline-offset:2px}button.secondary,.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}button.secondary:hover,.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}button.secondary:active,.button.secondary:active{background:var(--tomos-button-active)}button.danger.secondary{background:var(--tomos-input);color:var(--tomos-danger-text);border-color:var(--tomos-error-border)}button.danger.secondary:hover{background:var(--tomos-error-bg);border-color:var(--tomos-error-border)}
 code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}.result a{overflow-wrap:anywhere;word-break:break-word}.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}.grid>*{min-width:0}.nav{display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0}.nav a{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:999px;color:var(--tomos-text);padding:0.35rem 0.75rem;text-decoration:none}.nav a:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.meta p{margin:0.35rem 0;min-width:0}
 .image-status-list{list-style:none;margin:0.75rem 0;padding:0}.image-status-item{border-top:1px solid var(--tomos-border-soft);padding:0.75rem 0}.image-status-item:first-child{border-top:0}.image-status-line{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.image-status-ok{color:#2f6131;font-weight:700}.image-status-missing,.image-match-warning{color:var(--tomos-danger-text);font-weight:700}.image-omit-label,.remember-auth{align-items:flex-start;display:flex;font-weight:400;gap:0.5rem;margin:0.65rem 0}.image-omit-label input,.remember-auth input{margin-top:0.35rem}.auth-actions{align-items:center;display:flex;justify-content:flex-end;margin:-0.25rem 0 1rem}.auth-actions form{margin:0}
-.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}
+.nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}.tomos-message{color:var(--tomos-muted);font-size:.9rem;margin:0 0 1rem}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 .result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}
 </style></head><body><main class="wrap">';
 
-    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}</style>';
+    echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}.tomos-message{align-items:center;background:#fffaf2;border:1px solid rgba(164,74,29,.1);border-radius:8px;box-shadow:0 2px 8px rgba(47,47,47,.05);box-sizing:border-box;display:flex;gap:1rem;justify-content:space-between;margin:1.25rem 0 1.5rem;padding:1rem 1.25rem}.tomos-message-text{color:#3b332e;flex:1 1 auto;font-family:"Klee One","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-size:clamp(1rem,1.35vw,1.125rem);font-weight:400;line-height:1.7;margin:0}.tomos-message-mark{display:block;flex:0 0 auto;height:2.5rem;width:auto}@media(max-width:560px){.tomos-message{gap:.5rem;padding:1rem}.tomos-message-mark{height:2rem;width:auto}}</style>';
     echo '<h1>' . e($title) . '</h1>';
-    echo '<p class="hint">Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。</p>';
+    if ($showTomosDailyMessage) {
+        renderTomosDailyMessage();
+    }
     renderSectionNav($activeSection, $publicBasePath);
     if ($updaterCompletionRequired) {
         $finalizeUrl = Tomos\Security::publicUrl('/post/update-finalize/', $publicBasePath);
@@ -986,7 +1007,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
     echo '<div class="section">';
     renderMessages($errors, $messages, $warnings);
     if ($activeSection === 'published') {
-        renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $withdrawTarget, $withdrawResult, $trashSummary, $editableQuery, $editableSearchResult);
+        renderPublishedSection($token, $config, $publishedSearchResult, $publishedQuery, $publishedYear, $publishedPage, $publishedWithdrawTarget, $completedWithdrawTarget, $withdrawTarget, $withdrawResult, $trashSummary, $editableQuery, $editableSearchResult);
     } elseif ($activeSection === 'drafts') {
         renderUploadResult($errors, $uploadResult, $displayUrl, $continueUrl, $token);
         renderUploadConflict($uploadResult, $token, $displayUrl, $submissionId);
@@ -1040,6 +1061,158 @@ function renderSectionNav(string $activeSection, string $publicBasePath): void
         echo '<a href="' . e($url) . '"' . $current . '>' . e($label) . '</a>';
     }
 echo '</nav>';
+}
+
+function renderTomosDailyMessage(): void
+{
+    $messages = [
+        '小さくても、ここはあなたのWebです。',
+        '自分のWebには、自分の時間が流れます。',
+        'あなたの言葉には、あなたの場所を。',
+        '自分の場所がひとつあると、Webは少し近くなる。',
+        '小さなWebは、小さな世界を守れます。',
+        '自分のページには、自分の歩幅で。',
+        '広くなくても、自分の場所なら十分です。',
+        '静かなWebにも、ちゃんと居場所があります。',
+        '自分のWebは、自分のペースで育てられます。',
+        'ひとつのページから、自分のWebは始まります。',
+        '誰かの場所だけでなく、自分の場所にも書いておく。',
+        '自分のWebに、自分らしい余白を。',
+        '小さなサイトには、小さな自由があります。',
+        '自分で名づけた場所に、自分の言葉を置く。',
+        'Webのすみっこに、自分の場所を持つ。',
+        '自分の場所だから、急がなくていい。',
+        '大きくしなくても、続けられるWebがあります。',
+        '小さく持つことも、ひとつの豊かさです。',
+        'ここは、流れていかない自分の場所。',
+        '自分のWebを、自分の暮らしのそばに。',
+        '誰かの型に合わせすぎないWebもつくれます。',
+        '自分の世界を、小さなWebに残しておく。',
+        '自分の場所は、自分の言葉を待ってくれます。',
+        'ひとつの小さなWebが、あなたの世界になります。',
+        '自分のWebを持つことは、自分の場所を持つこと。',
+        '自分の言葉を、自分の場所に残す。',
+        'あなたの言葉を、あなたのままで。',
+        'うまく見せるより、ちゃんと自分の言葉で。',
+        '書いた言葉を、大切に置いておく。',
+        '誰かに合わせる前の言葉も、残していい。',
+        '自分で選んだ言葉には、自分で選んだ場所を。',
+        'あなたが書いたことは、あなたのWebに置けます。',
+        '小さな言葉も、消えずに残せます。',
+        '言葉は、流すだけでなく残してもいい。',
+        '今日の言葉を、今日の自分の場所へ。',
+        '自分の言葉で書くことを、急がせない。',
+        '誰かに届く前に、自分の言葉であることを大切に。',
+        '短くても、自分の言葉なら十分です。',
+        '言葉の形は、自分で決めていい。',
+        '自分の言葉を、自分の名前で置いておく。',
+        '書いたことを、自分の手元に残しておく。',
+        'あなたの文章は、あなたの時間の一部です。',
+        '何を書いたかより、どう自分の言葉にしたか。',
+        '言葉を大切にするWebでありたい。',
+        '自分の言葉が、自分のページに残る。',
+        'そのときの自分の言葉を、そのまま置いておく。',
+        '言葉を急いで整えすぎなくてもいい。',
+        '書いたものに、自分の場所を与える。',
+        '自分の言葉を、見失わないためのWeb。',
+        'あなたが選んだ言葉を、あなたが選んだ場所へ。',
+        '言葉の行き先を、誰かの仕組みだけに任せない。',
+        '届き方は選べなくても、置く場所は自分で選べます。',
+        '誰かのタイムラインだけでなく、自分のページにも。',
+        '流れ方は任せても、残す場所は自分で決める。',
+        '自分の言葉の置き場所は、自分で選べます。',
+        '見つけられ方より、まず自分の場所に置いておく。',
+        'どこで読まれるかより、どこに残すかを選ぶ。',
+        '人に届く前に、自分のWebに置いておく。',
+        '誰かのおすすめだけに、言葉の行き先を預けない。',
+        '自分のWebなら、並び方も自分で決められます。',
+        '流れていく場所と、残しておく場所を分けてもいい。',
+        '広がり方は自然に。置き場所は自分で。',
+        '誰かの順番ではなく、自分の順番で並べる。',
+        '見せ方を、すべて誰かに任せなくてもいい。',
+        '自分の言葉は、自分で確かめられる場所にも置く。',
+        '読まれ方は自由でも、残し方は自分で選べます。',
+        '誰かに選ばれる前に、自分で公開しておく。',
+        'おすすめされなくても、そこにあるWeb。',
+        '流行の順番ではなく、自分の時間で並べる。',
+        '誰かの仕組みに乗りながら、自分の場所も持っておく。',
+        '届ける方法が変わっても、自分の場所は残せます。',
+        '自分のWebなら、何を残すかは自分で決められます。',
+        '言葉を預けるだけでなく、自分でも持っておく。',
+        'どこかに任せきらず、自分の場所にも灯しておく。',
+        'アルゴリズムの外にも、あなたのWebはあります。',
+        '小さく書いて、すぐ届ける。',
+        '今日は一言だけでも、公開してみる。',
+        '完成してからでなくても、Webに置いていい。',
+        'うまく書けない日も、投稿してもいい。',
+        '短くても、ひとつのページになります。',
+        '自分さえ読めば良い。の気分で投稿するか。',
+        '公開は、もう少し軽くていい。',
+        '書けた分だけ、Webに置いてみる。',
+        'ひとことからでも、公開は始められます。',
+        '大きな記事でなくても、残す価値はあります。',
+        '思いついたら、小さく公開してみる。',
+        'あとで直せるから、今はここまででもいい。',
+        '今日の小さな気づきを、そのまま私のSmall Webへ。',
+        '毎回きれいにまとめなくてもいい。',
+        '公開することを、特別な日にしなくていい。',
+        '少し書いたら、少し公開する。',
+        '一行だけのページがあってもいい。',
+        '書いたら、まず自分のWebに置いてみる。',
+        '気軽に出して、あとでゆっくり整える。',
+        '長く書けない日にも、Webは開いています。',
+        '今日の分だけ、置いておく。',
+        '書くことと公開することを、近づける。',
+        '小さな公開を、日々の中に。',
+        '思ったことを、流すだけでなく置いてみる。',
+        '気軽に公開して、気長に残す。',
+        '公開したあとも、いつでも直せます。',
+        '書いたものは、自分の場所に残ります。',
+        '公開してから、ゆっくり育てればいい。',
+        '今日の文章に、明日の自分が続きを書けます。',
+        '小さな更新が、少しずつ自分のWebになります。',
+        '前に書いた言葉へ、また戻ってこられます。',
+        '公開して終わりではなく、そこから育てていく。',
+        '少しずつ直して、自分のページにしていく。',
+        '昔の自分の言葉も、Webの中に残しておく。',
+        '書いた日の自分も、未来の自分も読み返せます。',
+        '一度置いた言葉を、また手に取れる。',
+        '変わったら、書き直せばいい。',
+        '自分のWebは、自分の変化も受け止められます。',
+        '残しておくから、あとで育てられる。',
+        '昨日の言葉を、今日の自分が直してもいい。',
+        'ページは完成品ではなく、育てていけます。',
+        'ひとつずつ残すと、自分の時間が見えてきます。',
+        '書き続けるほど、自分のWebになっていく。',
+        '消さずに残すことも、書き直すことも選べます。',
+        '今日の投稿が、明日の私の居場所になります。',
+        '小さく残して、長く育てる。',
+        '自分の言葉を、自分の時間の中で育てる。',
+        '続け方は、自分のペースで決めていい。',
+        '更新しない日も、あなたのWebはそこにあります。',
+        '積み重ねた言葉が、少しずつ自分の世界になる。',
+    ];
+    try {
+        $message = $messages[random_int(0, count($messages) - 1)];
+    } catch (Throwable $exception) {
+        $message = $messages[0];
+    }
+
+    echo '<div class="tomos-message">';
+    echo '<p class="tomos-message-text">' . e($message) . '</p>';
+    echo '<img class="tomos-message-mark" src="assets/tomos-message-mark.png" alt="" aria-hidden="true">';
+    echo '</div>';
+}
+
+function setTomosDailyMessageCookie(array $config, int $shownAt): bool
+{
+    $options = Tomos\TomosMessageRecurrence::cookieOptions($config, $_SERVER, $shownAt);
+    $written = setcookie(Tomos\TomosMessageRecurrence::COOKIE_NAME, (string) $shownAt, $options);
+    if ($written) {
+        $_COOKIE[Tomos\TomosMessageRecurrence::COOKIE_NAME] = (string) $shownAt;
+    }
+
+    return $written;
 }
 
 function passkeyLoginAvailable(array $config, string $rootDir): bool
@@ -1127,7 +1300,7 @@ function renderSettingsHomeSection(string $token, array $config, string $returnT
 function renderMessages(array $errors, array $messages, array $warnings): void
 {
     if ($errors !== []) {
-        echo '<div class="errors"><strong>処理できませんでした。</strong><ul>';
+        echo '<div class="errors" role="alert"><strong>処理できませんでした。</strong><ul>';
         foreach ($errors as $error) {
             echo '<li>' . e((string) $error) . '</li>';
         }
@@ -1135,7 +1308,7 @@ function renderMessages(array $errors, array $messages, array $warnings): void
     }
 
     if ($errors === [] && $messages !== []) {
-        echo '<div class="success"><ul>';
+        echo '<div class="success" role="status" aria-live="polite"><ul>';
         foreach ($messages as $message) {
             echo '<li>' . e((string) $message) . '</li>';
         }
@@ -1143,7 +1316,7 @@ function renderMessages(array $errors, array $messages, array $warnings): void
     }
 
     if ($errors === [] && $warnings !== []) {
-        echo '<div class="notice"><strong>注意</strong><ul>';
+        echo '<div class="notice" role="status" aria-live="polite"><strong>注意</strong><ul>';
         foreach ($warnings as $warning) {
             echo '<li>' . e((string) $warning) . '</li>';
         }
@@ -1386,13 +1559,18 @@ function renderEditableCancelForm(Tomos\PostUploadResult $result, string $token)
     echo '</form>';
 }
 
-function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, string $continueUrl): void
+function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, string $continueUrl, ?Tomos\PostContentResolveResult $context = null): void
 {
     if ($errors !== [] || !($result instanceof Tomos\PostWithdrawResult) || !$result->ok) {
         return;
     }
 
-    echo '<div class="result">';
+    echo '<div class="result" id="post-withdraw-complete">';
+    echo '<h3>取り下げました</h3>';
+    if ($context instanceof Tomos\PostContentResolveResult && $context->ok) {
+        echo '<p><strong>タイトル:</strong><br>' . e($context->title !== '' ? $context->title : '（タイトルなし）') . '</p>';
+        echo '<p><strong>保存先:</strong><br><code>content/' . e($context->contentPath) . '</code></p>';
+    }
     echo '<p>Markdownファイルは完全削除せず、取り下げ済みとして保管しました。</p>';
     echo '<p><strong>取り下げたページ:</strong><br><code>' . e($result->fromPath) . '</code></p>';
     echo '<p>一覧・検索・タグへの反映のため、インデックスキャッシュを更新対象にしました。</p>';
@@ -1429,6 +1607,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo <<<'HTML'
 <script>
 (() => {
+  const scrollBehavior = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   const fileInput = document.getElementById("markdown_file");
   const folderInput = document.getElementById("folder");
   const notice = document.getElementById("folder-frontmatter-notice");
@@ -1912,7 +2091,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       processingStatus.textContent = `画像が${missing.length}点不足しています。画像を追加で選ぶか、掲載をやめる画像を指定してください。`;
       processingStatus.style.color = "var(--tomos-danger-text)";
       renderImageMatches(omitted);
-      imageMatchStatus.scrollIntoView({ behavior: "smooth", block: "center" });
+      imageMatchStatus.scrollIntoView({ behavior: scrollBehavior, block: "center" });
       return;
     }
 
@@ -2150,6 +2329,7 @@ function renderPublishedSection(
     string $year,
     int $page,
     ?Tomos\PostContentResolveResult $withdrawTarget,
+    ?Tomos\PostContentResolveResult $completedWithdrawTarget,
     ?Tomos\PostContentResolveResult $manualWithdrawTarget,
     ?Tomos\PostWithdrawResult $withdrawResult,
     array $trashSummary,
@@ -2201,10 +2381,11 @@ function renderPublishedSection(
     $items = is_array($result['items'] ?? null) ? $result['items'] : [];
     $total = (int) ($result['total'] ?? 0);
     echo '<p class="hint">' . e((string) $total) . '件</p>';
+    renderWithdrawResult([], $withdrawResult, Tomos\Security::publicUrl('/post/?section=published', $publicBasePath), $completedWithdrawTarget ?? $manualWithdrawTarget);
 
     if ($withdrawTarget instanceof Tomos\PostContentResolveResult && $withdrawTarget->ok) {
-        echo '<div class="result meta">';
-        echo '<h3>取り下げの確認</h3>';
+        echo '<div class="result meta" id="post-withdraw-confirmation">';
+        echo '<h3>取り下げる記事</h3>';
         echo '<p><strong>タイトル:</strong><br>' . e($withdrawTarget->title !== '' ? $withdrawTarget->title : '（タイトルなし）') . '</p>';
         echo '<p><strong>公開日:</strong><br>' . e($withdrawTarget->date !== '' ? $withdrawTarget->date : '（未設定）') . '</p>';
         echo '<p><strong>更新日:</strong><br>' . e($withdrawTarget->updated !== '' ? $withdrawTarget->updated : '（未設定）') . '</p>';
@@ -2286,7 +2467,6 @@ function renderPublishedSection(
 
     echo '<details class="advanced-tools">';
     echo '<summary>高度な操作</summary>';
-    renderWithdrawResult([], $withdrawResult, Tomos\Security::publicUrl('/post/?section=published', $publicBasePath));
     renderWithdrawSection($token, $manualWithdrawTarget, true);
     renderTrashSection($token, $trashSummary, true);
     renderEditableMarkdownSection($token, $config, $editableQuery, $editableSearchResult);

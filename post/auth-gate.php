@@ -140,8 +140,8 @@ function renderAuthGate(array $config, array $errors, array $warnings, ?string $
     echo 'body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}';
     echo '.wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-sizing:border-box;margin:0 auto;max-width:620px;padding:28px}';
     echo 'h1{font-size:1.8rem;margin:0 0 .5rem}.hint{color:var(--muted)}.methods{display:grid;gap:1.25rem;margin-top:1.5rem}.method{border-top:1px solid var(--border);padding-top:1.25rem}.method:first-child{border-top:0;padding-top:0}';
-    echo 'label{display:block;font-weight:700;margin:.75rem 0 .35rem}input[type=password]{background:#fff;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font:inherit;font-size:16px;padding:.65rem;width:100%}.remember{align-items:flex-start;display:flex;font-weight:400;gap:.5rem}.remember input{margin-top:.35rem}';
-    echo 'button,.button{background:var(--accent);border:1px solid var(--accent);border-radius:6px;color:#fff;cursor:pointer;display:inline-block;font:inherit;font-weight:700;padding:.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--accent-hover);border-color:var(--accent-hover)}.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1rem}';
+    echo 'label{display:block;font-weight:700;margin:.75rem 0 .35rem}input[type=password]{background:#fff;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font:inherit;font-size:16px;padding:.65rem;width:100%}input[type=password]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(164,74,29,0.12);outline:none}.remember{align-items:flex-start;display:flex;font-weight:400;gap:.5rem}.remember input{margin-top:.35rem}';
+    echo 'button,.button{background:var(--accent);border:1px solid var(--accent);border-radius:6px;color:#fff;cursor:pointer;display:inline-block;font:inherit;font-weight:700;padding:.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--accent-hover);border-color:var(--accent-hover)}button:focus-visible,.button:focus-visible,input[type=password]:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1rem}';
     echo '.errors{background:var(--error-bg);border:1px solid var(--error-border);border-radius:6px;color:var(--error-text);margin-top:1rem;padding:1rem}.notice{background:var(--notice-bg);border:1px solid var(--notice-border);border-radius:6px;color:var(--notice-text);margin-top:1rem;padding:1rem}';
     echo '@media(max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}button,.button{box-sizing:border-box;min-height:44px}}';
     echo '</style></head><body><main class="wrap">';
@@ -149,14 +149,14 @@ function renderAuthGate(array $config, array $errors, array $warnings, ?string $
     echo '<p class="hint">管理画面を開くには認証してください。</p>';
 
     if ($errors !== []) {
-        echo '<div class="errors"><ul>';
+        echo '<div class="errors" role="alert"><ul>';
         foreach ($errors as $error) {
             echo '<li>' . htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8') . '</li>';
         }
         echo '</ul></div>';
     }
     if ($warnings !== []) {
-        echo '<div class="notice"><ul>';
+        echo '<div class="notice" role="status" aria-live="polite"><ul>';
         foreach ($warnings as $warning) {
             echo '<li>' . htmlspecialchars((string) $warning, ENT_QUOTES, 'UTF-8') . '</li>';
         }
@@ -180,7 +180,7 @@ function renderAuthGate(array $config, array $errors, array $warnings, ?string $
         echo '<input type="hidden" name="return_to" value="' . htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') . '">';
     }
     echo '<label for="post_password">管理用合言葉</label>';
-    echo '<input id="post_password" type="password" name="post_password" autocomplete="current-password">';
+    echo '<input id="post_password" type="password" name="post_password" autocomplete="current-password" required>';
     echo '<label class="remember"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>';
     echo '<div class="actions"><button type="submit">開く</button></div>';
     echo '</form>';
