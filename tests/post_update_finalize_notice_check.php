@@ -51,6 +51,7 @@ try {
     passthru($archive, $archiveStatus);
     finalizeCheck($archiveStatus === 0, 'could not archive fixture');
     finalizeCheck(copy($sourceRoot . '/post/index.php', $fixture . '/post/index.php'), 'could not overlay Post entry point');
+    finalizeCheck(copy($sourceRoot . '/core/TomosMessageRecurrence.php', $fixture . '/core/TomosMessageRecurrence.php'), 'could not overlay Tomos Message recurrence runtime');
     finalizeCheck(copy($sourceRoot . '/post/update-finalize/index.php', $fixture . '/post/update-finalize/index.php'), 'could not overlay finalize entry point');
     $config = <<<'PHP'
 <?php

@@ -46,6 +46,7 @@ core/ThemePackageInstaller.php
 core/ThemePackageDeployment.php
 core/ThemePackagePolicy.php
 core/ContentSecurityPolicy.php
+core/TomosMessageRecurrence.php
 core/ThemeRules.php
 docs/theme/theme-rules.json
 cache/.htaccess

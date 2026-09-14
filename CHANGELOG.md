@@ -1,5 +1,18 @@
 # 更新履歴
 
+## v1.0.0 - 2026-09-13
+
+### Stable Release
+
+- v0.9.0で確立した保護領域、Browser Update migration、Distribution境界、Updater仕上げフローをv1.0.0へ引き継ぎました。
+- Daily Use UX、Withdraw context retention、認証アクセシビリティ、Reduced Motion、Tomos Messageを含む凍結済みv1.0 scopeを収録しました。
+- Human device/browser acceptanceと自動Release Gateを完了した正式版です。
+
+### Compatibility / Update
+
+- v0.9.0からv1.0.0へ、署名付きTomos Updateで更新できます。
+- 更新時も`config.php`、`content/`、uploads、カスタムTheme、運用データを保持します。
+
 ## v0.7.3 - 2026-09-11
 
 ### Fixed / Compatibility

@@ -62,6 +62,10 @@ jobs:
               echo "Skipping $test (live public artifact gate; run public-artifact-release-gate workflow explicitly)"
               continue
             fi
+            if [ "$test" = "tests/update_v073_to_v090_migration_check.php" ]; then
+              echo "Skipping $test (immutable v0.7.3 fixture gate; run only against its historical baseline)"
+              continue
+            fi
             echo "Running $test"
             if [ "$test" = "tests/update_self_update_no_proc_open_check.php" ]; then
               php -d disable_functions=proc_open "$test"

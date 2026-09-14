@@ -52,6 +52,7 @@ core/ThemePackageException.php
 core/ThemePackageInstaller.php
 core/ThemePackagePolicy.php
 core/ContentSecurityPolicy.php
+core/TomosMessageRecurrence.php
 core/ThemeRules.php
 docs/theme/theme-rules.json
 cache/.htaccess

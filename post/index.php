@@ -929,10 +929,17 @@ function renderPage(
         ? ($uploadResult->absoluteUrl !== '' ? $uploadResult->absoluteUrl : Tomos\Security::publicUrl($uploadResult->internalUrl, $publicBasePath))
         : '';
     $trashSummary = trashSummary();
+    $tomosMessageShownAt = time();
     $showTomosDailyMessage = !$disabled
         && !empty($_SESSION['tomos_post_authenticated'])
         && $activeSection === 'upload'
-        && empty($_SESSION['tomos_post_daily_message_shown']);
+        && Tomos\TomosMessageRecurrence::isEligible(
+            $_COOKIE[Tomos\TomosMessageRecurrence::COOKIE_NAME] ?? null,
+            $tomosMessageShownAt
+        );
+    if ($showTomosDailyMessage) {
+        $showTomosDailyMessage = setTomosDailyMessageCookie($config, $tomosMessageShownAt);
+    }
 
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
@@ -1058,10 +1065,6 @@ echo '</nav>';
 
 function renderTomosDailyMessage(): void
 {
-    if (!empty($_SESSION['tomos_post_daily_message_shown'])) {
-        return;
-    }
-
     $messages = [
         '小さくても、ここはあなたのWebです。',
         '自分のWebには、自分の時間が流れます。',
@@ -1199,7 +1202,17 @@ function renderTomosDailyMessage(): void
     echo '<p class="tomos-message-text">' . e($message) . '</p>';
     echo '<img class="tomos-message-mark" src="assets/tomos-message-mark.png" alt="" aria-hidden="true">';
     echo '</div>';
-    $_SESSION['tomos_post_daily_message_shown'] = true;
+}
+
+function setTomosDailyMessageCookie(array $config, int $shownAt): bool
+{
+    $options = Tomos\TomosMessageRecurrence::cookieOptions($config, $_SERVER, $shownAt);
+    $written = setcookie(Tomos\TomosMessageRecurrence::COOKIE_NAME, (string) $shownAt, $options);
+    if ($written) {
+        $_COOKIE[Tomos\TomosMessageRecurrence::COOKIE_NAME] = (string) $shownAt;
+    }
+
+    return $written;
 }
 
 function passkeyLoginAvailable(array $config, string $rootDir): bool

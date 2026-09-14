@@ -64,9 +64,10 @@ foreach (['PostWithdraw', 'name="_token"', 'trash', 'PostContentResolver'] as $w
 
 assertContains($index, "!empty(\$_SESSION['tomos_post_authenticated'])", 'Daily message must require Post authentication');
 assertContains($index, "\$activeSection === 'upload'", 'Daily message must be restricted to Upload');
-assertContains($index, "empty(\$_SESSION['tomos_post_daily_message_shown'])", 'Daily message must be restricted to an unseen session');
+assertContains($index, 'TomosMessageRecurrence::isEligible(', 'Daily message must use the browser recurrence timestamp');
+assertContains($index, 'setTomosDailyMessageCookie(', 'Daily message must record a browser recurrence timestamp before rendering');
+assertNotContains($index, 'tomos_post_daily_message_shown', 'Daily message must not use a session shown flag');
 assertContains($index, 'renderTomosDailyMessage();', 'Daily message must be rendered from the normal Post page');
-assertContains($index, "\$_SESSION['tomos_post_daily_message_shown']", 'Daily message must use a session shown flag');
 assertContains($index, '$showTomosDailyMessage', 'Daily message display must be decided before the page head is rendered');
 assertContains($index, 'https://fonts.googleapis.com/css2?family=Klee+One&display=swap', 'Daily message response must load Klee One');
 assertNotContains($index, 'Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', 'Daily Post description must be removed');
@@ -119,8 +120,15 @@ assertTrue(($assetInfo['mime'] ?? '') === 'image/png' && strlen($assetBytes) >= 
 assertContains($distribution, "post/assets/tomos-message-mark.png", 'Daily message PNG must be included in distribution packaging');
 assertContains($installed, "post/assets/tomos-message-mark.png", 'Daily message PNG must be included in installed runtime files');
 $messageOutput = strpos($messageFunction, 'echo \'<div class="tomos-message">\'');
-$messageFlag = strpos($messageFunction, "\$_SESSION['tomos_post_daily_message_shown'] = true;");
-assertTrue($messageOutput !== false && $messageFlag !== false && $messageOutput < $messageFlag, 'Daily message shown flag must be set after rendering');
+assertTrue($messageOutput !== false, 'Daily message card must still render from the frozen presentation function');
+
+$recurrence = readSource($root . '/core/TomosMessageRecurrence.php');
+assertContains($recurrence, "public const INTERVAL_SECONDS = 21600;", 'Daily message recurrence must use the approved six-hour interval');
+assertContains($recurrence, "public const COOKIE_NAME = 'tomos_post_daily_message_at';", 'Daily message recurrence must use a dedicated first-party cookie');
+assertContains($recurrence, "'httponly' => true", 'Daily message recurrence cookie must be HttpOnly');
+assertContains($recurrence, "'samesite' => 'Lax'", 'Daily message recurrence cookie must be SameSite Lax');
+assertNotContains($recurrence, 'localStorage', 'Daily message recurrence must not require localStorage');
+assertNotContains($recurrence, 'curl_', 'Daily message recurrence must not use external communication');
 
 $csp = readSource($root . '/core/ContentSecurityPolicy.php');
 assertContains($csp, "style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;", 'CSP must allow only the Google Fonts hosts needed by the message');
