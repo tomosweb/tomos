@@ -5,8 +5,6 @@ Tomos は、Zipアップロード方式またはFTPアップロード方式で�
 配布中のTomosのversionは、配布Zipに含まれる `VERSION` ファイルで確認してください。
 
 > この手順はTomosの通常配布Zipを新しい設置先へ導入するためのものです。
-> Release Candidateでは、既存サイトへ上書きせず、空のテスト用ディレクトリに設置してください。
-
 本番環境で利用する前に、十分な動作確認とバックアップを行い、`DISCLAIMER.md` を確認してください。
 
 すでにTomosを設置している場合は、Zipを既存ルートへ上書き展開せず、[公式サイトの更新手順](https://tomoswords.org/docs/update/) に従ってください。

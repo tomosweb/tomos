@@ -2,11 +2,11 @@
 
 ## v1.0.0 - 2026-09-13
 
-### Release Candidate
+### Stable Release
 
 - v0.9.0で確立した保護領域、Browser Update migration、Distribution境界、Updater仕上げフローをv1.0.0へ引き継ぎました。
 - Daily Use UX、Withdraw context retention、認証アクセシビリティ、Reduced Motion、Tomos Messageを含む凍結済みv1.0 scopeを収録しました。
-- Human device/browser acceptanceおよび正式Release前の自動Release Gate用candidateです。
+- Human device/browser acceptanceと自動Release Gateを完了した正式版です。
 
 ### Compatibility / Update
 

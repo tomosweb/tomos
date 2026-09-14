@@ -150,9 +150,9 @@ check(strpos($postGuide, '/post/passkey/recovery/') !== false, 'Post guide docum
 check(strpos($postGuide, 'post-reset.enable') !== false, 'Post guide preserves legacy emergency password reset');
 
 if ($version === '1.0.0') {
-    check(strpos($limitations, 'Release Candidate') !== false, 'limitations document identifies the current RC status');
-    check(strpos($security, 'Release Candidate') !== false, 'security policy identifies the current RC line');
-    check(strpos($disclaimer, 'Release Candidate') !== false, 'disclaimer identifies the current RC status');
+    check(strpos($limitations, 'stable release') !== false, 'limitations document identifies the current stable status');
+    check(strpos($security, '正式版') !== false, 'security policy identifies the current stable line');
+    check(strpos($disclaimer, '正式版') !== false, 'disclaimer identifies the current stable status');
 } else {
     check(strpos($limitations, 'pre-release') !== false, 'limitations document identifies pre-release status without alpha lock-in');
     check(strpos($security, 'pre-release') !== false, 'security policy identifies current pre-release line');
