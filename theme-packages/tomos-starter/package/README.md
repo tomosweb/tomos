@@ -1,6 +1,6 @@
 # Tomos Starter Theme
 
-Tomos v0.6.1を基準にした、Theme Developer Center Developer Preview用の最小テーマです。デザインを完成させるためではなく、CoreとThemeの責務を読み分けるための教材として作っています。
+Tomos Themeの構成を読みながら学べる最小テーマです。デザインを完成させるためではなく、CoreとThemeの責務を読み分けるための教材として作っています。
 
 ## ファイルの役割
 
@@ -16,7 +16,7 @@ HTMLの構造、クラス名、色、余白、文字サイズ、CSSは自由に�
 
 ## 必須placeholder
 
-次のplaceholderはDeveloper Previewの必須契約です。
+次のplaceholderはThemeの必須契約です。
 
 - `templates/layout.html`: `{{{ page.body }}}`、`{{{ page.seo_head_html }}}`
 - `templates/page.html`: `{{{ page.content }}}`
@@ -38,4 +38,4 @@ Markdown変換、画像、wiki link、tags、一覧、URL解決はCoreの責務�
 
 ## 互換性
 
-このStarter ThemeはTomos `0.6.1`を互換性基準とするDeveloper Previewです。Theme仕様の現在保証部分と変更可能性のある部分は、Coreリポジトリの`docs/theme/developer-preview-spec.md`で管理します。
+このStarter Themeの最低互換versionはTomos `0.6.1`です。Theme自身のversionとTomos本体のversionは独立して管理します。Theme仕様はCoreリポジトリの`docs/theme/theme-contract-v1.md`と`docs/theme/theme-rules.json`で確認してください。
