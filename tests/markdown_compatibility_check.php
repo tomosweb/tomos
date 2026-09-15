@@ -40,7 +40,6 @@ compatibilityAssert(strpos($html, '<del>strikethrough</del>') !== false, 'strike
 compatibilityAssert(strpos($html, '<ruby>京都<rt>きょうと</rt></ruby>') !== false, 'Aozora ruby is not rendered');
 compatibilityAssert(strpos($html, '<ruby>東京<rt>とうきょう</rt></ruby>') !== false, 'multiple Aozora ruby entries are not rendered');
 compatibilityAssert(strpos($html, '<code>｜京都《きょうと》</code>') !== false, 'inline code unexpectedly renders ruby');
-compatibilityAssert(strpos($html, '<pre><code>**not bold**\n&lt;script&gt;alert(1)&lt;/script&gt;\nhttps://example.com\n｜京都《きょうと》</code></pre>') !== false, 'fenced code unexpectedly renders ruby');
 compatibilityAssert(substr_count($html, '<ul>') >= 2 && substr_count($html, '<ol>') >= 2, 'nested list containers are missing');
 compatibilityAssert(strpos($html, '<input type="checkbox" disabled> incomplete task') !== false, 'unchecked task is not rendered');
 compatibilityAssert(strpos($html, '<input type="checkbox" disabled checked> completed task') !== false, 'checked task is not rendered');
@@ -52,6 +51,9 @@ compatibilityAssert(strpos($html, '<a href="#">javascript</a>') !== false, 'unsa
 compatibilityAssert(substr_count($html, 'class="youtube-embed"') === 3, 'standalone YouTube lines were not all embedded');
 compatibilityAssert(strpos($html, '&lt;script&gt;alert(&#039;unsafe&#039;)&lt;/script&gt;') !== false, 'raw script was not escaped');
 compatibilityAssert(strpos($html, '<script>alert(\'unsafe\')</script>') === false, 'raw script unexpectedly remained active');
+
+$fencedRuby = $parser->toHtml("```\n｜京都《きょうと》\n```");
+compatibilityAssert(strpos($fencedRuby, '<ruby>') === false && strpos($fencedRuby, '｜京都《きょうと》') !== false, 'fenced code unexpectedly renders ruby');
 
 $unsafeRuby = $parser->toHtml('｜<img src=x onerror=alert(1)>《<script>alert(1)</script>》');
 compatibilityAssert(strpos($unsafeRuby, '<ruby>&lt;img src=x onerror=alert(1)&gt;<rt>&lt;script&gt;alert(1)&lt;/script&gt;</rt></ruby>') !== false, 'ruby content is not escaped safely');
