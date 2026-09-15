@@ -133,6 +133,12 @@ final class MarkdownParser
                 continue;
             }
 
+            $part = preg_replace_callback('/｜([^《》\n]+)《([^《》\n]+)》/u', function (array $matches) use (&$placeholders): string {
+                $token = 'TOMOSINLINE' . count($placeholders) . 'TOKEN';
+                $placeholders[$token] = '<ruby>' . $this->escape($matches[1]) . '<rt>' . $this->escape($matches[2]) . '</rt></ruby>';
+                return $token;
+            }, $part) ?? $part;
+
             if (!$this->allowRawHtml) {
                 $part = preg_replace_callback(
                     '/<!--.*?-->|<\/?[A-Za-z][A-Za-z0-9:-]*(?:\s[^>]*|\/?)>/s',
