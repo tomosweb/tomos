@@ -97,3 +97,9 @@ alpha.6への移行後は、alpha.7以降の署名済み更新ZIPをTomos Update
 - Tomosは現状のまま提供され、すべてのサーバー環境での動作を保証するものではありません。
 
 ## ライセンス
+
+Tomos本体のコードはMIT Licenseで提供します。
+
+Tomosの名称、ロゴ、アイコン、OGP画像はMIT Licenseの対象外です。
+
+Copyright (c) 2026 Goro Kawasaki
