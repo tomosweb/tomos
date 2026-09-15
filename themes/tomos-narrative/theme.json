@@ -1,0 +1,18 @@
+{
+  "name": "tomos-narrative",
+  "display_name": "Tomos Narrative",
+  "version": "1.0.0",
+  "description": "日記と長文記事を自然につなぐ、文章中心のテーマです。",
+  "author": "Tomos Project",
+  "requires_tomos": "1.0.0",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "favicon": true,
+    "ogp": true,
+    "responsive": true
+  }
+}
