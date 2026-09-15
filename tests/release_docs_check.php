@@ -149,7 +149,9 @@ check(strpos($postGuide, '/post/passkey/password-reset/') !== false, 'Post guide
 check(strpos($postGuide, '/post/passkey/recovery/') !== false, 'Post guide documents server ownership recovery');
 check(strpos($postGuide, 'post-reset.enable') !== false, 'Post guide preserves legacy emergency password reset');
 
-if ($version === '1.0.0') {
+$isStableRelease = preg_match('/\A[0-9]+(?:\.[0-9]+)*\z/', $version) === 1;
+
+if ($isStableRelease) {
     check(strpos($limitations, 'stable release') !== false, 'limitations document identifies the current stable status');
     check(strpos($security, '正式版') !== false, 'security policy identifies the current stable line');
     check(strpos($disclaimer, '正式版') !== false, 'disclaimer identifies the current stable status');
