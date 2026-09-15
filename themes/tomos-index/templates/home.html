@@ -1,0 +1,7 @@
+<section class="index-profile" aria-label="プロフィール">
+  <p class="index-profile-name">{{ site.name }}</p>
+  {{# site.description }}<p class="index-profile-description">{{ site.description }}</p>{{/ site.description }}
+  <nav class="index-profile-links" aria-label="プロフィールリンク"><a href="{{ nav.about_url }}">プロフィール</a>{{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}</nav>
+</section>
+
+<section class="index-feed" aria-label="記事一覧">{{{ list.latest_pages }}}</section>
