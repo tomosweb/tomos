@@ -28,7 +28,8 @@ $fixturePath = __DIR__ . '/fixtures/markdown-compatibility-1.md';
 $markdown = file_get_contents($fixturePath);
 compatibilityAssert($markdown !== false, 'fixture could not be read');
 
-$html = (new MarkdownParser())->toHtml($markdown);
+$parser = new MarkdownParser();
+$html = $parser->toHtml($markdown);
 
 compatibilityAssert(strpos($html, '<h1>H1</h1>') !== false, 'H1 is not rendered');
 compatibilityAssert(strpos($html, '<h6>H6</h6>') !== false, 'H6 is not rendered');
@@ -36,6 +37,9 @@ compatibilityAssert(strpos($html, '<hr>') !== false, 'horizontal rule is not ren
 compatibilityAssert(strpos($html, '<em><strong>bold italic</strong></em>') !== false, 'bold italic nesting is invalid');
 compatibilityAssert(strpos($html, '</em></strong>') === false, 'bold italic contains crossing closing tags');
 compatibilityAssert(strpos($html, '<del>strikethrough</del>') !== false, 'strikethrough is not rendered');
+compatibilityAssert(strpos($html, '<ruby>京都<rt>きょうと</rt></ruby>') !== false, 'Aozora ruby is not rendered');
+compatibilityAssert(strpos($html, '<ruby>東京<rt>とうきょう</rt></ruby>') !== false, 'multiple Aozora ruby entries are not rendered');
+compatibilityAssert(strpos($html, '<code>｜京都《きょうと》</code>') !== false, 'inline code unexpectedly renders ruby');
 compatibilityAssert(substr_count($html, '<ul>') >= 2 && substr_count($html, '<ol>') >= 2, 'nested list containers are missing');
 compatibilityAssert(strpos($html, '<input type="checkbox" disabled> incomplete task') !== false, 'unchecked task is not rendered');
 compatibilityAssert(strpos($html, '<input type="checkbox" disabled checked> completed task') !== false, 'checked task is not rendered');
@@ -47,5 +51,12 @@ compatibilityAssert(strpos($html, '<a href="#">javascript</a>') !== false, 'unsa
 compatibilityAssert(substr_count($html, 'class="youtube-embed"') === 3, 'standalone YouTube lines were not all embedded');
 compatibilityAssert(strpos($html, '&lt;script&gt;alert(&#039;unsafe&#039;)&lt;/script&gt;') !== false, 'raw script was not escaped');
 compatibilityAssert(strpos($html, '<script>alert(\'unsafe\')</script>') === false, 'raw script unexpectedly remained active');
+
+$fencedRuby = $parser->toHtml("```\n｜京都《きょうと》\n```");
+compatibilityAssert(strpos($fencedRuby, '<ruby>') === false && strpos($fencedRuby, '｜京都《きょうと》') !== false, 'fenced code unexpectedly renders ruby');
+
+$unsafeRuby = $parser->toHtml('｜<img src=x onerror=alert(1)>《<script>alert(1)</script>》');
+compatibilityAssert(strpos($unsafeRuby, '<ruby>&lt;img src=x onerror=alert(1)&gt;<rt>&lt;script&gt;alert(1)&lt;/script&gt;</rt></ruby>') !== false, 'ruby content is not escaped safely');
+compatibilityAssert(strpos($unsafeRuby, '<img') === false && strpos($unsafeRuby, '<script>') === false, 'ruby unexpectedly enables raw HTML');
 
 echo "markdown_compatibility_check: OK\n";

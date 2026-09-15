@@ -11,6 +11,8 @@ Paragraph line three.
 
 **bold**, *italic*, ***bold italic***, and ~~strikethrough~~.
 
+Aozora ruby: ｜京都《きょうと》 and ｜東京《とうきょう》.
+
 > A blockquote with **inline emphasis**.
 
 ---
@@ -26,11 +28,13 @@ Paragraph line three.
 - [X] completed task (uppercase)
 
 Inline `code **not bold** https://example.com`.
+Inline ruby code `｜京都《きょうと》`.
 
 ```
 **not bold**
 <script>alert(1)</script>
 https://example.com
+｜京都《きょうと》
 ```
 
 ```php
