@@ -1,7 +1,7 @@
 {
   "name": "tomos-index",
   "display_name": "Tomos Index",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "短文と記事を整然と並べる、軽量なブログテーマです。",
   "author": "Tomos Project",
   "requires_tomos": "1.0.0",

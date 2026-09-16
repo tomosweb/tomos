@@ -37,6 +37,7 @@ img { max-width: 100%; height: auto; }
 .index-profile-name { margin: 0; font-size: .87rem; font-weight: 700; }
 .index-profile-description { margin: 0; color: var(--index-muted); font-size: .82rem; }
 .index-profile-links { display: flex; flex-wrap: wrap; gap: .65rem; margin-left: auto; font-size: .74rem; }
+.index-profile--bottom { margin-top: 1rem; border-top: 1px solid var(--index-line); border-bottom: 0; }
 .index-feed, .index-list-page { padding: .85rem 0 4.6rem; }
 .index-article { width: min(100%, var(--index-reading)); margin: 0 auto; padding: 3rem 0 4.8rem; }
 

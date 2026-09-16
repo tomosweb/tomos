@@ -21,6 +21,12 @@
 
     <main class="site-main">{{{ page.body }}}</main>
 
+    <aside class="index-profile index-profile--bottom" aria-label="プロフィール">
+      <p class="index-profile-name">{{ site.name }}</p>
+      {{# site.description }}<p class="index-profile-description">{{ site.description }}</p>{{/ site.description }}
+      <nav class="index-profile-links" aria-label="プロフィールリンク"><a href="{{ nav.about_url }}">プロフィール</a>{{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}</nav>
+    </aside>
+
     <footer class="site-footer">
       <a href="{{ site.home_url }}">{{ site.name }}</a>
       <a href="https://tomoswords.org/docs/">Tomosの使い方</a>
