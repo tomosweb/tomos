@@ -1,0 +1,47 @@
+name: Test Update release candidate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-update-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: openssl, mbstring, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Prepare distribution dependencies
+        run: bash tools/prepare-distribution-dependencies.sh
+
+      - name: Build and verify test Update ZIP
+        env:
+          TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR: build/test-update
+        run: |
+          set -euo pipefail
+          php tests/release_transition_check.php
+          unzip -t build/test-update/tomos-update-1.0.1-to-1.0.2-TEST.zip
+          test -s build/test-update/test-public-key.pem
+          test -s build/test-update/SHA256SUMS
+          test -s build/test-update/TEST-ONLY.txt
+          (cd build/test-update && sha256sum -c SHA256SUMS)
+
+      - name: Upload test Update ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomos-update-1.0.1-to-1.0.2-TEST-${{ github.sha }}
+          path: build/test-update/
+          if-no-files-found: error
