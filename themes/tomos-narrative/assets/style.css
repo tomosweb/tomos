@@ -42,7 +42,8 @@ img { max-width: 100%; height: auto; }
 .narrative-name { grid-column: 1; margin: 0; font-size: .88rem; font-weight: 700; }
 .narrative-description { grid-column: 2; margin: 0; color: var(--narrative-muted); font-size: .82rem; line-height: 1.65; }
 .narrative-profile-links { grid-column: 3; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .7rem; font-size: .75rem; }
-.narrative-feed, .narrative-list-page { padding: 1.65rem 0 4.8rem; }
+.narrative-feed { padding: 1.65rem 0 4.8rem; }
+.narrative-list-page { padding: .9rem 0 4.8rem; }
 .narrative-article { padding: 1rem 0 4.8rem; }
 
 .page-list-items, .tag-page-list, .search-results { margin: 0; padding: 0; list-style: none; }
@@ -136,7 +137,8 @@ img { max-width: 100%; height: auto; }
   .narrative-name { font-size: .86rem; }
   .narrative-description { margin-top: .25rem; font-size: .8rem; }
   .narrative-profile-links { justify-content: flex-start; margin-top: .45rem; font-size: .74rem; }
-  .narrative-feed, .narrative-list-page, .narrative-article { padding: 1.35rem 0 3.5rem; }
+  .narrative-feed { padding: 1.35rem 0 3.5rem; }
+  .narrative-list-page, .narrative-article { padding: .7rem 0 3.5rem; }
   .page-list-items li { padding: 1.05rem 0 1.15rem; }
   .page-list-items a { font-size: 1.05rem; }
   .breadcrumbs { margin-bottom: 1.3rem; }
