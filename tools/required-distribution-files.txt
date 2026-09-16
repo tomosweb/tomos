@@ -79,6 +79,7 @@ post/theme/index.php
 post/theme/confirm/index.php
 post/theme/add/index.php
 post/theme/add/confirm/index.php
+post/theme/delete/index.php
 post/reset/index.php
 post/assets/tomos-post-security.css
 post/assets/tomos-message-mark.png

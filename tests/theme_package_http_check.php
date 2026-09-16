@@ -65,6 +65,7 @@ try {
     $themePage = curlRequest($baseUrl . '/post/theme/', $cookie);
     assertContains('テーマZIPを追加', $themePage);
     assertContains('tomos-minimal', $themePage);
+    assertNotContains('name="delete_theme" value="tomos-minimal"', $themePage);
     $uploadPage = curlRequest($baseUrl . '/post/theme/add/', $cookie);
     assertContains('テーマZIPの上限：最大10 MB', $uploadPage);
     $uploadToken = csrfToken($uploadPage);
@@ -79,8 +80,11 @@ try {
     $confirmToken = csrfToken($inspectionPage);
 
     $resultPage = curlRequest($baseUrl . '/post/theme/add/confirm/', $cookie, ['_token' => $confirmToken]);
-    assertContains('テーマを追加しました。', $resultPage);
+    assertContains('テーマを追加し、有効化しました。', $resultPage);
+    assertContains('公開サイトに反映されています。', $resultPage);
     assertTrue(is_dir($testRoot . '/themes/tomos-http-test'), 'theme missing after confirmation');
+    $activeConfig = require $testRoot . '/config.php';
+    assertSame('tomos-http-test', (string) ($activeConfig['theme']['name'] ?? ''), 'new theme was not auto-activated');
     assertTrue(!file_exists($testRoot . '/storage/theme-upload.lock'), 'theme lock remains');
     $temporaryItems = is_dir($testRoot . '/storage/theme-upload-tmp')
         ? array_values(array_diff(scandir($testRoot . '/storage/theme-upload-tmp') ?: [], ['.', '..']))
@@ -89,16 +93,32 @@ try {
 
     $afterAdd = curlRequest($baseUrl . '/post/theme/', $cookie);
     assertContains('tomos-http-test', $afterAdd);
+    assertContains('使用中のため削除できません', $afterAdd);
     $themeToken = csrfToken($afterAdd);
+
+    $activeDelete = curlRequest($baseUrl . '/post/theme/delete/', $cookie, [
+        '_token' => $themeToken,
+        'delete_theme' => 'tomos-http-test',
+    ]);
+    assertContains('使用中のテーマは削除できません', $activeDelete);
+    assertTrue(is_dir($testRoot . '/themes/tomos-http-test'), 'active theme was deleted');
+
+    $bundledDelete = curlRequest($baseUrl . '/post/theme/delete/', $cookie, [
+        '_token' => $themeToken,
+        'delete_theme' => 'tomos-minimal',
+    ]);
+    assertContains('Tomos標準テーマは削除できません', $bundledDelete);
+    assertTrue(is_dir($testRoot . '/themes/tomos-minimal'), 'bundled theme was deleted');
+
     $switchConfirm = curlRequest($baseUrl . '/post/theme/confirm/', $cookie, [
         '_token' => $themeToken,
-        'theme_name' => 'tomos-http-test',
+        'theme_name' => 'tomos-minimal',
     ]);
     assertContains('テーマ変更確認', $switchConfirm);
     $switchToken = csrfToken($switchConfirm);
     $switched = curlRequest($baseUrl . '/post/theme/confirm/', $cookie, [
         '_token' => $switchToken,
-        'theme_name' => 'tomos-http-test',
+        'theme_name' => 'tomos-minimal',
         'action' => 'apply',
     ]);
     assertContains('テーマを変更しました。', $switched);
@@ -109,6 +129,26 @@ try {
     assertContains('有効期限が切れました', $doubleSubmit);
     $matchingThemes = glob($testRoot . '/themes/tomos-http-test') ?: [];
     assertTrue(count($matchingThemes) === 1, 'duplicate theme was created');
+
+    $deleteList = curlRequest($baseUrl . '/post/theme/', $cookie);
+    assertContains('name="delete_theme" value="tomos-http-test"', $deleteList);
+    $deleteToken = csrfToken($deleteList);
+    $deleteConfirm = curlRequest($baseUrl . '/post/theme/delete/', $cookie, [
+        '_token' => $deleteToken,
+        'delete_theme' => 'tomos-http-test',
+    ]);
+    assertContains('テーマ削除確認', $deleteConfirm);
+    assertContains('Tomos HTTP Test', $deleteConfirm);
+    $deleteConfirmToken = csrfToken($deleteConfirm);
+    $deleted = curlRequest($baseUrl . '/post/theme/delete/', $cookie, [
+        '_token' => $deleteConfirmToken,
+        'delete_theme' => 'tomos-http-test',
+        'action' => 'delete',
+    ]);
+    assertContains('テーマを削除しました。', $deleted);
+    assertTrue(!is_dir($testRoot . '/themes/tomos-http-test'), 'user theme remains after deletion');
+    $afterDelete = curlRequest($baseUrl . '/post/theme/', $cookie);
+    assertNotContains('tomos-http-test', $afterDelete);
 
     $badCsrf = curlRequest($baseUrl . '/post/theme/add/', $cookie, ['_token' => 'invalid']);
     assertContains('フォームの有効期限が切れました', $badCsrf);
@@ -128,6 +168,9 @@ try {
     $headers = curlHeaders($baseUrl . '/post/theme/add/', $unauthenticatedCookie);
     assertContains('HTTP/1.1 302', $headers);
     assertContains('/post/', $headers);
+    $deleteHeaders = curlHeaders($baseUrl . '/post/theme/delete/', $unauthenticatedCookie);
+    assertContains('HTTP/1.1 302', $deleteHeaders);
+    assertContains('/post/', $deleteHeaders);
 
     $postHome = curlRequest($baseUrl . '/post/', $cookie);
     assertNotContains('Fatal error', $postHome);
@@ -135,7 +178,7 @@ try {
     assertNotContains('Fatal error', $settingsPage);
     $updatePage = curlRequest($baseUrl . '/update/', $cookie);
     assertNotContains('Fatal error', $updatePage);
-    echo "theme_package_http_check: browser upload, confirmation, listing, switch, public render, CSRF and double-submit passed\n";
+    echo "theme_package_http_check: upload, auto-activation, protected deletion, user-theme deletion, public render, CSRF and double-submit passed\n";
 } catch (Throwable $exception) {
     if (is_file($testRoot . '/php-server.log')) {
         fwrite(STDERR, (string) file_get_contents($testRoot . '/php-server.log'));

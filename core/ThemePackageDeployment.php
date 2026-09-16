@@ -9,6 +9,14 @@ use Throwable;
 final class ThemePackageDeployment
 {
     private const DEPLOY_LOCK_TTL = 600;
+    private const BUNDLED_THEME_IDS = [
+        'tomos-90s',
+        'tomos-blog',
+        'tomos-dark',
+        'tomos-journal',
+        'tomos-minimal',
+        'tomos-note',
+    ];
 
     private string $rootDir;
     private string $themesDir;
@@ -32,6 +40,11 @@ final class ThemePackageDeployment
         $this->installer = new ThemePackageInstaller($this->rootDir, $this->candidateThemesDir);
     }
 
+    public static function isBundledTheme(string $themeId): bool
+    {
+        return in_array($themeId, self::BUNDLED_THEME_IDS, true);
+    }
+
     public function diagnostics(): array
     {
         return $this->installer->diagnostics();
@@ -45,6 +58,9 @@ final class ThemePackageDeployment
     public function cleanupStaleTemporaryFiles(): void
     {
         $this->installer->cleanupStaleTemporaryFiles();
+        foreach (glob($this->themesDir . DIRECTORY_SEPARATOR . '.tomos-theme-deleted-*') ?: [] as $deletedPath) {
+            $this->removeTreeWithRetry($deletedPath);
+        }
         $this->cleanupEmptyCandidateDirectory();
         $this->ensureCandidateDirectory();
     }
@@ -188,6 +204,77 @@ final class ThemePackageDeployment
         }
     }
 
+    public function delete(string $themeId, string $owner): array
+    {
+        if (!ThemePackagePolicy::isThemeId($themeId)) {
+            throw new ThemePackageException('テーマIDが正しくありません。', 'theme_id');
+        }
+        if (self::isBundledTheme($themeId)) {
+            throw new ThemePackageException('Tomos標準テーマは削除できません。', 'bundled_theme');
+        }
+
+        $target = $this->themesDir . DIRECTORY_SEPARATOR . $themeId;
+        $lockHandle = null;
+        $quarantine = '';
+
+        try {
+            $lockHandle = $this->acquireDeployLock($owner);
+            if (!file_exists($target)) {
+                throw new ThemePackageException('削除するテーマが見つかりません。', 'missing_theme');
+            }
+            if (!is_dir($target) || is_link($target)) {
+                throw new ThemePackageException('削除対象を安全なテーマディレクトリとして確認できません。管理者に確認してください。', 'existing_theme');
+            }
+
+            ConfigWriteLock::run($this->rootDir, function () use ($themeId, $target, &$quarantine): void {
+                $configPath = $this->rootDir . DIRECTORY_SEPARATOR . 'config.php';
+                $currentTheme = 'tomos-minimal';
+                if (is_file($configPath)) {
+                    $loaded = require $configPath;
+                    if (is_array($loaded)) {
+                        $currentTheme = (string) ($loaded['theme']['name'] ?? 'tomos-minimal');
+                    }
+                }
+                if ($currentTheme === $themeId) {
+                    throw new ThemePackageException('使用中のテーマは削除できません。先に別のテーマへ切り替えてください。', 'active_theme');
+                }
+                if (!is_dir($target) || is_link($target)) {
+                    throw new ThemePackageException('削除対象を安全なテーマディレクトリとして確認できません。管理者に確認してください。', 'existing_theme');
+                }
+
+                $quarantine = $this->themesDir . DIRECTORY_SEPARATOR . '.tomos-theme-deleted-' . $themeId . '-' . bin2hex(random_bytes(12));
+                if (!@rename($target, $quarantine)) {
+                    $quarantine = '';
+                    throw new ThemePackageException('テーマを安全に削除領域へ移動できませんでした。themesフォルダの書き込み権限を確認してください。', 'delete_move');
+                }
+            });
+
+            $cleanupWarning = false;
+            if ($quarantine !== '' && (file_exists($quarantine) || is_link($quarantine))) {
+                if (!$this->removeTreeWithRetry($quarantine)) {
+                    $cleanupWarning = true;
+                    error_log('[Tomos theme deploy] deleted theme cleanup failed theme=' . $themeId);
+                } else {
+                    $quarantine = '';
+                }
+            }
+
+            return [
+                'operation' => 'delete',
+                'theme_id' => $themeId,
+                'cleanup_warning' => $cleanupWarning,
+            ];
+        } catch (ThemePackageException $exception) {
+            $this->logFailure('delete', $themeId, $exception);
+            throw $exception;
+        } catch (Throwable $exception) {
+            $this->logFailure('delete', $themeId, $exception);
+            throw new ThemePackageException('テーマを削除できませんでした。もう一度お試しください。', 'delete_unexpected');
+        } finally {
+            $this->releaseDeployLock($lockHandle);
+        }
+    }
+
     private function withInstalledThemeContext(array $summary): array
     {
         $themeId = (string) ($summary['theme_id'] ?? '');
@@ -303,7 +390,7 @@ final class ThemePackageDeployment
             if (is_resource($handle)) {
                 fclose($handle);
             }
-            throw new ThemePackageException('別のテーマ追加・更新処理が実行中です。しばらくしてからもう一度お試しください。', 'deploy_lock');
+            throw new ThemePackageException('別のテーマ管理処理が実行中です。しばらくしてからもう一度お試しください。', 'deploy_lock');
         }
 
         $payload = json_encode([
@@ -314,7 +401,7 @@ final class ThemePackageDeployment
             @flock($handle, LOCK_UN);
             fclose($handle);
             @unlink($this->deployLockPath);
-            throw new ThemePackageException('テーマ追加・更新用の排他制御を開始できませんでした。', 'deploy_lock');
+            throw new ThemePackageException('テーマ管理用の排他制御を開始できませんでした。', 'deploy_lock');
         }
         @chmod($this->deployLockPath, 0600);
         return $handle;
