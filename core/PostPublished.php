@@ -27,6 +27,7 @@ final class PostPublished
     public function list(string $query = '', string $year = '', int $page = 1, int $perPage = 50): array
     {
         $query = trim($query);
+        $terms = $this->terms($query);
         $year = preg_match('/\A\d{4}\z/', trim($year)) === 1 ? trim($year) : '';
         $perPage = max(1, $perPage);
 
@@ -65,7 +66,7 @@ final class PostPublished
                 $path,
                 (string) ($pageEntry['search_text'] ?? ''),
             ];
-            if ($query !== '' && !$this->containsAny($haystacks, $query)) {
+            if ($terms !== [] && !$this->containsAllTerms($haystacks, $terms)) {
                 continue;
             }
 
@@ -184,18 +185,30 @@ final class PostPublished
         ];
     }
 
-    private function containsAny(array $haystacks, string $query): bool
+    private function terms(string $query): array
     {
-        foreach ($haystacks as $haystack) {
-            if (function_exists('mb_stripos')) {
-                if (mb_stripos((string) $haystack, $query, 0, 'UTF-8') !== false) {
-                    return true;
-                }
-            } elseif (stripos((string) $haystack, $query) !== false) {
-                return true;
+        if ($query === '') {
+            return [];
+        }
+
+        $parts = preg_split('/\s+/u', $this->lower($query), -1, PREG_SPLIT_NO_EMPTY);
+        return is_array($parts) ? array_values(array_unique($parts)) : [];
+    }
+
+    private function containsAllTerms(array $haystacks, array $terms): bool
+    {
+        $text = $this->lower(implode(' ', array_map('strval', $haystacks)));
+        foreach ($terms as $term) {
+            if ($term !== '' && strpos($text, $term) === false) {
+                return false;
             }
         }
 
-        return false;
+        return true;
+    }
+
+    private function lower(string $value): string
+    {
+        return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
     }
 }
