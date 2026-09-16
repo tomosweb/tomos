@@ -153,6 +153,41 @@ try {
         throw new RuntimeException($targetVersion . ' release note must document the exact update transition');
     }
 
+    $artifactDir = trim((string) getenv('TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR'));
+    if ($artifactDir !== '') {
+        if (!is_dir($artifactDir) && !mkdir($artifactDir, 0700, true)) {
+            throw new RuntimeException('could not create release transition artifact directory');
+        }
+        $artifactName = 'tomos-update-' . $fromVersion . '-to-' . $targetVersion . '-TEST.zip';
+        $artifactPath = rtrim($artifactDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $artifactName;
+        if (!copy($output, $artifactPath)) {
+            throw new RuntimeException('could not preserve test Update ZIP artifact');
+        }
+        $keyDetails = openssl_pkey_get_details($key);
+        $publicKey = is_array($keyDetails) ? (string) ($keyDetails['key'] ?? '') : '';
+        if ($publicKey === '') {
+            throw new RuntimeException('could not export test public key');
+        }
+        $publicKeyPath = rtrim($artifactDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'test-public-key.pem';
+        file_put_contents($publicKeyPath, $publicKey, LOCK_EX);
+        $sha256 = hash_file('sha256', $artifactPath);
+        file_put_contents(
+            rtrim($artifactDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'SHA256SUMS',
+            $sha256 . '  ' . $artifactName . "\n",
+            LOCK_EX
+        );
+        file_put_contents(
+            rtrim($artifactDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'TEST-ONLY.txt',
+            "TEST ONLY - DO NOT PUBLISH\n"
+            . 'Transition: v' . $fromVersion . ' -> v' . $targetVersion . "\n"
+            . "This Update ZIP is signed with an ephemeral test key.\n"
+            . "Use test-public-key.pem only in an isolated copy of the v{$fromVersion} test environment.\n",
+            LOCK_EX
+        );
+        echo 'test update artifact: ' . $artifactPath . PHP_EOL;
+        echo 'test update sha256: ' . $sha256 . PHP_EOL;
+    }
+
     echo "release_transition_check: OK\n";
 } finally {
     removeTree($tmp);
