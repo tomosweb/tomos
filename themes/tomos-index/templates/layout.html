@@ -12,17 +12,17 @@
   <div class="index-shell">
     <header class="site-header">
       <a class="site-title" href="{{ site.home_url }}">{{ site.name }}</a>
-      <nav class="site-links" aria-label="主要ページ">{{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}</nav>
+      <nav class="site-links index-header-nav" aria-label="主要ページ">{{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}</nav>
       <details class="mobile-menu">
         <summary aria-label="メニューを開く">メニュー</summary>
-        <nav aria-label="モバイルメニュー">{{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}</nav>
+        <nav class="index-header-nav" aria-label="モバイルメニュー">{{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}</nav>
       </details>
     </header>
 
     <main class="site-main">{{{ page.body }}}</main>
 
     <footer class="site-footer">
-      <p>{{ site.name }}</p>
+      <a href="{{ site.home_url }}">{{ site.name }}</a>
       <a href="https://tomoswords.org/docs/">Tomosの使い方</a>
     </footer>
   </div>
