@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/core/Security.php';
+require_once dirname(__DIR__) . '/core/PublishedMetadata.php';
+require_once dirname(__DIR__) . '/core/PageSorter.php';
 require_once dirname(__DIR__) . '/core/NavigationBuilder.php';
 
 use Tomos\NavigationBuilder;
