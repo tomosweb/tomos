@@ -11,7 +11,8 @@
     "template_errors": [
       {"id": "php-tags", "regex": "<\\?(?:php|=)?", "message": "PHPタグは使えません。"},
       {"id": "javascript-url", "regex": "javascript\\s*:", "message": "javascript: URLは使えません。"},
-      {"id": "data-html", "regex": "data\\s*:\\s*text\\/html", "message": "data:text/html は使えません。"}
+      {"id": "data-html", "regex": "data\\s*:\\s*text\\/html", "message": "data:text/html は使えません。"},
+      {"id": "latest-pages-without-list-navigation", "regex": "(?s)^(?=.*\\{\\{\\{\\s*list\\.latest_pages\\s*\\}\\}\\})(?!.*(?:nav\\.sections|nav\\.primary_items)).*$", "message": "list.latest_pages を使うトップページには、nav.sections または nav.primary_items を使った記事一覧への導線が必要です。"}
     ],
     "template_warnings": [
       {"id": "script-element", "regex": "<script\\s+[^>]*(?:src|type)\\s*=", "message": "script要素は避けてください。"},
