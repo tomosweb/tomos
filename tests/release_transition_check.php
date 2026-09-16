@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.0';
-$fromRef = 'd31894e5f60c07778ace35d98f631f8227864344';
+$fromVersion = '1.0.1';
+$fromRef = 'fc49f20b1c450c8a9587b109b38c5b87741ae29e';
 require_once $root . '/tools/UpdateFileSet.php';
-// d31894e5 is the formally released v1.0.0 source baseline.
+// fc49f20b is the private source baseline merged for the formally released v1.0.1.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
@@ -123,7 +123,11 @@ try {
 
         foreach ([
             'VERSION',
-            'core/MarkdownParser.php',
+            'core/PostPublished.php',
+            'core/ThemePackageDeployment.php',
+            'post/theme/index.php',
+            'post/theme/delete/index.php',
+            'post/theme/add/confirm/index.php',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
