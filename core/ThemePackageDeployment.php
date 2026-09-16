@@ -86,6 +86,7 @@ final class ThemePackageDeployment
 
     public function apply(string $id, string $owner): array
     {
+        $this->resetCandidateWorkspace();
         $candidateResult = $this->installer->apply($id, $owner);
         $themeId = (string) ($candidateResult['theme_id'] ?? '');
         if (!ThemePackagePolicy::isThemeId($themeId)) {
@@ -323,6 +324,20 @@ final class ThemePackageDeployment
             return 'older';
         }
         return 'same';
+    }
+
+    private function resetCandidateWorkspace(): void
+    {
+        if ((file_exists($this->candidateThemesDir) || is_link($this->candidateThemesDir))
+            && !$this->removeTreeWithRetry($this->candidateThemesDir)
+        ) {
+            throw new ThemePackageException('テーマ更新用の作業領域を初期化できませんでした。themesフォルダの書き込み権限を確認してください。', 'candidate_cleanup');
+        }
+        $this->ensureCandidateDirectory();
+        if (!is_dir($this->candidateThemesDir) || !is_writable($this->candidateThemesDir)) {
+            throw new ThemePackageException('テーマ更新用の作業領域を準備できませんでした。themesフォルダの書き込み権限を確認してください。', 'candidate');
+        }
+        $this->installer = new ThemePackageInstaller($this->rootDir, $this->candidateThemesDir);
     }
 
     private function ensureCandidateDirectory(): void
