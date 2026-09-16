@@ -39,7 +39,14 @@ img { max-width: 100%; height: auto; }
 .index-profile-links { display: flex; flex-wrap: wrap; gap: .65rem; margin-left: auto; font-size: .74rem; }
 .index-profile--bottom { margin-top: 1rem; border-top: 1px solid var(--index-line); border-bottom: 0; }
 .index-feed, .index-list-page { padding: .85rem 0 4.6rem; }
-.index-article { width: min(100%, var(--index-reading)); margin: 0 auto; padding: 3rem 0 4.8rem; }
+.index-article {
+  width: min(100%, var(--index-reading));
+  margin: 0 auto;
+  padding: 2.6rem 2.8rem 3.4rem;
+  border: 1px solid var(--index-line);
+  border-radius: .55rem;
+  background: var(--index-card);
+}
 
 .page-list-items, .tag-page-list, .search-results { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
 .page-list-items li, .tag-page-list li, .search-results li {
@@ -141,7 +148,7 @@ img { max-width: 100%; height: auto; }
   .index-profile-description { margin-top: .2rem; font-size: .8rem; }
   .index-profile-links { margin-top: .45rem; font-size: .74rem; }
   .index-feed, .index-list-page { padding: .7rem 0 3.5rem; }
-  .index-article { padding: 2.1rem 0 3.5rem; }
+  .index-article { padding: 1.8rem .95rem 3rem; }
   .page-list-items { gap: .55rem; }
   .page-list-items li { min-height: 5.15rem; padding: .85rem .9rem .8rem; }
   .page-list-items a { font-size: 1rem; }
