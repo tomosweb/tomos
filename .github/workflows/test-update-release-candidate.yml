@@ -22,6 +22,10 @@ jobs:
           php-version: '8.2'
           extensions: openssl, mbstring, zip
           coverage: none
+          tools: composer:v2
+
+      - name: Prepare distribution dependencies
+        run: bash tools/prepare-distribution-dependencies.sh
 
       - name: Build and verify test Update ZIP
         env:
