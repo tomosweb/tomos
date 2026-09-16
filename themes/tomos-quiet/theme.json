@@ -1,7 +1,7 @@
 {
   "name": "tomos-quiet",
   "display_name": "Tomos Quiet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "日記、短文、ブログ記事を静かに読ませる、文章中心のテーマです。",
   "author": "Tomos Project",
   "requires_tomos": "1.0.0",
