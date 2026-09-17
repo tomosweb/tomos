@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// This check covers the Core navigation contract only. Rendering through
+// released Theme templates is covered by theme_template_pagination_check.php.
+
 require_once dirname(__DIR__) . '/core/Security.php';
 require_once dirname(__DIR__) . '/core/PublishedMetadata.php';
 require_once dirname(__DIR__) . '/core/PageSorter.php';
