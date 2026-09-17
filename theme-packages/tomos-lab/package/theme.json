@@ -1,0 +1,18 @@
+{
+  "name": "tomos-lab",
+  "display_name": "Tomos Lab",
+  "version": "1.0.0",
+  "description": "研究室・研究グループ向けの商用サイト制作を想定した、明快でレスポンシブなTomosテーマです。",
+  "author": "Tomos Project",
+  "requires_tomos": "0.3.0",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "favicon": true,
+    "ogp": true,
+    "responsive": true
+  }
+}

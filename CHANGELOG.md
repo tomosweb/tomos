@@ -1,5 +1,20 @@
 # 更新履歴
 
+## v1.0.2 - 2026-09-17
+
+### Improved
+
+- Tomos Postの公開済み記事検索で、空白区切りの複数語を使えるようにしました。title、filename、path、search textを横断して全語一致で検索します。
+- 新しいTheme ZIPを追加した場合、追加完了後にそのThemeを自動で有効化し、生成済みHTMLキャッシュを更新して公開サイトへ反映するようにしました。
+- ユーザーが追加したThemeをTomos Postから削除できるようにしました。同梱6Themeと使用中Themeは削除できません。
+
+### Fixed / Compatibility
+
+- 既存Themeの同一Theme ID・同一version再配置を含む更新で、内部の一時作業領域が残っていると `duplicate_theme` になることがある問題を修正しました。
+- 既存ThemeのZIP更新は現在のTheme選択を維持し、更新後の内容をそのまま公開サイトへ反映します。
+- トップページの最新記事12件と、セクション一覧30件＋ページングの既存表示契約を回帰テストで固定しました。
+- v1.0.1からv1.0.2へ、署名付きTomos Updateで更新します。
+
 ## v1.0.1 - 2026-09-16
 
 ### Fixed / Compatibility

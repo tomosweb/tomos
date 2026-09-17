@@ -52,6 +52,7 @@ function renderThemePage(array $config, array $themes, string $currentTheme, str
     $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
     $confirmUrl = Tomos\Security::publicUrl('/post/theme/confirm/', $publicBasePath);
     $addUrl = Tomos\Security::publicUrl('/post/theme/add/', $publicBasePath);
+    $deleteUrl = Tomos\Security::publicUrl('/post/theme/delete/', $publicBasePath);
 
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
@@ -67,7 +68,7 @@ body{background:var(--tomos-bg);color:var(--tomos-text);font-family:system-ui,-a
 h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}h2{border-top:1px solid var(--tomos-border-soft);color:var(--tomos-text);font-size:1.2rem;margin:2rem 0 1rem;padding-top:1.5rem}
 .hint{color:var(--tomos-muted);font-size:0.95rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}
 .theme{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:8px;margin:0.75rem 0;padding:1rem}.theme.current{border-color:var(--tomos-accent);background:var(--tomos-button-hover)}.theme.invalid{background:#f7f7f4;color:var(--tomos-muted)}
-label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{accent-color:var(--tomos-accent);margin-right:0.45rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-size:16px;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,input[type=radio]:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}.actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}
+label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{accent-color:var(--tomos-accent);margin-right:0.45rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-size:16px;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,input[type=radio]:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}button.danger{background:#fff;color:#8a2e26;border-color:#d9a39e}button.danger:hover{background:#f8ecea;border-color:#c98e88}.theme-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.85rem}.actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}
 </style></head><body><main class="wrap">';
 
     echo '<h1>テーマを切り替える</h1>';
@@ -114,6 +115,16 @@ label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{ac
                 echo '<li>' . e((string) $error) . '</li>';
             }
             echo '</ul>';
+        }
+
+        if (!Tomos\ThemePackageDeployment::isBundledTheme($id)) {
+            echo '<div class="theme-actions">';
+            if ($id === $currentTheme) {
+                echo '<span class="hint">使用中のため削除できません。先に別のテーマへ切り替えてください。</span>';
+            } else {
+                echo '<button class="danger" type="submit" formaction="' . e($deleteUrl) . '" name="delete_theme" value="' . e($id) . '">削除</button>';
+            }
+            echo '</div>';
         }
         echo '</div>';
     }

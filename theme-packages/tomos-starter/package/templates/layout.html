@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="{{ page.language }}">
+<head>
+  <!-- Coreが生成するanalytics/SEO fragmentを表示します。Themeでmetadataを組み立てません。 -->
+  {{{ site.analytics_html }}}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{{ page.seo_head_html }}}
+  <link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}">
+  <link rel="apple-touch-icon" href="{{ theme.apple_touch_icon_url }}">
+  <link rel="stylesheet" href="{{ theme.asset_url }}/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-title" href="{{ site.home_url }}">{{ site.name }}</a>
+    <p class="site-description">{{ site.description }}</p>
+  </header>
+
+  <div class="site-layout">
+    <aside class="site-sidebar">
+      <details class="mobile-navigation">
+        <summary>ページ一覧</summary>
+        {{{ nav.mobile_tree }}}
+      </details>
+      <nav class="desktop-navigation" aria-label="ページ一覧">
+        {{{ nav.tree }}}
+      </nav>
+    </aside>
+
+    <main class="site-main">
+      <!-- page.bodyはCoreがpage.html/list.htmlから生成します。 -->
+      {{{ page.body }}}
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <p>Powered by Tomos</p>
+  </footer>
+</body>
+</html>

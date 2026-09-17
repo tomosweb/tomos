@@ -1,0 +1,75 @@
+name: Core regression
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-regression:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch public baselines
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/tags/tomos-public-v0.5.2
+          git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.7.0:refs/tags/tomos-public-v0.7.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: openssl, mbstring, zip, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: PHP lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file" >/dev/null
+          done < <(find . -path './core/webauthn/vendor' -prune -o -name '*.php' -print0)
+
+      - name: Prepare WebAuthn runtime
+        run: bash tools/prepare-distribution-dependencies.sh
+
+      - name: Build distribution fixture
+        run: bash tools/build-distribution.sh
+
+      - name: Run regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tests/*_check.php; do
+            if [ "$test" = "tests/installer_phase5_check.php" ]; then
+              echo "Skipping $test (requires signed release-candidate fixture; covered by installer release workflow)"
+              continue
+            fi
+            if [ "$test" = "tests/public_artifact_update_acceptance_check.php" ]; then
+              echo "Skipping $test (live public artifact gate; run public-artifact-release-gate workflow explicitly)"
+              continue
+            fi
+            if [ "$test" = "tests/update_v073_to_v090_migration_check.php" ]; then
+              echo "Skipping $test (immutable v0.7.3 fixture gate; run only against its historical baseline)"
+              continue
+            fi
+            echo "Running $test"
+            if [ "$test" = "tests/update_self_update_no_proc_open_check.php" ]; then
+              php -d disable_functions=proc_open "$test"
+            else
+              php "$test"
+            fi
+          done

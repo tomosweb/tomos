@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Example Research Group sample logo">
+  <rect width="128" height="128" rx="28" fill="#2f6175"/>
+  <circle cx="46" cy="48" r="18" fill="#ffffff"/>
+  <circle cx="82" cy="46" r="12" fill="#cfe0e6"/>
+  <circle cx="70" cy="82" r="20" fill="#ffffff" opacity=".88"/>
+  <path d="M50 60 L64 72 M74 57 L72 64" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+</svg>

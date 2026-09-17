@@ -1,0 +1,19 @@
+{
+  "name": "tomos-starter",
+  "display_name": "Tomos Starter Theme",
+  "version": "0.1.0",
+  "description": "Tomos Themeの仕組みを読みながら学べるStarter Themeです。",
+  "author": "Tomos Project",
+  "requires_tomos": "0.6.1",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "seo_foundation": true,
+    "markdown_compatibility": true,
+    "responsive": true,
+    "javascript": false
+  }
+}
