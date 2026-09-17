@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.1';
-$fromRef = 'fc49f20b1c450c8a9587b109b38c5b87741ae29e';
+$fromVersion = '1.0.2';
+$fromRef = 'a030290e5701a5c0b71e81dadf53ffa44ab5e65a';
 require_once $root . '/tools/UpdateFileSet.php';
-// fc49f20b is the private source baseline merged for the formally released v1.0.1.
+// a030290e is the public source baseline for the formally released v1.0.2.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
@@ -123,11 +123,9 @@ try {
 
         foreach ([
             'VERSION',
-            'core/PostPublished.php',
-            'core/ThemePackageDeployment.php',
-            'post/theme/index.php',
-            'post/theme/delete/index.php',
-            'post/theme/add/confirm/index.php',
+            'assets/tomos-default-favicon.png',
+            'core/TemplateRenderer.php',
+            'core/required-installed-files.txt',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
