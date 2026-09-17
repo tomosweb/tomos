@@ -1,0 +1,17 @@
+<section class="quiet-layout quiet-home-layout">
+  <aside class="quiet-profile" aria-label="プロフィール">
+    <p class="quiet-profile-name">{{ site.name }}</p>
+    <p class="quiet-profile-description">{{ site.description }}</p>
+    <nav class="quiet-profile-links" aria-label="プロフィールリンク">
+      <a href="{{ nav.about_url }}">プロフィール</a>
+      {{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+    </nav>
+  </aside>
+
+  <section class="quiet-feed" aria-label="記事一覧">
+    {{{ list.latest_pages }}}
+    <nav class="quiet-profile-links quiet-more" aria-label="記事一覧へのリンク">
+      {{{ nav.sections }}}
+    </nav>
+  </section>
+</section>
