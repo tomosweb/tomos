@@ -82,7 +82,8 @@ require $root . '/' . $route;
 PHP;
     finalizeCheck(file_put_contents($runner, $runnerSource, LOCK_EX) !== false, 'could not create runner');
     foreach (['storage/update-tmp', 'storage/update-backups', 'storage/update-logs'] as $directory) {
-        finalizeCheck(mkdir($fixture . '/' . $directory, 0700, true), 'could not create runtime directory');
+        $runtimeDirectory = $fixture . '/' . $directory;
+        finalizeCheck(is_dir($runtimeDirectory) || mkdir($runtimeDirectory, 0700, true), 'could not create runtime directory');
     }
     $pending = $fixture . '/core/updater-pending';
     finalizeCheck(mkdir($pending, 0700, true), 'could not create pending directory');
