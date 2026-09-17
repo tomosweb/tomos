@@ -36,8 +36,8 @@ jobs:
       - name: Verify Theme ZIP update and active rendering
         run: |
           php tests/theme_folder_pill_package_update_check.php \
-            --quiet="$RUNNER_TEMP/theme-test/tomos-quiet-1.0.4-test.zip" \
-            --index="$RUNNER_TEMP/theme-test/tomos-index-1.0.5-test.zip"
+            --quiet="$RUNNER_TEMP/theme-test/tomos-quiet-1.0.5-test.zip" \
+            --index="$RUNNER_TEMP/theme-test/tomos-index-1.0.6-test.zip"
 
       - name: Upload test Theme ZIPs
         uses: actions/upload-artifact@v4

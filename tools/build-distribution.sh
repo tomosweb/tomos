@@ -90,6 +90,7 @@ copy_item() {
 echo "Copying distribution files..."
 copy_item "index.php"
 copy_item ".htaccess"
+copy_item "assets"
 copy_item "config.sample.php"
 copy_item "README.md"
 copy_item "INSTALL.md"

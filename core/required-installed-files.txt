@@ -1,6 +1,7 @@
 index.php
 .htaccess
 VERSION
+assets/tomos-default-favicon.png
 post/index.php
 post/.htaccess
 post/auth-gate.php
