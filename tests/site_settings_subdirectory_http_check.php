@@ -1,0 +1,416 @@
+<?php
+
+declare(strict_types=1);
+
+if (!function_exists('proc_open') || !class_exists('DOMDocument')) {
+    fwrite(STDERR, "SKIP: proc_open or DOMDocument is unavailable.\n");
+    exit(2);
+}
+
+$sourceRoot = dirname(__DIR__);
+$testRoot = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-site-settings-http-' . bin2hex(random_bytes(8));
+$docRoot = $testRoot . DIRECTORY_SEPARATOR . 'htdocs';
+$installRoot = $docRoot . DIRECTORY_SEPARATOR . 'theme-labo';
+$server = null;
+
+try {
+    copyTree($sourceRoot, $installRoot);
+    foreach (['storage', 'cache', 'trash'] as $directory) {
+        if (!is_dir($installRoot . DIRECTORY_SEPARATOR . $directory)) {
+            mkdir($installRoot . DIRECTORY_SEPARATOR . $directory, 0700, true);
+        }
+    }
+
+    $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+    if (!is_resource($socket)) {
+        throw new RuntimeException('could not reserve local port: ' . $error);
+    }
+    $address = (string) stream_socket_get_name($socket, false);
+    fclose($socket);
+    $port = (int) substr(strrchr($address, ':'), 1);
+
+    $config = require $installRoot . '/config.sample.php';
+    $config['site']['url'] = 'http://127.0.0.1:' . $port . '/theme-labo';
+    $config['site']['base_path'] = '/theme-labo';
+    $config['site']['public_base_path'] = '/theme-labo';
+    $config['paths']['content_dir'] = $installRoot . '/content';
+    $config['paths']['cache_dir'] = $installRoot . '/cache';
+    $config['paths']['theme_dir'] = $installRoot . '/themes';
+    $config['security']['post_password_hash'] = password_hash('test-password', PASSWORD_DEFAULT);
+    $config['security']['rate_limit_salt'] = bin2hex(random_bytes(16));
+    $config['setup_completed'] = true;
+    file_put_contents($installRoot . '/config.php', "<?php\nreturn " . var_export($config, true) . ";\n");
+    file_put_contents($installRoot . '/theme-settings.php', "<?php\nreturn ['hero' => ['enabled' => true, 'title' => 'Keep Hero'], 'news' => ['limit' => 3], 'design' => ['key_color' => '#123456']];\n");
+
+    $logPath = $testRoot . '/php-server.log';
+    $server = proc_open(
+        [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $docRoot],
+        [0 => ['pipe', 'r'], 1 => ['file', $logPath, 'a'], 2 => ['file', $logPath, 'a']],
+        $pipes,
+        $docRoot
+    );
+    if (!is_resource($server)) {
+        throw new RuntimeException('could not start PHP server');
+    }
+    fclose($pipes[0]);
+
+    $baseUrl = 'http://127.0.0.1:' . $port . '/theme-labo';
+    waitForServer($baseUrl . '/post/');
+    $cookie = $testRoot . '/cookies.txt';
+
+    $unauthenticatedSite = request($baseUrl . '/post/site-settings.php', $testRoot . '/unauthenticated-site-cookies.txt');
+    assertSame(302, $unauthenticatedSite['status'], 'unauthenticated Site Settings status');
+    assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Fsite-settings.php'), strtolower($unauthenticatedSite['headers']), 'unauthenticated Site Settings redirect');
+    $unauthenticatedTheme = request($baseUrl . '/post/theme/', $testRoot . '/unauthenticated-theme-cookies.txt');
+    assertSame(302, $unauthenticatedTheme['status'], 'unauthenticated Theme status');
+    assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Ftheme%2F'), strtolower($unauthenticatedTheme['headers']), 'unauthenticated Theme redirect');
+
+    $unauthenticatedSettings = request($baseUrl . '/post/?section=settings', $testRoot . '/unauthenticated-settings-cookies.txt');
+    assertSame(200, $unauthenticatedSettings['status'], 'unauthenticated settings status');
+    assertContains('name="action" value="auth_gate_login"', $unauthenticatedSettings['body'], 'unauthenticated settings uses common auth wall');
+    assertNotContains('class="settings-link', $unauthenticatedSettings['body'], 'unauthenticated settings does not expose Post settings UI');
+
+    $siteAuthPage = request($baseUrl . '/post/?section=settings&return_to=%2Fpost%2Fsite-settings.php', $testRoot . '/site-auth-cookies.txt');
+    assertSame(200, $siteAuthPage['status'], 'Site Settings auth page status');
+    assertContains('name="action" value="auth_gate_login"', $siteAuthPage['body'], 'Site Settings common auth wall');
+    $siteAuth = request($baseUrl . '/post/', $testRoot . '/site-auth-cookies.txt', [
+        'action' => 'auth_gate_login',
+        '_token' => hiddenValue($siteAuthPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/site-settings.php',
+    ]);
+    assertSame(302, $siteAuth['status'], 'Site Settings auth redirect status');
+    assertContains('location: /theme-labo/post/site-settings.php', strtolower($siteAuth['headers']), 'Site Settings auth return');
+    $siteAfterAuth = request($baseUrl . '/post/site-settings.php', $testRoot . '/site-auth-cookies.txt');
+    assertSame(200, $siteAfterAuth['status'], 'Site Settings after auth status');
+    assertSame($baseUrl . '/post/site-settings.php', $siteAfterAuth['url'], 'Site Settings after auth URL');
+
+    $themeAuthPage = request($baseUrl . '/post/?section=settings&return_to=%2Fpost%2Ftheme%2F', $testRoot . '/theme-auth-cookies.txt');
+    assertSame(200, $themeAuthPage['status'], 'Theme auth page status');
+    assertContains('name="action" value="auth_gate_login"', $themeAuthPage['body'], 'Theme common auth wall');
+    $themeAuth = request($baseUrl . '/post/', $testRoot . '/theme-auth-cookies.txt', [
+        'action' => 'auth_gate_login',
+        '_token' => hiddenValue($themeAuthPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/theme/',
+    ]);
+    assertSame(302, $themeAuth['status'], 'Theme auth redirect status');
+    assertContains('location: /theme-labo/post/theme/', strtolower($themeAuth['headers']), 'Theme auth return');
+    $themeAfterAuth = request($baseUrl . '/post/theme/', $testRoot . '/theme-auth-cookies.txt');
+    assertSame(200, $themeAfterAuth['status'], 'Theme after auth status');
+    assertSame($baseUrl . '/post/theme/', $themeAfterAuth['url'], 'Theme after auth URL');
+
+    $postAuthPage = request($baseUrl . '/post/', $cookie);
+    assertSame(200, $postAuthPage['status'], 'Tomos Post auth-wall response');
+    assertContains('name="action" value="auth_gate_login"', $postAuthPage['body'], 'Tomos Post auth-wall form');
+    assertTrue(stripos($postAuthPage['headers'], 'path=/theme-labo/post/') !== false, 'session cookie path: ' . $postAuthPage['headers']);
+    $postAuth = request($baseUrl . '/post/', $cookie, [
+        'action' => 'auth_gate_login',
+        '_token' => hiddenValue($postAuthPage['body'], '_token'),
+        'post_password' => 'test-password',
+    ]);
+    assertSame(302, $postAuth['status'], 'Tomos Post common auth redirect');
+    assertContains('location: /theme-labo/post/', strtolower($postAuth['headers']), 'Tomos Post common auth destination');
+
+    $postHome = request($baseUrl . '/post/', $cookie);
+    assertSame(200, $postHome['status'], 'Tomos Post authenticated response');
+    assertContains('submission_id', $postHome['body'], 'authenticated Tomos Post form');
+    $login = request($baseUrl . '/post/?post_api=start', $cookie, [
+        '_token' => hiddenValue($postHome['body'], '_token'),
+        'post_password' => 'test-password',
+        'expected_images' => '[]',
+        'submission_id' => hiddenValue($postHome['body'], 'submission_id'),
+    ]);
+    assertSame(200, $login['status'], 'Tomos Post login response');
+    $loginJson = json_decode($login['body'], true);
+    assertTrue(is_array($loginJson) && !empty($loginJson['ok']), 'normal Tomos Post API authentication failed');
+
+    $settingsHome = request($baseUrl . '/post/?section=settings', $cookie);
+    assertSame(200, $settingsHome['status'], 'settings card response');
+    assertSettingsNavigationSemantics($settingsHome['body']);
+    assertContains('href="/theme-labo/post/site-settings.php"', $settingsHome['body'], 'authenticated Site Settings href');
+    assertContains('href="/theme-labo/post/theme/"', $settingsHome['body'], 'authenticated Theme href');
+
+    $siteSecurityCookie = $testRoot . '/site-security-cookies.txt';
+    $siteSecurityPage = request($baseUrl . '/post/security/?return_to=%2Fpost%2Fsite-settings.php', $siteSecurityCookie);
+    assertSame(200, $siteSecurityPage['status'], 'Site Settings Security page status');
+    assertContains('name="return_to" value="/post/site-settings.php"', $siteSecurityPage['body'], 'Site Settings Security return_to field');
+    $siteSecurityAuth = request($baseUrl . '/post/security/', $siteSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($siteSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/site-settings.php',
+    ]);
+    assertSame(302, $siteSecurityAuth['status'], 'Site Settings Security auth status');
+    assertContains('location: /theme-labo/post/site-settings.php', strtolower($siteSecurityAuth['headers']), 'Site Settings Security auth return');
+
+    $themeSecurityCookie = $testRoot . '/theme-security-cookies.txt';
+    $themeSecurityPage = request($baseUrl . '/post/security/?return_to=%2Fpost%2Ftheme%2F', $themeSecurityCookie);
+    assertSame(200, $themeSecurityPage['status'], 'Theme Security page status');
+    assertContains('name="return_to" value="/post/theme/"', $themeSecurityPage['body'], 'Theme Security return_to field');
+    $themeSecurityAuth = request($baseUrl . '/post/security/', $themeSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($themeSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/theme/',
+    ]);
+    assertSame(302, $themeSecurityAuth['status'], 'Theme Security auth status');
+    assertContains('location: /theme-labo/post/theme/', strtolower($themeSecurityAuth['headers']), 'Theme Security auth return');
+
+    $normalSecurityCookie = $testRoot . '/normal-security-cookies.txt';
+    $normalSecurityPage = request($baseUrl . '/post/security/', $normalSecurityCookie);
+    $normalSecurityAuth = request($baseUrl . '/post/security/', $normalSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($normalSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+    ]);
+    assertSame(302, $normalSecurityAuth['status'], 'normal Security auth status');
+    assertContains('location: /theme-labo/post/security/', strtolower($normalSecurityAuth['headers']), 'normal Security auth destination');
+
+    $invalidSecurityCookie = $testRoot . '/invalid-security-cookies.txt';
+    $invalidSecurityPage = request($baseUrl . '/post/security/?return_to=https%3A%2F%2Fevil.example%2F', $invalidSecurityCookie);
+    assertContains('name="return_to" value="/post/?section=settings"', $invalidSecurityPage['body'], 'invalid Security return_to fallback');
+    $invalidSecurityAuth = request($baseUrl . '/post/security/', $invalidSecurityCookie, [
+        'action' => 'passphrase_auth',
+        '_token' => hiddenValue($invalidSecurityPage['body'], '_token'),
+        'post_password' => 'test-password',
+        'return_to' => '/post/?section=settings',
+    ]);
+    assertSame(302, $invalidSecurityAuth['status'], 'invalid Security auth status');
+    assertContains('location: /theme-labo/post/?section=settings', strtolower($invalidSecurityAuth['headers']), 'invalid Security safe destination');
+
+    $site = request($baseUrl . '/post/site-settings.php', $cookie);
+    assertSame(200, $site['status'], 'Site Settings status');
+    assertSame($baseUrl . '/post/site-settings.php', $site['url'], 'Site Settings final URL');
+    assertContains('サイト設定', $site['body'], 'Site Settings response marker');
+    assertContains('id="navigation-settings"', $site['body'], 'Navigation Settings section');
+    assertContains('name="navigation_mode"', $site['body'], 'Navigation mode controls');
+    assertNotContains('Fatal error', $site['body'], 'Site Settings fatal error');
+
+    $navigationSave = request($baseUrl . '/post/site-settings.php', $cookie, [
+        'settings_section' => 'navigation',
+        '_token' => hiddenValue($site['body'], '_token'),
+        'navigation_mode' => 'manual',
+        'navigation_items' => [
+            ['path' => '/diary/', 'label' => 'Journal', 'hidden' => '1'],
+            ['path' => '/about', 'label' => ''],
+        ],
+    ]);
+    assertSame(200, $navigationSave['status'], 'Navigation Settings save status');
+    assertContains('ナビゲーション設定を保存しました。', $navigationSave['body'], 'Navigation Settings save message');
+    $savedThemeSettings = require $installRoot . '/theme-settings.php';
+    assertSame('Keep Hero', $savedThemeSettings['hero']['title'] ?? '', 'Hero setting preservation');
+    assertSame(3, $savedThemeSettings['news']['limit'] ?? 0, 'News setting preservation');
+    assertSame('Journal', $savedThemeSettings['navigation']['items'][0]['label'] ?? '', 'Navigation label save');
+    assertTrue(!empty($savedThemeSettings['navigation']['items'][0]['hidden']), 'Navigation hidden save');
+    $directNavigationTarget = request($baseUrl . '/diary/', $cookie);
+    assertSame(200, $directNavigationTarget['status'], 'hidden navigation target direct status');
+
+    $beforeCsrfFailure = (string) file_get_contents($installRoot . '/theme-settings.php');
+    $navigationCsrfFailure = request($baseUrl . '/post/site-settings.php', $cookie, [
+        'settings_section' => 'navigation',
+        '_token' => 'invalid-token',
+        'navigation_mode' => 'auto',
+        'navigation_items' => [],
+    ]);
+    assertSame(200, $navigationCsrfFailure['status'], 'Navigation CSRF rejection status');
+    assertContains('フォームの有効期限が切れました。', $navigationCsrfFailure['body'], 'Navigation CSRF rejection message');
+    assertSame($beforeCsrfFailure, (string) file_get_contents($installRoot . '/theme-settings.php'), 'Navigation CSRF rejection preservation');
+
+    file_put_contents($installRoot . '/storage/update.lock', "{\"started_at\":\"" . gmdate('c') . "\"}\n");
+    $beforeUpdateLock = (string) file_get_contents($installRoot . '/theme-settings.php');
+    $navigationUpdateLock = request($baseUrl . '/post/site-settings.php', $cookie, [
+        'settings_section' => 'navigation',
+        '_token' => hiddenValue($navigationSave['body'], '_token'),
+        'navigation_mode' => 'auto',
+        'navigation_items' => [],
+    ]);
+    assertSame(200, $navigationUpdateLock['status'], 'Navigation UpdateLock rejection status');
+    assertContains('Tomosの更新中です。', $navigationUpdateLock['body'], 'Navigation UpdateLock rejection message');
+    assertSame($beforeUpdateLock, (string) file_get_contents($installRoot . '/theme-settings.php'), 'Navigation UpdateLock rejection preservation');
+    @unlink($installRoot . '/storage/update.lock');
+
+    $theme = request($baseUrl . '/post/theme/', $cookie);
+    assertSame(200, $theme['status'], 'Theme status');
+    assertSame($baseUrl . '/post/theme/', $theme['url'], 'Theme final URL');
+    assertContains('テーマを切り替える', $theme['body'], 'Theme response marker');
+    assertNotContains('Fatal error', $theme['body'], 'Theme fatal error');
+
+    $legacy = request($baseUrl . '/post/settings/', $cookie);
+    assertSame(200, $legacy['status'], 'legacy Site Settings status');
+    assertContains('サイト設定', $legacy['body'], 'legacy Site Settings response marker');
+
+    echo "site_settings_subdirectory_http_check: fresh /theme-labo/ auth wall, base-path redirects, settings, Theme, and legacy bookmark passed\n";
+} catch (Throwable $exception) {
+    fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
+    if (is_file($testRoot . '/php-server.log')) {
+        fwrite(STDERR, (string) file_get_contents($testRoot . '/php-server.log'));
+    }
+    exit(1);
+} finally {
+    if (is_resource($server)) {
+        proc_terminate($server);
+        proc_close($server);
+    }
+    removeTree($testRoot);
+}
+
+function request(string $url, string $cookie, ?array $fields = null): array
+{
+    $prefix = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-http-response-' . bin2hex(random_bytes(6));
+    $headerPath = $prefix . '.headers';
+    $bodyPath = $prefix . '.body';
+    $command = ['curl', '-sS', '--max-time', '10', '-D', $headerPath, '-o', $bodyPath, '-c', $cookie, '-b', $cookie];
+    if ($fields !== null) {
+        $command[] = '--data';
+        $command[] = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
+    }
+    $command[] = $url;
+    $command[] = '-w';
+    $command[] = "\n__STATUS__%{http_code}\n__URL__%{url_effective}";
+    $output = [];
+    $exitCode = 0;
+    exec(implode(' ', array_map('escapeshellarg', $command)), $output, $exitCode);
+    $headers = is_file($headerPath) ? (string) file_get_contents($headerPath) : '';
+    $body = is_file($bodyPath) ? (string) file_get_contents($bodyPath) : '';
+    @unlink($headerPath);
+    @unlink($bodyPath);
+    if ($exitCode !== 0) {
+        throw new RuntimeException('curl request failed for ' . $url);
+    }
+    $status = 0;
+    $effectiveUrl = '';
+    foreach ($output as $line) {
+        if (strpos($line, '__STATUS__') === 0) {
+            $status = (int) substr($line, 10);
+        } elseif (strpos($line, '__URL__') === 0) {
+            $effectiveUrl = substr($line, 7);
+        }
+    }
+    return ['status' => $status, 'url' => $effectiveUrl, 'headers' => $headers, 'body' => $body];
+}
+
+function hiddenValue(string $html, string $name): string
+{
+    $pattern = '/<input[^>]+name="' . preg_quote($name, '/') . '"[^>]+value="([^"]*)"/';
+    if (preg_match($pattern, $html, $matches) !== 1) {
+        throw new RuntimeException('hidden field missing: ' . $name);
+    }
+    return html_entity_decode($matches[1], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function assertSame(mixed $expected, mixed $actual, string $label): void
+{
+    if ($expected !== $actual) {
+        throw new RuntimeException($label . ': expected ' . var_export($expected, true) . ', got ' . var_export($actual, true));
+    }
+}
+
+function assertContains(string $needle, string $haystack, string $label): void
+{
+    if (strpos($haystack, $needle) === false) {
+        throw new RuntimeException($label . ': missing ' . $needle);
+    }
+}
+
+function assertNotContains(string $needle, string $haystack, string $label): void
+{
+    if (strpos($haystack, $needle) !== false) {
+        throw new RuntimeException($label . ': found ' . $needle);
+    }
+}
+
+function assertTrue(bool $condition, string $label): void
+{
+    if (!$condition) {
+        throw new RuntimeException($label);
+    }
+}
+
+function assertSettingsNavigationSemantics(string $html): void
+{
+    $document = new DOMDocument();
+    libxml_use_internal_errors(true);
+    if (!$document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)) {
+        throw new RuntimeException('settings page HTML could not be parsed');
+    }
+
+    $links = [];
+    foreach ($document->getElementsByTagName('a') as $anchor) {
+        $classAttribute = $anchor->attributes->getNamedItem('class');
+        $className = $classAttribute instanceof DOMAttr ? (string) $classAttribute->nodeValue : '';
+        if (preg_match('/(?:^|\\s)settings-link(?:\\s|$)/', $className) === 1) {
+            $links[] = $anchor;
+        }
+    }
+    if (count($links) < 2) {
+        throw new RuntimeException('settings navigation cards are missing');
+    }
+
+    foreach ($links as $anchor) {
+        if (strtolower($anchor->nodeName) !== 'a') {
+            throw new RuntimeException('settings navigation control is not an anchor');
+        }
+        foreach (['onclick', 'onmousedown', 'onmouseup', 'ontouchstart'] as $attribute) {
+            if ($anchor->hasAttribute($attribute)) {
+                throw new RuntimeException('settings navigation anchor has inline click interception: ' . $attribute);
+            }
+        }
+        for ($parent = $anchor->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (in_array(strtolower($parent->tagName), ['form', 'button'], true)) {
+                throw new RuntimeException('settings navigation anchor is nested in an interactive control');
+            }
+        }
+        $href = (string) $anchor->getAttribute('href');
+        if ($href === '' || strpos($href, '#') === 0) {
+            throw new RuntimeException('settings navigation anchor is not natively navigable');
+        }
+    }
+}
+
+function waitForServer(string $url): void
+{
+    for ($attempt = 0; $attempt < 50; $attempt++) {
+        $output = [];
+        $status = 0;
+        exec('curl -sS --max-time 1 ' . escapeshellarg($url) . ' >/dev/null 2>&1', $output, $status);
+        if ($status === 0) {
+            return;
+        }
+        usleep(100000);
+    }
+    throw new RuntimeException('PHP server did not start');
+}
+
+function copyTree(string $source, string $destination): void
+{
+    if (!is_dir($destination)) {
+        mkdir($destination, 0775, true);
+    }
+    foreach (scandir($source) ?: [] as $entry) {
+        if ($entry === '.' || $entry === '..' || $entry === '.git' || $entry === 'build') {
+            continue;
+        }
+        $from = $source . DIRECTORY_SEPARATOR . $entry;
+        $to = $destination . DIRECTORY_SEPARATOR . $entry;
+        if (is_dir($from)) {
+            copyTree($from, $to);
+        } else {
+            copy($from, $to);
+        }
+    }
+}
+
+function removeTree(string $path): void
+{
+    if (!is_dir($path)) {
+        @unlink($path);
+        return;
+    }
+    foreach (scandir($path) ?: [] as $entry) {
+        if ($entry !== '.' && $entry !== '..') {
+            removeTree($path . DIRECTORY_SEPARATOR . $entry);
+        }
+    }
+    @rmdir($path);
+}

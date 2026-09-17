@@ -1,0 +1,103 @@
+name: Public artifact release gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: Release target version checked out by this run
+        required: true
+        type: string
+      catalog_url:
+        description: Official public update catalog URL
+        required: true
+        default: https://tomoswords.org/assets/updates/catalog.json
+        type: string
+      v061_distribution_url:
+        description: Public v0.6.1 Distribution ZIP URL
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  public-artifact-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, openssl, mbstring, zip, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: Prepare release fixture
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOMOS_PUBLIC_RELEASE_REPOSITORY: tomosweb/tomos
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/installer-test-private.pem" 2>/dev/null
+          openssl pkey -in "$RUNNER_TEMP/installer-test-private.pem" -pubout -out "$RUNNER_TEMP/installer-test-public.pem" 2>/dev/null
+          bash tools/build-installer-release-candidate.sh \
+            --private-key="$RUNNER_TEMP/installer-test-private.pem" \
+            --public-key="$RUNNER_TEMP/installer-test-public.pem" \
+            --output-dir=build/release-candidate
+
+      - name: Validate required gate inputs
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ inputs.target_version }}
+          CATALOG_URL: ${{ inputs.catalog_url }}
+          V061_URL: ${{ inputs.v061_distribution_url }}
+        run: |
+          set -euo pipefail
+          test -n "$TARGET_VERSION"
+          test -n "$CATALOG_URL"
+          test -n "$V061_URL"
+
+      - name: Run public artifact acceptance gate
+        shell: bash
+        env:
+          TOMOS_RELEASE_GATE: '1'
+          TOMOS_PUBLIC_CATALOG_URL: ${{ inputs.catalog_url }}
+          TOMOS_V061_DISTRIBUTION_URL: ${{ inputs.v061_distribution_url }}
+          TOMOS_PUBLIC_GATE_OUTPUT_DIR: ${{ runner.temp }}/tomos-public-gate
+        run: |
+          set -euo pipefail
+          test "$(tr -d '[:space:]' < VERSION)" = "${{ inputs.target_version }}"
+          php tests/public_artifact_update_acceptance_check.php --strict
+
+      - name: Materialize public repository baseline
+        shell: bash
+        run: git clone --quiet https://github.com/tomosweb/tomos.git "$RUNNER_TEMP/tomos-public"
+
+      - name: Run strict transition checks
+        shell: bash
+        env:
+          TOMOS_RELEASE_GATE: '1'
+          TOMOS_PUBLIC_REPO: ${{ runner.temp }}/tomos-public
+          TOMOS_V063_FROM_061: ${{ runner.temp }}/tomos-public-gate/tomos-update-0_6_1.zip
+        run: |
+          set -euo pipefail
+          echo "Running strict tests/update_runtime_parity_check.php"
+          php tests/update_runtime_parity_check.php --strict
+
+      - name: Run Installer Phase 1-5
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tests/installer_phase1_check.php tests/installer_phase2_check.php tests/installer_phase3_check.php tests/installer_phase4_check.php; do
+            echo "Running $test"
+            php "$test"
+          done
+          TOMOS_PHASE5_CANDIDATE_DIR=build/release-candidate \
+          TOMOS_PHASE5_PUBLIC_KEY="$RUNNER_TEMP/installer-test-public.pem" \
+          php tests/installer_phase5_check.php

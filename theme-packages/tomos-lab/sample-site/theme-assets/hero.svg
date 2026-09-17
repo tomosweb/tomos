@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Abstract molecular interface sample image</title>
+  <desc id="desc">Sample Hero artwork for Tomos Lab development and QA.</desc>
+  <rect width="1600" height="1000" fill="#eaf1f3"/>
+  <circle cx="360" cy="360" r="250" fill="#bfd2d9"/>
+  <circle cx="980" cy="420" r="330" fill="#8eb2c0" opacity=".7"/>
+  <circle cx="1260" cy="720" r="220" fill="#2f6175" opacity=".72"/>
+  <path d="M170 760 C430 540 650 870 900 630 S1320 490 1490 630" fill="none" stroke="#ffffff" stroke-width="30" opacity=".82"/>
+  <g fill="#ffffff">
+    <circle cx="420" cy="665" r="24"/>
+    <circle cx="735" cy="735" r="18"/>
+    <circle cx="1030" cy="570" r="22"/>
+    <circle cx="1325" cy="560" r="16"/>
+  </g>
+</svg>

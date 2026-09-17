@@ -1,0 +1,290 @@
+<?php
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+$tmp = sys_get_temp_dir() . '/tomos-update-builder-' . bin2hex(random_bytes(8));
+if (!mkdir($tmp, 0700, true)) {
+    throw new RuntimeException('could not create test directory');
+}
+
+$passes = 0;
+
+$targetVersion = trim((string) @file_get_contents($root . '/VERSION'));
+if (preg_match('/\A[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?\z/', $targetVersion) !== 1) {
+    throw new RuntimeException('root VERSION is not a valid Tomos version');
+}
+
+function adjacentVersion(string $version, int $delta): string
+{
+    if (preg_match('/\A(.*?)([0-9]+)\z/', $version, $matches) === 1) {
+        $number = (int) $matches[2] + $delta;
+        if ($number >= 0) {
+            return $matches[1] . $number;
+        }
+    }
+    return $delta < 0 ? '0.0.0' : $version . '.1';
+}
+
+$fromVersion = adjacentVersion($targetVersion, -1);
+$newerVersion = adjacentVersion($targetVersion, 1);
+if (version_compare($fromVersion, $targetVersion, '>=') || version_compare($newerVersion, $targetVersion, '<=')) {
+    throw new RuntimeException('could not derive adjacent test versions from root VERSION');
+}
+
+function check(bool $condition, string $message): void
+{
+    global $passes;
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+    $passes++;
+}
+
+function runBuilder(string $root, string $tmp, array $arguments): array
+{
+    $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/tools/build-update-package.php');
+    foreach ($arguments as $key => $value) {
+        foreach (is_array($value) ? $value : [$value] as $item) {
+            $command .= $item === true
+                ? ' ' . escapeshellarg('--' . $key)
+                : ' ' . escapeshellarg('--' . $key . '=' . $item);
+        }
+    }
+    $lines = [];
+    $code = 0;
+    exec($command . ' 2>&1', $lines, $code);
+    return [$code, implode("\n", $lines)];
+}
+
+function removeTree(string $path): void
+{
+    if (!is_dir($path) || is_link($path)) {
+        @unlink($path);
+        return;
+    }
+    foreach (scandir($path) ?: [] as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+        removeTree($path . '/' . $item);
+    }
+    @rmdir($path);
+}
+
+try {
+    $privateKey = '';
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    if ($key === false || !openssl_pkey_export($key, $privateKey)) {
+        throw new RuntimeException('could not create test signing key');
+    }
+    $privateKeyPath = $tmp . '/private.pem';
+    file_put_contents($privateKeyPath, $privateKey, LOCK_EX);
+
+    $output = $tmp . '/tomos-update-' . $targetVersion . '.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $output,
+        'file' => 'VERSION',
+    ]);
+    check($code === 0, 'builder accepts a valid from/version pair: ' . $outputText);
+
+    $zip = new ZipArchive();
+    check($zip->open($output) === true, 'builder creates a readable ZIP');
+    $manifest = json_decode((string) $zip->getFromName('manifest.json'), true);
+    check(is_array($manifest), 'builder writes JSON manifest');
+    check(($manifest['from_version'] ?? null) === $fromVersion, 'manifest contains from_version');
+    check(($manifest['version'] ?? null) === $targetVersion, 'manifest contains target version');
+    check(!array_key_exists('minimum_version', $manifest), 'manifest does not contain legacy minimum_version');
+    $zip->close();
+
+    $recoveryOutput = $tmp . '/tomos-update-' . $targetVersion . '-recovery.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $targetVersion,
+        'version' => $targetVersion,
+        'recovery' => true,
+        'private-key' => $privateKeyPath,
+        'output' => $recoveryOutput,
+        'file' => ['VERSION', 'core/UpdaterSelfUpdate.php'],
+    ]);
+    check($code === 0, 'builder accepts an explicit same-version recovery package: ' . $outputText);
+    $recoveryZip = new ZipArchive();
+    check($recoveryZip->open($recoveryOutput) === true, 'same-version recovery ZIP opens');
+    $recoveryManifest = json_decode((string) $recoveryZip->getFromName('manifest.json'), true);
+    check(($recoveryManifest['from_version'] ?? null) === $targetVersion, 'recovery manifest source equals installed version');
+    check(($recoveryManifest['version'] ?? null) === $targetVersion, 'recovery manifest target equals installed version');
+    check(($recoveryManifest['recovery'] ?? false) === true, 'recovery manifest has explicit recovery marker');
+    $recoveryZip->close();
+
+    $rulesOutput = $tmp . '/tomos-update-' . $targetVersion . '-theme-rules.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $rulesOutput,
+        'file' => ['VERSION', 'docs/theme/theme-rules.json'],
+    ]);
+    check($code === 0, 'builder accepts the Theme rules runtime dependency: ' . $outputText);
+    $rulesZip = new ZipArchive();
+    check($rulesZip->open($rulesOutput) === true, 'Theme rules dependency ZIP opens');
+    $rulesManifest = json_decode((string) $rulesZip->getFromName('manifest.json'), true);
+    check(isset($rulesManifest['files']['core/updater-pending/theme-rules.json']), 'Theme rules dependency is recorded in the pending manifest');
+    check($rulesZip->getFromName('files/core/updater-pending/theme-rules.json') === (string) file_get_contents($root . '/docs/theme/theme-rules.json'), 'Theme rules dependency bytes are included in the pending payload');
+    check($rulesZip->getFromName('files/docs/theme/theme-rules.json') === false, 'Theme rules dependency is not duplicated as a direct update target');
+    $rulesMetadata = json_decode((string) $rulesZip->getFromName('files/core/updater-pending/theme-rules.meta.json'), true);
+    check(($rulesMetadata['target'] ?? null) === 'docs/theme/theme-rules.json', 'Theme rules pending metadata preserves the runtime target');
+    $rulesZip->close();
+
+    $legacyRequiredList = $tmp . '/legacy-required-files.txt';
+    $legacyRequiredContents = "VERSION\ncore/required-installed-files.txt\n";
+    file_put_contents($legacyRequiredList, $legacyRequiredContents, LOCK_EX);
+    $bootstrapOutput = $tmp . '/tomos-update-' . $targetVersion . '-legacy-bootstrap.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $bootstrapOutput,
+        'bootstrap-legacy-required-list' => $legacyRequiredList,
+        'file' => ['VERSION', 'core/UpdaterSelfUpdate.php', 'core/required-installed-files.txt', 'docs/theme/theme-rules.json'],
+    ]);
+    check($code === 0, 'builder accepts the legacy bootstrap required-file list: ' . $outputText);
+    $bootstrapZip = new ZipArchive();
+    check($bootstrapZip->open($bootstrapOutput) === true, 'legacy bootstrap ZIP opens');
+    $bootstrapManifest = json_decode((string) $bootstrapZip->getFromName('manifest.json'), true);
+    check(($bootstrapManifest['files']['core/required-installed-files.txt'] ?? null) === hash('sha256', $legacyRequiredContents), 'legacy bootstrap keeps the pre-update required-file list for first verification');
+    check($bootstrapZip->getFromName('files/core/required-installed-files.txt') === $legacyRequiredContents, 'legacy bootstrap contains the pre-update required-file list');
+    check($bootstrapZip->getFromName('files/core/updater-pending/required-installed-files.txt') === (string) file_get_contents($root . '/core/required-installed-files.txt'), 'legacy bootstrap carries the v0.6.2 required-file list as pending data');
+    check($bootstrapZip->getFromName('files/core/updater-pending/required-installed-files.meta.json') !== false, 'legacy bootstrap carries required-file list metadata');
+    $bootstrapZip->close();
+
+    $bridgeOutput = $tmp . '/tomos-update-' . $targetVersion . '-bridge.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'legacy-bridge' => true,
+        'private-key' => $privateKeyPath,
+        'output' => $bridgeOutput,
+        'file' => 'VERSION',
+    ]);
+    check($code === 0, 'builder accepts explicit legacy bridge: ' . $outputText);
+    $bridgeZip = new ZipArchive();
+    check($bridgeZip->open($bridgeOutput) === true, 'builder creates a readable bridge ZIP');
+    $bridgeManifest = json_decode((string) $bridgeZip->getFromName('manifest.json'), true);
+    check(is_array($bridgeManifest), 'bridge ZIP contains JSON manifest');
+    check(($bridgeManifest['from_version'] ?? null) === $fromVersion, 'bridge manifest contains from_version');
+    check(($bridgeManifest['minimum_version'] ?? null) === $fromVersion, 'bridge minimum_version equals from_version');
+    check(($bridgeManifest['version'] ?? null) === $targetVersion, 'bridge manifest contains target version');
+    check(is_array($bridgeManifest['files'] ?? null), 'bridge manifest contains files');
+    check(($bridgeManifest['product'] ?? null) === 'Tomos', 'bridge manifest has Tomos product');
+    $bridgeZip->close();
+
+    check(
+        ($bridgeManifest['product'] ?? null) === 'Tomos'
+            && is_string($bridgeManifest['version'] ?? null)
+            && is_string($bridgeManifest['minimum_version'] ?? null)
+            && is_array($bridgeManifest['files'] ?? null),
+        'bridge manifest retains the legacy-required fields'
+    );
+
+    foreach ([
+        'index-only' => [
+            'file' => 'update/index.php',
+            'pending' => 'core/updater-pending/update-index.php',
+            'metadata' => 'core/updater-pending/update-index.json',
+            'target' => 'update/index.php',
+        ],
+        'service-only' => [
+            'file' => 'core/UpdateService.php',
+            'pending' => 'core/updater-pending/update-service.php',
+            'metadata' => 'core/updater-pending/update-service.json',
+            'target' => 'core/UpdateService.php',
+        ],
+        'lock-only' => [
+            'file' => 'core/UpdateLock.php',
+            'pending' => 'core/updater-pending/update-lock.php',
+            'metadata' => 'core/updater-pending/update-lock.json',
+            'target' => 'core/UpdateLock.php',
+        ],
+    ] as $label => $fixture) {
+        $bundleOutput = $tmp . '/' . $label . '.zip';
+        [$code, $outputText] = runBuilder($root, $tmp, [
+            'from' => $fromVersion,
+            'version' => $targetVersion,
+            'private-key' => $privateKeyPath,
+            'output' => $bundleOutput,
+            'file' => [$fixture['file'], 'VERSION'],
+        ]);
+        check($code === 0, $label . ' pending build succeeds: ' . $outputText);
+        $bundleZip = new ZipArchive();
+        check($bundleZip->open($bundleOutput) === true, $label . ' ZIP opens');
+        check($bundleZip->locateName('files/' . $fixture['pending']) !== false, $label . ' pending PHP is present');
+        check($bundleZip->locateName('files/' . $fixture['metadata']) !== false, $label . ' pending metadata is present');
+        check($bundleZip->locateName('files/' . $fixture['file']) === false, $label . ' protected target is not direct');
+        $bundleManifest = json_decode((string) $bundleZip->getFromName('manifest.json'), true);
+        check(is_array($bundleManifest['files'] ?? null), $label . ' manifest has files');
+        check(isset($bundleManifest['files'][$fixture['pending']], $bundleManifest['files'][$fixture['metadata']]), $label . ' manifest records pending pair');
+        $metadata = json_decode((string) $bundleZip->getFromName('files/' . $fixture['metadata']), true);
+        check(($metadata['target'] ?? null) === $fixture['target'], $label . ' metadata target is whitelisted target');
+        $bundleZip->close();
+    }
+
+    $allOutput = $tmp . '/bundle.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $allOutput,
+        'file' => ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php', 'VERSION'],
+    ]);
+    check($code === 0, 'three-target bundle build succeeds: ' . $outputText);
+    $allZip = new ZipArchive();
+    check($allZip->open($allOutput) === true, 'three-target bundle opens');
+    foreach (['update-index.php', 'update-index.json', 'update-service.php', 'update-service.json', 'update-lock.php', 'update-lock.json'] as $entry) {
+        check($allZip->locateName('files/core/updater-pending/' . $entry) !== false, 'three-target bundle contains ' . $entry);
+    }
+    foreach (['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php'] as $protected) {
+        check($allZip->locateName('files/' . $protected) === false, 'three-target bundle excludes direct ' . $protected);
+    }
+    $allZip->close();
+
+    $guardOutput = $tmp . '/protected-guards.zip';
+    [$code, $outputText] = runBuilder($root, $tmp, [
+        'from' => $fromVersion,
+        'version' => $targetVersion,
+        'private-key' => $privateKeyPath,
+        'output' => $guardOutput,
+        'file' => ['cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess', 'VERSION'],
+    ]);
+    check($code === 0, 'protected guard bundle build succeeds: ' . $outputText);
+    $guardZip = new ZipArchive();
+    check($guardZip->open($guardOutput) === true, 'protected guard bundle opens');
+    foreach (['cache', 'storage', 'trash'] as $directory) {
+        $pending = 'core/updater-pending/' . $directory . '-htaccess';
+        $metadata = $pending . '.meta.json';
+        check($guardZip->locateName('files/' . $pending) !== false, $directory . ' guard is carried in pending data');
+        check($guardZip->locateName('files/' . $metadata) !== false, $directory . ' guard metadata is carried in pending data');
+        check($guardZip->locateName('files/' . $directory . '/.htaccess') === false, $directory . ' guard is not a direct protected target');
+        $guardMetadata = json_decode((string) $guardZip->getFromName('files/' . $metadata), true);
+        check(($guardMetadata['target'] ?? null) === $directory . '/.htaccess', $directory . ' metadata has the fixed target');
+    }
+    $guardZip->close();
+
+    foreach ([
+        'missing from' => ['minimum' => $fromVersion],
+        'from equals version' => ['from' => $targetVersion, 'version' => $targetVersion],
+        'from is newer' => ['from' => $newerVersion, 'version' => $targetVersion],
+        'invalid from' => ['from' => 'not-a-version', 'version' => $targetVersion],
+    ] as $label => $arguments) {
+        $arguments['private-key'] = $privateKeyPath;
+        $arguments['output'] = $tmp . '/' . bin2hex(random_bytes(4)) . '.zip';
+        $arguments['file'] = 'VERSION';
+        [$code] = runBuilder($root, $tmp, $arguments);
+        check($code !== 0, $label . ' is rejected');
+    }
+} finally {
+    removeTree($tmp);
+}
+
+echo "update_package_builder_check: {$passes} checks passed\n";
