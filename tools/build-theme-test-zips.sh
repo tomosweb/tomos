@@ -48,5 +48,5 @@ build_theme() {
   printf '%s\t%s\t%s bytes\t%s\n' "$output" "$version" "$(wc -c < "$output" | tr -d ' ')" "$(sha256sum "$output" | awk '{print $1}')"
 }
 
-build_theme tomos-quiet 1.0.4
-build_theme tomos-index 1.0.5
+build_theme tomos-quiet 1.0.5
+build_theme tomos-index 1.0.6

@@ -225,6 +225,7 @@ Virtual Folderでは、`list.html`が選択され、公開されたフォルダ�
 `theme-settings.php`から正規化されたサイト固有表示設定と、テーマアセットのURLです。
 
 - `theme.asset_url`
+- `theme.asset_version`（`theme.json`のversion。CSS等のTheme asset URLのcache bustingに使用）
 - `theme.favicon_url`, `theme.favicon_type`, `theme.apple_touch_icon_url`
 - `theme.hero_enabled`, `theme.hero_image_url`, `theme.hero_title`, `theme.hero_subtitle`
 - `theme.hero_button_enabled`, `theme.hero_button_label`, `theme.hero_button_url`
@@ -293,7 +294,7 @@ setup画面では、検証に通ったテーマだけを選択できます。set
 - `theme.json` の `name` をディレクトリ名と一致させる
 - `display_name`, `version`, `description` を書く
 - 必須テンプレートを置く
-- `assets/style.css` を置く
+- `assets/style.css` を置き、layoutから `{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}` で参照する
 - PHPファイルを含めない
 
 AI向けテーマ作成プロンプトの本格整備は今後の作業で扱います。

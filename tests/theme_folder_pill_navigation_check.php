@@ -17,14 +17,14 @@ use Tomos\App;
 
 $themes = [
     'tomos-quiet' => [
-        'version' => '1.0.4',
+        'version' => '1.0.5',
         'pillSelector' => '.quiet-more .site-section-link',
         'cssRequirements' => ['.quiet-more', 'flex-wrap: wrap', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
         'backClass' => 'quiet-back-link',
         'backCssRequirements' => ['.quiet-back-link', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible'],
     ],
     'tomos-index' => [
-        'version' => '1.0.5',
+        'version' => '1.0.6',
         'pillSelector' => '.index-more .site-section-link',
         'cssRequirements' => ['.index-more', 'flex-wrap: wrap', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
         'backClass' => 'index-back-link',
@@ -41,7 +41,7 @@ try {
         checkScenario($themeId, $theme['version'], $theme['backClass'], false, $root . '/single-' . $themeId);
         checkScenario($themeId, $theme['version'], $theme['backClass'], true, $root . '/multiple-' . $themeId);
     }
-    echo "theme_folder_pill_navigation_check: OK (Quiet 1.0.4, Index 1.0.5; single/multiple/long folder names and pagination)\n";
+    echo "theme_folder_pill_navigation_check: OK (Quiet 1.0.5, Index 1.0.6; single/multiple/long folder names and pagination)\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
     exit(1);
@@ -63,6 +63,7 @@ function checkThemeManifestAndCss(string $themeId, array $theme): void
     }
     $layout = (string) file_get_contents($themeRoot . '/templates/layout.html');
     assertContains($layout, '{{ theme.favicon_url }}', $themeId . ' favicon template variable');
+    assertContains($layout, '{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}', $themeId . ' versioned stylesheet template');
     foreach ($theme['cssRequirements'] as $requirement) {
         if (strpos($css, $requirement) === false) {
             throw new RuntimeException($themeId . ': CSS requirement missing: ' . $requirement);
@@ -83,9 +84,12 @@ function checkScenario(string $themeId, string $version, string $backClass, bool
         mkdir($root . '/content/a-folder-name-that-is-long-enough-to-wrap-on-a-phone', 0777, true);
     }
     mkdir($root . '/themes', 0777, true);
+    mkdir($root . '/assets', 0777, true);
     mkdir($root . '/themes/tomos-minimal', 0777, true);
     copyTree(dirname(__DIR__) . '/themes/tomos-minimal', $root . '/themes/tomos-minimal');
     copyTree(dirname(__DIR__) . '/themes/' . $themeId, $root . '/themes/' . $themeId);
+    copy(dirname(__DIR__) . '/assets/tomos-default-favicon.png', $root . '/assets/tomos-default-favicon.png');
+    $canonicalFaviconHash = hash_file('sha256', $root . '/assets/tomos-default-favicon.png');
     file_put_contents($root . '/VERSION', "1.0.2\n", LOCK_EX);
     file_put_contents($root . '/theme-settings.php', "<?php\nreturn ['folders' => ['diary' => ['title' => 'diary'], 'notes' => ['title' => 'notes']]];\n", LOCK_EX);
     file_put_contents($root . '/content/index.md', "---\ntitle: Home\ndraft: false\n---\nHome\n", LOCK_EX);
@@ -126,7 +130,8 @@ function checkScenario(string $themeId, string $version, string $backClass, bool
     $home = render($config, '/');
     assertPageListCount($home, 12, $themeId . ' home latest list');
     assertNotContains($home, 'folder-pagination', $themeId . ' home pagination');
-    assertContains($home, '<link rel="icon" href="/themes/tomos-minimal/assets/favicon.png" type="image/png">', $themeId . ' official favicon fallback');
+    assertContains($home, '<link rel="icon" href="/assets/tomos-default-favicon.png?v=' . $canonicalFaviconHash . '" type="image/png">', $themeId . ' official favicon fallback');
+    assertContains($home, '<link rel="stylesheet" href="/themes/' . $themeId . '/assets/style.css?v=' . $version . '">', $themeId . ' versioned stylesheet URL');
     $links = sectionLinks($home);
     $expected = $multiple
         ? ['/a-folder-name-that-is-long-enough-to-wrap-on-a-phone/', '/diary/', '/notes/']

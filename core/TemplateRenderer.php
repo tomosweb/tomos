@@ -52,6 +52,7 @@ final class TemplateRenderer
     private array $blockedHtmlVariables = [];
     private string $effectiveThemeName;
     private string $analyticsNonce;
+    private string $rootDir;
 
     public function __construct(array $config, string $analyticsNonce = '', ?string $rootDir = null)
     {
@@ -60,7 +61,8 @@ final class TemplateRenderer
         $themesDir = rtrim((string) ($config['paths']['theme_dir'] ?? ''), DIRECTORY_SEPARATOR);
         $this->effectiveThemeName = $this->resolveThemeName((string) ($config['theme']['name'] ?? 'tomos-minimal'));
         $this->themePath = $themesDir . DIRECTORY_SEPARATOR . $this->effectiveThemeName;
-        $this->themeSettings = new ThemeSettings($rootDir ?? dirname($themesDir));
+        $this->rootDir = rtrim($rootDir ?? dirname($themesDir), DIRECTORY_SEPARATOR);
+        $this->themeSettings = new ThemeSettings($this->rootDir);
         $this->assertThemeDoesNotContainPhp();
     }
 
@@ -213,12 +215,12 @@ final class TemplateRenderer
         ];
         $faviconAsset = $this->faviconAsset();
         $appleTouchIconAsset = $this->themeAsset('apple-touch-icon.png');
+        $themeVersion = $this->themeVersion();
         $theme = array_merge([
             'asset_url' => Security::publicUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets', $publicBasePath),
-            'favicon_url' => Security::publicUrl(
-                '/themes/' . rawurlencode($faviconAsset['theme']) . '/assets/' . rawurlencode($faviconAsset['file']),
-                $publicBasePath
-            ),
+            'asset_version' => $themeVersion,
+            'version' => $themeVersion,
+            'favicon_url' => $this->faviconUrl($faviconAsset, $publicBasePath),
             'favicon_type' => $faviconAsset['file'] === 'favicon.svg' ? 'image/svg+xml' : 'image/png',
             'apple_touch_icon_url' => Security::publicUrl(
                 '/themes/' . rawurlencode($appleTouchIconAsset['theme']) . '/assets/' . rawurlencode($appleTouchIconAsset['file']),
@@ -263,18 +265,37 @@ final class TemplateRenderer
     {
         foreach (['favicon.svg', 'favicon.png'] as $file) {
             if (is_file($this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file)) {
-                return ['theme' => $this->effectiveThemeName, 'file' => $file];
+                return [
+                    'theme' => $this->effectiveThemeName,
+                    'file' => $file,
+                    'path' => $this->themePath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file,
+                ];
             }
         }
 
-        $fallbackPath = $this->themeDirectory('tomos-minimal');
-        foreach (['favicon.svg', 'favicon.png'] as $file) {
-            if (is_file($fallbackPath . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $file)) {
-                return ['theme' => 'tomos-minimal', 'file' => $file];
-            }
-        }
+        $path = $this->rootDir . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'tomos-default-favicon.png';
+        return ['theme' => '', 'file' => 'tomos-default-favicon.png', 'path' => $path, 'core' => true];
+    }
 
-        return ['theme' => $this->effectiveThemeName, 'file' => 'favicon.png'];
+    private function faviconUrl(array $asset, string $publicBasePath): string
+    {
+        $path = !empty($asset['core'])
+            ? '/assets/' . rawurlencode((string) $asset['file'])
+            : '/themes/' . rawurlencode((string) $asset['theme']) . '/assets/' . rawurlencode((string) $asset['file']);
+        $url = Security::publicUrl($path, $publicBasePath);
+        $version = is_file((string) ($asset['path'] ?? ''))
+            ? hash_file('sha256', (string) $asset['path'])
+            : $this->themeVersion();
+        return $url . '?v=' . rawurlencode((string) $version);
+    }
+
+    private function themeVersion(): string
+    {
+        $path = $this->themePath . DIRECTORY_SEPARATOR . 'theme.json';
+        $json = is_file($path) ? file_get_contents($path) : false;
+        $theme = is_string($json) ? json_decode($json, true) : null;
+        $version = is_array($theme) ? trim((string) ($theme['version'] ?? '')) : '';
+        return preg_replace('/[^A-Za-z0-9._-]/', '', $version) ?? '';
     }
 
     private function themeAsset(string $file): array

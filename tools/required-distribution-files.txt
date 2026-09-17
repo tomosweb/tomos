@@ -1,6 +1,7 @@
 index.php
 .htaccess
 VERSION
+assets/tomos-default-favicon.png
 LICENSE
 NOTICE
 DISCLAIMER.md

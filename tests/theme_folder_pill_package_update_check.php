@@ -25,15 +25,15 @@ if (!class_exists(ZipArchive::class)) {
 
 $packages = [
     'tomos-quiet' => [
-        'path' => dirname(__DIR__) . '/build/theme-test/tomos-quiet-1.0.4-test.zip',
-        'version' => '1.0.4',
-        'oldVersion' => '1.0.3',
+        'path' => dirname(__DIR__) . '/build/theme-test/tomos-quiet-1.0.5-test.zip',
+        'version' => '1.0.5',
+        'oldVersion' => '1.0.4',
         'marker' => 'quiet-more',
     ],
     'tomos-index' => [
-        'path' => dirname(__DIR__) . '/build/theme-test/tomos-index-1.0.5-test.zip',
-        'version' => '1.0.5',
-        'oldVersion' => '1.0.4',
+        'path' => dirname(__DIR__) . '/build/theme-test/tomos-index-1.0.6-test.zip',
+        'version' => '1.0.6',
+        'oldVersion' => '1.0.5',
         'marker' => 'index-more',
     ],
 ];
@@ -66,10 +66,12 @@ function checkPackageUpdate(string $themeId, array $package, string $root): void
         throw new RuntimeException($themeId . ': ZIP is missing');
     }
     mkdir($root . '/storage', 0700, true);
+    mkdir($root . '/assets', 0700, true);
     mkdir($root . '/themes', 0755, true);
     mkdir($root . '/themes/tomos-minimal', 0755, true);
     copyTree(dirname(__DIR__) . '/themes/tomos-minimal', $root . '/themes/tomos-minimal');
-    $officialFaviconHash = hash_file('sha256', $root . '/themes/tomos-minimal/assets/favicon.png');
+    copy(dirname(__DIR__) . '/assets/tomos-default-favicon.png', $root . '/assets/tomos-default-favicon.png');
+    $officialFaviconHash = hash_file('sha256', $root . '/assets/tomos-default-favicon.png');
     mkdir($root . '/content/news', 0755, true);
     mkdir($root . '/cache', 0755, true);
     file_put_contents($root . '/VERSION', "1.0.2\n", LOCK_EX);
@@ -98,7 +100,7 @@ function checkPackageUpdate(string $themeId, array $package, string $root): void
     if (hash_file('sha256', $root . '/config.php') !== $configHash) {
         throw new RuntimeException($themeId . ': active Theme config changed during update');
     }
-    if (hash_file('sha256', $root . '/themes/tomos-minimal/assets/favicon.png') !== $officialFaviconHash) {
+    if (hash_file('sha256', $root . '/assets/tomos-default-favicon.png') !== $officialFaviconHash) {
         throw new RuntimeException($themeId . ': official favicon asset changed during Theme update');
     }
 
@@ -122,7 +124,8 @@ function checkPackageUpdate(string $themeId, array $package, string $root): void
     $home = render($config, '/');
     if (strpos($home, (string) $package['marker']) === false
         || strpos($home, 'href="/news/"') === false
-        || strpos($home, '<link rel="icon" href="/themes/tomos-minimal/assets/favicon.png" type="image/png">') === false) {
+        || strpos($home, '<link rel="icon" href="/assets/tomos-default-favicon.png?v=' . hash_file('sha256', $root . '/assets/tomos-default-favicon.png') . '" type="image/png">') === false
+        || strpos($home, '/themes/' . $themeId . '/assets/style.css?v=' . $package['version']) === false) {
         throw new RuntimeException($themeId . ': updated active Theme did not render immediately');
     }
 }

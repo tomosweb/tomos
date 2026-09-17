@@ -1,5 +1,14 @@
 # 更新履歴
 
+## v1.0.3 - hotfix candidate
+
+### Fixed / Compatibility
+
+- ThemeのCSS URLに`theme.json`のversionを自動付与し、Theme更新時に古いCSSキャッシュを再利用しないようにしました。
+- Theme固有faviconがない場合は、Tomos Coreが所有する公式丸型faviconへフォールバックするようにしました。公式faviconはSHA-256で固定し、favicon URLにもfingerprintを付与します。
+- 既存Themeの固有faviconと、サイト設定のTheme assetは引き続き優先して使用します。
+- v1.0.2からv1.0.3への署名付きTomos Updateで更新する予定です。
+
 ## v1.0.2 - 2026-09-17
 
 ### Improved

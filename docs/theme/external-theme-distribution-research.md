@@ -118,7 +118,7 @@
 
 【事実】テーマの責務はHTML/CSS中心の表示層である。
 
-- CSSは通常 `assets/style.css` に置き、テンプレートでは `{{ theme.asset_url }}/style.css` として参照する。
+- CSSは通常 `assets/style.css` に置き、テンプレートでは `{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}` として参照する。`theme.asset_version` はCoreが`theme.json`から自動で渡すため、Theme version更新時にCSS URLも変わります。
 - テーマ画像も `assets/` に置き、`{{ theme.asset_url }}/画像名` として参照できる。
 - favicon、apple touch icon、OGPはcoreがURLを生成し、`theme.favicon_url`、`theme.apple_touch_icon_url`、`site.ogp_url` として渡す。
 - 通常の `{{ variable }}` はHTMLエスケープされる。
