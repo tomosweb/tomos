@@ -66,6 +66,10 @@ jobs:
               echo "Skipping $test (immutable v0.7.3 fixture gate; run only against its historical baseline)"
               continue
             fi
+            if [ "$test" = "tests/theme_folder_pill_package_update_check.php" ]; then
+              echo "Skipping $test (Theme ZIP fixture is built and exercised by the Theme folder pill workflow)"
+              continue
+            fi
             echo "Running $test"
             if [ "$test" = "tests/update_self_update_no_proc_open_check.php" ]; then
               php -d disable_functions=proc_open "$test"
