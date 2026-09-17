@@ -117,7 +117,22 @@ img { max-width: 100%; height: auto; }
 
 .page-tags, .tag-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 2.4rem; padding-top: 1.2rem; border-top: 1px solid var(--index-line); }
 .page-tags a, .tag-list a { padding: .17rem .52rem; color: var(--index-muted); border: 1px solid var(--index-line); border-radius: .3rem; font-size: .75rem; text-decoration: none; }
-.index-back { margin: 3.2rem 0 0; font-size: .82rem; }
+.index-back { margin: 3.2rem 0 0; font-size: .74rem; }
+.index-back-link {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  padding: .35rem 1rem;
+  overflow-wrap: anywhere;
+  color: var(--index-muted);
+  border: 1px solid var(--index-line);
+  border-radius: 999px;
+  background: var(--index-card);
+  line-height: 1.45;
+  text-decoration: none;
+}
+.index-back-link:hover { color: var(--index-ink); border-color: #bcbcbc; background: var(--index-surface); }
+.index-back-link:focus-visible { outline: 2px solid var(--index-ink); outline-offset: 3px; }
 
 .folder-page-list { margin-top: 2.4rem; padding-top: 1.2rem; border-top: 1px solid var(--index-line); }
 .folder-page-summary, .search-summary { color: var(--index-muted); font-size: .84rem; }

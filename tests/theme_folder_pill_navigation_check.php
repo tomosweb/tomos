@@ -20,11 +20,15 @@ $themes = [
         'version' => '1.0.4',
         'pillSelector' => '.quiet-more .site-section-link',
         'cssRequirements' => ['.quiet-more', 'flex-wrap: wrap', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
+        'backClass' => 'quiet-back-link',
+        'backCssRequirements' => ['.quiet-back-link', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible'],
     ],
     'tomos-index' => [
         'version' => '1.0.5',
         'pillSelector' => '.index-more .site-section-link',
         'cssRequirements' => ['.index-more', 'flex-wrap: wrap', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
+        'backClass' => 'index-back-link',
+        'backCssRequirements' => ['.index-back-link', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible'],
     ],
 ];
 
@@ -34,8 +38,8 @@ mkdir($root, 0700, true);
 try {
     foreach ($themes as $themeId => $theme) {
         checkThemeManifestAndCss($themeId, $theme);
-        checkScenario($themeId, $theme['version'], false, $root . '/single-' . $themeId);
-        checkScenario($themeId, $theme['version'], true, $root . '/multiple-' . $themeId);
+        checkScenario($themeId, $theme['version'], $theme['backClass'], false, $root . '/single-' . $themeId);
+        checkScenario($themeId, $theme['version'], $theme['backClass'], true, $root . '/multiple-' . $themeId);
     }
     echo "theme_folder_pill_navigation_check: OK (Quiet 1.0.4, Index 1.0.5; single/multiple/long folder names and pagination)\n";
 } catch (Throwable $exception) {
@@ -64,9 +68,14 @@ function checkThemeManifestAndCss(string $themeId, array $theme): void
             throw new RuntimeException($themeId . ': CSS requirement missing: ' . $requirement);
         }
     }
+    foreach ($theme['backCssRequirements'] as $requirement) {
+        if (strpos($css, $requirement) === false) {
+            throw new RuntimeException($themeId . ': back-link CSS requirement missing: ' . $requirement);
+        }
+    }
 }
 
-function checkScenario(string $themeId, string $version, bool $multiple, string $root): void
+function checkScenario(string $themeId, string $version, string $backClass, bool $multiple, string $root): void
 {
     mkdir($root . '/content/diary', 0777, true);
     if ($multiple) {
@@ -135,6 +144,10 @@ function checkScenario(string $themeId, string $version, bool $multiple, string 
     assertPageListCount($pageTwo, 5, $themeId . ' page 2 list');
     assertContains($pageTwo, '全35件中 31–35件を表示', $themeId . ' page 2 summary');
     assertContains($pageTwo, 'href="/diary/" class="folder-pagination-prev"', $themeId . ' previous link');
+
+    $article = render($config, '/diary/article-01');
+    assertContains($article, '<a class="' . $backClass . '" href="/">Home</a>', $themeId . ' Home back link');
+    assertNotContains($article, '← すべての記事', $themeId . ' legacy back-link copy');
 }
 
 function sectionLinks(string $html): array
