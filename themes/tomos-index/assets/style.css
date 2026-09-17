@@ -45,13 +45,13 @@ img { max-width: 100%; height: auto; }
   max-width: 100%;
   min-width: 0;
   align-items: center;
-  padding: .25rem .75rem;
+  padding: .35rem 1rem;
   overflow-wrap: anywhere;
   color: var(--index-muted);
   border: 1px solid var(--index-line);
   border-radius: 999px;
   background: var(--index-card);
-  line-height: 1.4;
+  line-height: 1.45;
   text-decoration: none;
 }
 .index-more .site-section-link:hover { color: var(--index-ink); border-color: #bcbcbc; background: var(--index-surface); }

@@ -67,6 +67,9 @@ function checkPackageUpdate(string $themeId, array $package, string $root): void
     }
     mkdir($root . '/storage', 0700, true);
     mkdir($root . '/themes', 0755, true);
+    mkdir($root . '/themes/tomos-minimal', 0755, true);
+    copyTree(dirname(__DIR__) . '/themes/tomos-minimal', $root . '/themes/tomos-minimal');
+    $officialFaviconHash = hash_file('sha256', $root . '/themes/tomos-minimal/assets/favicon.png');
     mkdir($root . '/content/news', 0755, true);
     mkdir($root . '/cache', 0755, true);
     file_put_contents($root . '/VERSION', "1.0.2\n", LOCK_EX);
@@ -95,6 +98,9 @@ function checkPackageUpdate(string $themeId, array $package, string $root): void
     if (hash_file('sha256', $root . '/config.php') !== $configHash) {
         throw new RuntimeException($themeId . ': active Theme config changed during update');
     }
+    if (hash_file('sha256', $root . '/themes/tomos-minimal/assets/favicon.png') !== $officialFaviconHash) {
+        throw new RuntimeException($themeId . ': official favicon asset changed during Theme update');
+    }
 
     $manifest = json_decode((string) file_get_contents($themePath . '/theme.json'), true);
     if (!is_array($manifest) || (string) ($manifest['version'] ?? '') !== $package['version']) {
@@ -114,8 +120,26 @@ function checkPackageUpdate(string $themeId, array $package, string $root): void
         'analytics' => ['ga4_measurement_id' => ''],
     ];
     $home = render($config, '/');
-    if (strpos($home, (string) $package['marker']) === false || strpos($home, 'href="/news/"') === false) {
+    if (strpos($home, (string) $package['marker']) === false
+        || strpos($home, 'href="/news/"') === false
+        || strpos($home, '<link rel="icon" href="/themes/tomos-minimal/assets/favicon.png" type="image/png">') === false) {
         throw new RuntimeException($themeId . ': updated active Theme did not render immediately');
+    }
+}
+
+function copyTree(string $source, string $destination): void
+{
+    if (!is_dir($destination) && !mkdir($destination, 0777, true) && !is_dir($destination)) {
+        throw new RuntimeException('could not create ' . $destination);
+    }
+    foreach (array_diff(scandir($source) ?: [], ['.', '..']) as $item) {
+        $sourcePath = $source . DIRECTORY_SEPARATOR . $item;
+        $destinationPath = $destination . DIRECTORY_SEPARATOR . $item;
+        if (is_dir($sourcePath)) {
+            copyTree($sourcePath, $destinationPath);
+        } elseif (!copy($sourcePath, $destinationPath)) {
+            throw new RuntimeException('could not copy ' . $sourcePath);
+        }
     }
 }
 

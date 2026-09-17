@@ -113,12 +113,13 @@ themes/
 推奨アセット:
 
 ```text
-assets/favicon.svg または assets/favicon.png
 assets/apple-touch-icon.png
 assets/ogp.png
 README.md
 preview.png
 ```
+
+faviconは新規テーマへ同梱せず、Coreが提供するTomos公式アイコンをデフォルトとして使用します。テーマ固有faviconを意図的に提供する既存テーマの扱いは、既存のサイト設定を優先します。
 
 `templates/not-found.html` は現在の必須ファイルではありません。404ページも通常レイアウトで表示します。
 
@@ -396,7 +397,11 @@ Markdown画像は core 側で安全なHTMLとして生成され、本文HTMLに�
 
 ## favicon / OGP
 
-テーマは favicon / apple-touch-icon / OGP画像を持つことができます。
+新規テーマは、テーマ固有の初期faviconを同梱しません。テーマに `assets/favicon.svg` または `assets/favicon.png` がない場合、Tomos Coreが標準テーマ `tomos-minimal` の公式アイコンをデフォルトとして参照します。これにより同じ公式アイコンをテーマごとに複製して管理しません。
+
+ユーザーが後から設定したサイト固有のfaviconや、既存のテーマ固有faviconは、Theme ZIPの初期デフォルトとは別の設定として扱います。Theme更新でそれらを公式アイコンへ戻してはいけません。
+
+テーマは必要に応じて favicon / apple-touch-icon / OGP画像を持つことができます。
 
 標準テーマでは以下を利用します。
 

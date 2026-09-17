@@ -19,12 +19,12 @@ $themes = [
     'tomos-quiet' => [
         'version' => '1.0.4',
         'pillSelector' => '.quiet-more .site-section-link',
-        'cssRequirements' => ['.quiet-more', 'flex-wrap: wrap', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
+        'cssRequirements' => ['.quiet-more', 'flex-wrap: wrap', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
     ],
     'tomos-index' => [
         'version' => '1.0.5',
         'pillSelector' => '.index-more .site-section-link',
-        'cssRequirements' => ['.index-more', 'flex-wrap: wrap', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
+        'cssRequirements' => ['.index-more', 'flex-wrap: wrap', 'padding: .35rem 1rem', 'border-radius: 999px', ':focus-visible', 'overflow-wrap: anywhere'],
     ],
 ];
 
@@ -54,6 +54,11 @@ function checkThemeManifestAndCss(string $themeId, array $theme): void
     }
 
     $css = (string) file_get_contents($themeRoot . '/assets/style.css');
+    if (is_file($themeRoot . '/assets/favicon.svg') || is_file($themeRoot . '/assets/favicon.png')) {
+        throw new RuntimeException($themeId . ': Theme must use the Core official favicon fallback instead of bundling a duplicate');
+    }
+    $layout = (string) file_get_contents($themeRoot . '/templates/layout.html');
+    assertContains($layout, '{{ theme.favicon_url }}', $themeId . ' favicon template variable');
     foreach ($theme['cssRequirements'] as $requirement) {
         if (strpos($css, $requirement) === false) {
             throw new RuntimeException($themeId . ': CSS requirement missing: ' . $requirement);
@@ -69,6 +74,8 @@ function checkScenario(string $themeId, string $version, bool $multiple, string 
         mkdir($root . '/content/a-folder-name-that-is-long-enough-to-wrap-on-a-phone', 0777, true);
     }
     mkdir($root . '/themes', 0777, true);
+    mkdir($root . '/themes/tomos-minimal', 0777, true);
+    copyTree(dirname(__DIR__) . '/themes/tomos-minimal', $root . '/themes/tomos-minimal');
     copyTree(dirname(__DIR__) . '/themes/' . $themeId, $root . '/themes/' . $themeId);
     file_put_contents($root . '/VERSION', "1.0.2\n", LOCK_EX);
     file_put_contents($root . '/theme-settings.php', "<?php\nreturn ['folders' => ['diary' => ['title' => 'diary'], 'notes' => ['title' => 'notes']]];\n", LOCK_EX);
@@ -110,6 +117,7 @@ function checkScenario(string $themeId, string $version, bool $multiple, string 
     $home = render($config, '/');
     assertPageListCount($home, 12, $themeId . ' home latest list');
     assertNotContains($home, 'folder-pagination', $themeId . ' home pagination');
+    assertContains($home, '<link rel="icon" href="/themes/tomos-minimal/assets/favicon.png" type="image/png">', $themeId . ' official favicon fallback');
     $links = sectionLinks($home);
     $expected = $multiple
         ? ['/a-folder-name-that-is-long-enough-to-wrap-on-a-phone/', '/diary/', '/notes/']

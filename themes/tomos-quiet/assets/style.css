@@ -76,13 +76,13 @@ img { max-width: 100%; height: auto; }
   max-width: 100%;
   min-width: 0;
   align-items: center;
-  padding: .25rem .75rem;
+  padding: .35rem 1rem;
   overflow-wrap: anywhere;
   color: var(--quiet-muted);
   border: 1px solid var(--quiet-line);
   border-radius: 999px;
   background: var(--quiet-soft);
-  line-height: 1.4;
+  line-height: 1.45;
   text-decoration: none;
 }
 .quiet-more .site-section-link:hover { color: var(--quiet-ink); border-color: #bdbdbd; background: var(--quiet-surface); }
