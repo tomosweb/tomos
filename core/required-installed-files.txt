@@ -17,6 +17,7 @@ core/InstalledIntegrityVerifier.php
 core/UpdaterSelfUpdate.php
 core/required-installed-files.txt
 core/SetupUrlResolver.php
+core/InitialBundledThemes.php
 core/PostBasicPage.php
 core/PostAuthRememberToken.php
 core/PostAuthReturnTo.php
