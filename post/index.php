@@ -436,7 +436,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stagedFiles = stagedImageFiles($stagedPaths);
                     $upload = new Tomos\PostUpload($config, $rootDir);
                     $omittedImages = is_array($_POST['omit_images'] ?? null) ? $_POST['omit_images'] : [];
-                    $uploadResult = $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId);
+                    $handoffMarkdown = (string) ($_POST['tomos_handoff_markdown'] ?? '');
+                    $handoffFilename = (string) ($_POST['tomos_handoff_filename'] ?? 'article.md');
+                    $uploadResult = $handoffMarkdown !== ''
+                        ? $upload->handleContent($handoffMarkdown, $handoffFilename, (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId)
+                        : $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId);
                     if ($uploadResult->ok) {
                         $sessionStore->deleteOwned($uploadSessionId, session_id(), $submissionId);
                         $messages[] = uploadSuccessMessage($uploadResult);
@@ -583,7 +587,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $upload = new Tomos\PostUpload($config, $rootDir);
                     $omittedImages = is_array($_POST['omit_images'] ?? null) ? $_POST['omit_images'] : [];
-                    $uploadResult = $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), [], $omittedImages, false, $submissionId);
+                    $handoffMarkdown = (string) ($_POST['tomos_handoff_markdown'] ?? '');
+                    $handoffFilename = (string) ($_POST['tomos_handoff_filename'] ?? 'article.md');
+                    $uploadResult = $handoffMarkdown !== ''
+                        ? $upload->handleContent($handoffMarkdown, $handoffFilename, (string) ($_POST['folder'] ?? ''), '', session_id(), [], $omittedImages, false, $submissionId)
+                        : $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), [], $omittedImages, false, $submissionId);
                     if ($uploadResult->ok) {
                         $messages[] = uploadSuccessMessage($uploadResult);
                         $warnings = array_merge($warnings, $uploadResult->warnings);
@@ -965,7 +973,7 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 .nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}.tomos-message{color:var(--tomos-muted);font-size:.9rem;margin:0 0 1rem}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 .result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}
-</style></head><body><main class="wrap">';
+</style></head><body data-tomos-write-url="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" data-tomos-markdown-max-bytes="' . e((string) Tomos\PostUploadInput::maxBytes()) . '" data-tomos-version="' . e(trim((string) @file_get_contents(dirname(__DIR__) . '/VERSION'))) . '"><main class="wrap">';
 
     echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}.tomos-message{align-items:center;background:#fffaf2;border:1px solid rgba(164,74,29,.1);border-radius:8px;box-shadow:0 2px 8px rgba(47,47,47,.05);box-sizing:border-box;display:flex;gap:1rem;justify-content:space-between;margin:1.25rem 0 1.5rem;padding:1rem 1.25rem}.tomos-message-text{color:#3b332e;flex:1 1 auto;font-family:"Klee One","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-size:clamp(1rem,1.35vw,1.125rem);font-weight:400;line-height:1.7;margin:0}.tomos-message-mark{display:block;flex:0 0 auto;height:2.5rem;width:auto}@media(max-width:560px){.tomos-message{gap:.5rem;padding:1rem}.tomos-message-mark{height:2rem;width:auto}}</style>';
     echo '<h1>' . e($title) . '</h1>';
@@ -1582,10 +1590,13 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 {
     echo '<h2 id="post-upload">1. Markdownを投稿する</h2>';
     echo '<p class="hint">通常記事、index.md、about.mdを同じフォームから投稿できます。</p>';
+    echo '<p class="hint">新しい記事をTomos Writeで作成する場合は <a href="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" target="_blank" rel="noopener noreferrer">Tomos Writeを開く</a> を利用できます。</p>';
     echo '<form id="post-upload-form" method="post" action="" enctype="multipart/form-data">';
     echo '<input type="hidden" name="action" value="upload">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
+    echo '<input id="tomos-handoff-markdown" type="hidden" name="tomos_handoff_markdown" value="">';
+    echo '<input id="tomos-handoff-filename" type="hidden" name="tomos_handoff_filename" value="">';
     renderAuthenticationFields('post_password');
     echo '<label for="markdown_file">投稿するファイル</label>';
     echo '<input id="markdown_file" type="file" name="markdown_file" accept=".md,.markdown,.txt,text/markdown,text/plain">';
@@ -1615,10 +1626,12 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   const imageMatchStatus = document.getElementById("image-match-status");
   const imageInput = document.getElementById("image_files");
   const form = document.getElementById("post-upload-form");
+  const handoffMarkdownInput = document.getElementById("tomos-handoff-markdown");
+  const handoffFilenameInput = document.getElementById("tomos-handoff-filename");
   const submitButton = document.getElementById("post-upload-submit");
   const processingStatus = document.getElementById("image-processing-status");
   const pageTypeNotice = document.getElementById("page-type-notice");
-  if (!fileInput || !folderInput || !notice || !imageNotice || !imageMatchStatus || !imageInput || !form || !submitButton || !processingStatus || !pageTypeNotice || typeof FileReader === "undefined") return;
+  if (!fileInput || !folderInput || !notice || !imageNotice || !imageMatchStatus || !imageInput || !form || !handoffMarkdownInput || !handoffFilenameInput || !submitButton || !processingStatus || !pageTypeNotice || typeof FileReader === "undefined") return;
 
   const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
   let effectiveImageMaxBytes = MAX_IMAGE_BYTES;
@@ -1638,6 +1651,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   let editableReupload = false;
   let draftState = false;
   let editableSourcePath = "";
+  let importedFilename = "";
   let imageSelectionTask = Promise.resolve();
   let submitting = false;
   let activeUploadSessionId = "";
@@ -1672,9 +1686,10 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const selectedPageType = () => {
     const file = fileInput.files && fileInput.files[0];
-    if (!file) return "";
-    if (file.name === "index.md" && (!editableReupload || editableSourcePath === "index.md")) return "home";
-    if (file.name === "about.md" && (!editableReupload || editableSourcePath === "about.md")) return "about";
+    const filename = file ? file.name : importedFilename;
+    if (!filename) return "";
+    if (filename === "index.md" && (!editableReupload || editableSourcePath === "index.md")) return "home";
+    if (filename === "about.md" && (!editableReupload || editableSourcePath === "about.md")) return "about";
     return "article";
   };
 
@@ -1877,6 +1892,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     editableReupload = false;
     editableSourcePath = "";
     draftState = false;
+    importedFilename = "";
+    handoffMarkdownInput.value = "";
+    handoffFilenameInput.value = "";
     updatePageSelection();
     imageNotice.hidden = true;
     imageNotice.textContent = "";
@@ -1950,6 +1968,80 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     });
     reader.readAsText(file);
   });
+
+  const resetImportedMarkdownState = () => {
+    setNotice("");
+    folderInput.disabled = false;
+    editableReupload = false;
+    editableSourcePath = "";
+    draftState = false;
+    importedFilename = "";
+    handoffMarkdownInput.value = "";
+    handoffFilenameInput.value = "";
+    imageNotice.hidden = true;
+    imageNotice.textContent = "";
+    requiredImages = [];
+    selectedImages.clear();
+    unmatchedImageCount = 0;
+    oversizedImageCount = 0;
+    formatMismatchImageCount = 0;
+    imageInput.value = "";
+    renderImageMatches(new Set());
+  };
+
+  const MAX_MARKDOWN_BYTES = Number(document.body.dataset.tomosMarkdownMaxBytes || 0);
+
+  window.TomosPostImportMarkdown = (markdown, filename) => {
+    if (typeof markdown !== "string" || markdown === "" || !Number.isSafeInteger(MAX_MARKDOWN_BYTES) || MAX_MARKDOWN_BYTES <= 0 || new TextEncoder().encode(markdown).byteLength > MAX_MARKDOWN_BYTES) return false;
+    const safeFilename = typeof filename === "string" && /^[^/\\]+\.(?:md|markdown|txt)$/i.test(filename) ? filename : "article.md";
+    resetImportedMarkdownState();
+    importedFilename = safeFilename;
+    fileInput.value = "";
+    handoffMarkdownInput.value = markdown;
+    handoffFilenameInput.value = safeFilename;
+    draftState = extractDraftState(markdown);
+    const sourceMetadata = extractSourceMetadata(markdown);
+    const sourceMetadataIncomplete = sourceMetadata.count > 0 && !sourceMetadata.complete;
+    if (sourceMetadata.complete) {
+      editableReupload = true;
+      editableSourcePath = String(sourceMetadata.values.tomos_source_path || "").replace(/\\/g, "/");
+      const slash = editableSourcePath.lastIndexOf("/");
+      const sourceFolder = slash >= 0 ? editableSourcePath.slice(0, slash) : "";
+      if (isUnsafeFolder(sourceFolder)) {
+        setNotice("編集元の保存先情報を使用できません。記事管理から原稿をもう一度ダウンロードしてください。", true);
+        editableReupload = false;
+        editableSourcePath = "";
+      } else if (selectedPageType() !== "home" && selectedPageType() !== "about") {
+        folderInput.value = normalizeFolder(sourceFolder);
+      }
+    }
+    const images = extractImages(markdown);
+    requiredImages = images;
+    if (images.length > 0) {
+      imageNotice.hidden = false;
+      imageNotice.textContent = editableReupload
+        ? "既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。"
+        : `このMarkdownには画像が${images.length}点あります。Tomos Writeで使った元画像を選んでください。`;
+    }
+    // Resolve source metadata before rendering image requirements so an editable handoff
+    // never flashes as a new upload and then changes its requirement state.
+    renderImageMatches(new Set());
+    if (sourceMetadataIncomplete) {
+      setNotice("編集元の情報が不足しています。Tomos Postから原稿をもう一度ダウンロードしてください。", true);
+      updatePageSelection();
+      return true;
+    }
+    if (sourceMetadata.complete) {
+      updatePageSelection();
+      setNotice("Tomos Writeから編集済みMarkdownを受け取りました。内容を確認して投稿してください。");
+      return true;
+    }
+    updatePageSelection();
+    const folder = extractFolder(markdown);
+    if (folder !== null && folder.trim() !== "" && !isUnsafeFolder(folder)) folderInput.value = normalizeFolder(folder);
+    setNotice("Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。");
+    return true;
+  };
 
   const extensionForFile = (file) => {
     const match = file.name.toLowerCase().match(/\.([a-z0-9]+)$/);

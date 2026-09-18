@@ -14,8 +14,8 @@ function requireNeedle(string $source, string $needle, string $message): void
     }
 }
 
-requireNeedle($source, 'if (returnSession && document.getElementById("markdown_file")) {', 'return receiver must require a valid upload page');
-requireNeedle($source, 'let returnSource = opener && !opener.closed ? opener : null;', 'return source binding is missing');
+requireNeedle($source, 'if (returnSession && document.getElementById("markdown_file") && WRITE_ORIGIN) {', 'return receiver must require a valid upload page');
+requireNeedle($source, 'let returnSource = window.opener && !window.opener.closed ? window.opener : null;', 'return source binding is missing');
 requireNeedle($source, 'window.addEventListener("message", handleReturnMessage);', 'top-level receiver must listen for the Write probe');
 requireNeedle($source, 'if (message.type === "write:return-probe") {', 'return receiver must answer the ready probe');
 requireNeedle($source, 'if (!returnSource) returnSource = event.source;', 'top-level receiver must bind the first valid Write source');
@@ -24,9 +24,14 @@ requireNeedle($source, 'event.origin !== WRITE_ORIGIN', 'return receiver must va
 requireNeedle($source, 'message.protocol !== PROTOCOL || message.session !== returnSession', 'return receiver must validate protocol and session');
 requireNeedle($source, 'receiveReturnDocument(message, event.source, returnSession);', 'return receiver must pass the validated source to document handling');
 requireNeedle($source, 'type: "tomos:return-ready",', 'return receiver must acknowledge readiness');
+requireNeedle($source, 'processedReturnTransactions', 'return receiver must suppress duplicate transactions');
+requireNeedle($source, 'window.TomosPostImportMarkdown', 'return receiver must use the direct Markdown import entry');
+if (strpos($source, 'new DataTransfer') !== false) {
+    throw new RuntimeException('return receiver must not depend on DataTransfer');
+}
 
 $listenerPosition = strpos($source, 'window.addEventListener("message", handleReturnMessage);');
-$proactiveReadyPosition = strpos($source, 'returnSource.postMessage({', $listenerPosition ?: 0);
+$proactiveReadyPosition = strpos($source, 'sendReturnReady(returnSource);', $listenerPosition ?: 0);
 if ($listenerPosition === false || $proactiveReadyPosition === false || $listenerPosition > $proactiveReadyPosition) {
     throw new RuntimeException('return receiver must install validation before sending the proactive ready message');
 }

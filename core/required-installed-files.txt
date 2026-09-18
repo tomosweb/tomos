@@ -23,6 +23,7 @@ core/PostAuthReturnTo.php
 core/PostSubmissionGuard.php
 core/PostRateLimiter.php
 core/PostUpload.php
+core/TomosWriteHandoff.php
 core/PostUploadInput.php
 core/PostSubmissionPreparer.php
 core/PostConflictManager.php

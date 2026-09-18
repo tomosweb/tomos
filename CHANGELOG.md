@@ -1,5 +1,23 @@
 # 更新履歴
 
+## v1.0.4 - 2026-09-18
+
+Tomos PostとTomos Writeの往復編集を安定させ、公開済み記事の画像管理を安全にしました。
+
+### Improved
+
+- Tomos Writeとのhandoffで、ready probe、bounded retry、ACK、transaction ID、重複抑止に対応しました
+- Tomos WriteからのMarkdownをdirect importし、1 MiBの自動handoff/import上限をTomos Postと統一しました
+- 公開済み記事の編集で既存管理画像を再アップロード不要として扱います
+- Markdownから削除された管理画像を、他記事からの参照を確認したうえで安全にcleanupします
+- 画像参照indexのwarning、conflict、更新失敗時は既存画像を保持します
+- Tomos Write canonical endpoint、exact origin/session/source validation、COOP互換を維持します
+
+### Compatibility / Update
+
+- v1.0.3からv1.0.4へ、署名付きTomos Updateで更新します
+- 更新時も`config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashの運用データを保持します
+
 ## v1.0.3 - hotfix candidate
 
 ### Fixed / Compatibility

@@ -2,35 +2,76 @@
   "use strict";
 
   const PROTOCOL = "tomos-write-handoff/v1";
-  const WRITE_ORIGIN = "https://tomoswords.org";
-  const WRITE_URL = `${WRITE_ORIGIN}/write/`;
-  const MAX_MARKDOWN_BYTES = 2 * 1024 * 1024;
-  const HANDSHAKE_TIMEOUT_MS = 10000;
+  const writeUrlValue = document.body?.dataset?.tomosWriteUrl || "";
+  let WRITE_URL = "";
+  let WRITE_ORIGIN = "";
+  try {
+    const writeUrl = new URL(writeUrlValue);
+    if (writeUrl.protocol === "https:" && !writeUrl.username && !writeUrl.password && writeUrl.pathname === "/write/") {
+      WRITE_URL = writeUrl.href;
+      WRITE_ORIGIN = writeUrl.origin;
+    }
+  } catch {
+    // A missing or malformed server-provided endpoint fails closed.
+  }
+
+  const TOMOS_VERSION = document.body?.dataset?.tomosVersion || "unknown";
+  const CAPABILITIES = ["ack", "bounded-retry", "transaction-id", "direct-markdown-import", "diagnostics"];
+  const configuredMarkdownMaxBytes = Number(document.body?.dataset?.tomosMarkdownMaxBytes || 0);
+  const MAX_MARKDOWN_BYTES = Number.isSafeInteger(configuredMarkdownMaxBytes) && configuredMarkdownMaxBytes > 0
+    ? configuredMarkdownMaxBytes
+    : 0;
+  const MAX_HANDSHAKE_MS = 30000;
+  const RETRY_DELAYS_MS = [800, 1500, 3000, 5000, 8000];
   const scrollBehavior = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 
   let writeWindow = null;
   let sessionId = "";
   let selectedButton = null;
   let pendingDocument = null;
+  let documentTransactionId = "";
+  let documentAttempts = 0;
+  let documentDeadline = 0;
   let readyReceived = false;
-  let handshakeTimer = null;
+  let writeVersion = "unknown";
+  let readyProbeTimer = null;
+  let documentRetryTimer = null;
+  const processedReturnTransactions = new Set();
+  const inflightReturnTransactions = new Set();
+  const diagnostics = [];
 
   const byteLength = (value) => new TextEncoder().encode(value).byteLength;
 
-  const randomSessionId = () => {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return window.crypto.randomUUID();
-    }
+  const recordDiagnostic = (stage, retryCount = 0) => {
+    const entry = {
+      stage,
+      retryCount,
+      protocol: PROTOCOL,
+      tomosVersion: TOMOS_VERSION,
+      writeVersion,
+      timestamp: new Date().toISOString(),
+    };
+    diagnostics.push(entry);
+    window.__tomosHandoffDiagnostics = diagnostics.slice(-50);
+    window.dispatchEvent(new CustomEvent("tomos:handoff-diagnostic", { detail: entry }));
+  };
+
+  const randomId = () => {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
     const bytes = new Uint8Array(16);
     window.crypto.getRandomValues(bytes);
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   };
 
-  const clearHandshakeTimer = () => {
-    if (handshakeTimer !== null) {
-      window.clearTimeout(handshakeTimer);
-      handshakeTimer = null;
-    }
+  const clearTimer = (timer) => {
+    if (timer !== null) window.clearTimeout(timer);
+  };
+
+  const clearTransportTimers = () => {
+    clearTimer(readyProbeTimer);
+    clearTimer(documentRetryTimer);
+    readyProbeTimer = null;
+    documentRetryTimer = null;
   };
 
   const setButtonState = (label, disabled) => {
@@ -40,7 +81,8 @@
   };
 
   const failLaunch = (message) => {
-    clearHandshakeTimer();
+    clearTransportTimers();
+    recordDiagnostic("recoverable failure", documentAttempts);
     setButtonState("Tomos Writeで編集", false);
     window.alert(`${message}\n必要な場合は「Markdownを取得」から従来の方法で編集できます。`);
   };
@@ -55,14 +97,65 @@
     }
   };
 
-  const maybeSendDocument = () => {
-    if (!readyReceived || !pendingDocument || !writeWindow || writeWindow.closed) return;
-    writeWindow.postMessage({
-      protocol: PROTOCOL,
-      session: sessionId,
+  const envelope = (message) => ({
+    ...message,
+    protocol: PROTOCOL,
+    session: sessionId,
+    senderVersion: TOMOS_VERSION,
+    capabilities: CAPABILITIES,
+  });
+
+  const returnEnvelope = (session, message) => ({
+    ...message,
+    protocol: PROTOCOL,
+    session,
+    senderVersion: TOMOS_VERSION,
+    capabilities: CAPABILITIES,
+  });
+
+  const sendReadyProbe = () => {
+    if (!writeWindow || writeWindow.closed || !WRITE_ORIGIN) return false;
+    writeWindow.postMessage(envelope({ type: "tomos:ready-probe" }), WRITE_ORIGIN);
+    return true;
+  };
+
+  const startReadyProbe = () => {
+    const startedAt = Date.now();
+    const probe = () => {
+      if (readyReceived || !writeWindow || writeWindow.closed) return;
+      if (Date.now() - startedAt >= MAX_HANDSHAKE_MS) {
+        failLaunch("Tomos Writeとの接続を確認できませんでした。時間を置いて再試行してください。");
+        return;
+      }
+      sendReadyProbe();
+      readyProbeTimer = window.setTimeout(probe, 750);
+    };
+    probe();
+  };
+
+  const sendDocumentAttempt = () => {
+    if (!pendingDocument || !writeWindow || writeWindow.closed || !WRITE_ORIGIN) {
+      failLaunch("Tomos Writeへの接続が閉じられました。編集内容はMarkdownとして取得できます。");
+      return;
+    }
+    if (documentAttempts >= RETRY_DELAYS_MS.length || Date.now() >= documentDeadline) {
+      failLaunch("Tomos Writeへ原稿を送信できませんでした。時間を置いて再試行してください。");
+      return;
+    }
+
+    documentAttempts += 1;
+    writeWindow.postMessage(envelope({
       type: "tomos:document",
+      transactionId: documentTransactionId,
       document: pendingDocument,
-    }, WRITE_ORIGIN);
+    }), WRITE_ORIGIN);
+    recordDiagnostic("document sent", documentAttempts - 1);
+    documentRetryTimer = window.setTimeout(sendDocumentAttempt, RETRY_DELAYS_MS[documentAttempts - 1]);
+  };
+
+  const maybeSendDocument = () => {
+    if (!readyReceived || !pendingDocument || documentAttempts > 0) return;
+    sendDocumentAttempt();
   };
 
   const launchWrite = async (button) => {
@@ -71,7 +164,7 @@
     const tokenInput = downloadForm && downloadForm.querySelector('input[name="_token"]');
     const contentPathInput = downloadForm && downloadForm.querySelector('input[name="content_path"]');
     const returnUrl = safeReturnUrl(button.dataset.returnUrl || "");
-    if (!tokenInput || !contentPathInput || !returnUrl) {
+    if (!tokenInput || !contentPathInput || !returnUrl || !WRITE_URL) {
       window.alert("Tomos Writeへ渡す原稿情報を確認できませんでした。一覧を再読み込みしてください。");
       return;
     }
@@ -81,10 +174,15 @@
     );
     if (!approved) return;
 
-    sessionId = randomSessionId();
+    sessionId = randomId();
     selectedButton = button;
     pendingDocument = null;
+    documentTransactionId = randomId();
+    documentAttempts = 0;
+    documentDeadline = Date.now() + MAX_HANDSHAKE_MS;
     readyReceived = false;
+    clearTransportTimers();
+    recordDiagnostic("session created");
     setButtonState("Tomos Writeを開いています…", true);
 
     const fragment = new URLSearchParams({
@@ -98,10 +196,8 @@
       failLaunch("Tomos Writeを開けませんでした。ブラウザのポップアップ設定を確認してください。");
       return;
     }
-
-    handshakeTimer = window.setTimeout(() => {
-      failLaunch("Tomos Writeとの接続を確認できませんでした。");
-    }, HANDSHAKE_TIMEOUT_MS);
+    recordDiagnostic("Write opened");
+    startReadyProbe();
 
     try {
       const data = new FormData();
@@ -130,31 +226,39 @@
     }
   };
 
-  const receiveReturnDocument = (message, source, session) => {
-    const fileInput = document.getElementById("markdown_file");
-    if (!fileInput || !source) return;
-
+  const receiveReturnDocument = async (message, source, session) => {
     const markdown = message.document && message.document.markdown;
     const filename = message.document && message.document.filename;
-    if (typeof markdown !== "string" || byteLength(markdown) > MAX_MARKDOWN_BYTES) return;
-    if (typeof DataTransfer === "undefined") {
-      window.alert("このブラウザでは編集済みMarkdownを投稿画面へ渡せません。Write側でMarkdownを保存してください。");
+    const transactionId = typeof message.transactionId === "string" ? message.transactionId : "";
+    if (!source || typeof markdown !== "string" || byteLength(markdown) > MAX_MARKDOWN_BYTES || !WRITE_ORIGIN) return;
+    if (transactionId && processedReturnTransactions.has(transactionId)) {
+      source.postMessage(returnEnvelope(session, { type: "tomos:return-ack", transactionId }), WRITE_ORIGIN);
+      recordDiagnostic("return ack received");
       return;
     }
+    if (transactionId && inflightReturnTransactions.has(transactionId)) return;
 
     const safeFilename = typeof filename === "string" && /^[^/\\]+\.(?:md|markdown|txt)$/i.test(filename)
       ? filename
       : "article.md";
-    const transfer = new DataTransfer();
-    transfer.items.add(new File([markdown], safeFilename, { type: "text/markdown", lastModified: Date.now() }));
-    fileInput.files = transfer.files;
-    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    const importer = window.TomosPostImportMarkdown;
+    if (typeof importer !== "function") {
+      window.alert("編集済みMarkdownを投稿画面へ読み込めませんでした。Markdownを保存して手動で投稿してください。");
+      return;
+    }
 
-    source.postMessage({
-      protocol: PROTOCOL,
-      session,
-      type: "tomos:return-ack",
-    }, WRITE_ORIGIN);
+    if (transactionId) inflightReturnTransactions.add(transactionId);
+    let accepted = false;
+    try {
+      accepted = await Promise.resolve(importer(markdown, safeFilename, { transactionId, session }));
+    } catch {
+      accepted = false;
+    }
+    if (transactionId) inflightReturnTransactions.delete(transactionId);
+    if (!accepted) return;
+    if (transactionId) processedReturnTransactions.add(transactionId);
+    source.postMessage(returnEnvelope(session, { type: "tomos:return-ack", transactionId }), WRITE_ORIGIN);
+    recordDiagnostic("return ack received");
     history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
     document.getElementById("post-upload")?.scrollIntoView({ behavior: scrollBehavior, block: "start" });
   };
@@ -164,15 +268,27 @@
   });
 
   window.addEventListener("message", (event) => {
-    if (event.origin !== WRITE_ORIGIN) return;
+    if (!WRITE_ORIGIN || event.origin !== WRITE_ORIGIN) return;
     if (!writeWindow || event.source !== writeWindow) return;
     const message = event.data;
     if (!message || typeof message !== "object") return;
     if (message.protocol !== PROTOCOL || message.session !== sessionId) return;
+    if (typeof message.senderVersion === "string" && message.senderVersion !== "") writeVersion = message.senderVersion;
 
     if (message.type === "write:ready") {
       readyReceived = true;
+      clearTimer(readyProbeTimer);
+      readyProbeTimer = null;
+      recordDiagnostic("ready received");
       maybeSendDocument();
+      return;
+    }
+
+    if (message.type === "write:import-ack") {
+      if (message.transactionId && message.transactionId !== documentTransactionId) return;
+      clearTransportTimers();
+      setButtonState("Tomos Writeで編集中", true);
+      recordDiagnostic("import ack received", Math.max(0, documentAttempts - 1));
       return;
     }
 
@@ -180,19 +296,16 @@
       event.source.postMessage({
         protocol: PROTOCOL,
         session: sessionId,
+        senderVersion: TOMOS_VERSION,
+        capabilities: CAPABILITIES,
         type: "tomos:return-ready",
       }, WRITE_ORIGIN);
+      recordDiagnostic("return-ready sent");
       return;
     }
 
     if (message.type === "write:return-document") {
-      receiveReturnDocument(message, event.source, sessionId);
-      return;
-    }
-
-    if (message.type === "write:import-ack") {
-      clearHandshakeTimer();
-      setButtonState("Tomos Writeで編集中", true);
+      void receiveReturnDocument(message, event.source, sessionId);
     }
   });
 
@@ -200,39 +313,38 @@
   const returnSession = returnParams.get("tomosWriteReturn") === "1"
     ? returnParams.get("session") || ""
     : "";
-  if (returnSession && document.getElementById("markdown_file")) {
-    const opener = window.opener;
-    let returnSource = opener && !opener.closed ? opener : null;
+  if (returnSession && document.getElementById("markdown_file") && WRITE_ORIGIN) {
+    let returnSource = window.opener && !window.opener.closed ? window.opener : null;
+    const sendReturnReady = (source) => {
+      if (!source) return;
+      source.postMessage({
+        protocol: PROTOCOL,
+        session: returnSession,
+        senderVersion: TOMOS_VERSION,
+        capabilities: CAPABILITIES,
+        type: "tomos:return-ready",
+      }, WRITE_ORIGIN);
+      recordDiagnostic("return-ready sent");
+    };
 
     const handleReturnMessage = (event) => {
       if (event.origin !== WRITE_ORIGIN || !event.source || event.source === window) return;
       const message = event.data;
       if (!message || typeof message !== "object") return;
       if (message.protocol !== PROTOCOL || message.session !== returnSession) return;
+      if (typeof message.senderVersion === "string" && message.senderVersion !== "") writeVersion = message.senderVersion;
       if (!returnSource) returnSource = event.source;
       if (event.source !== returnSource) return;
-
       if (message.type === "write:return-probe") {
-        event.source.postMessage({
-          protocol: PROTOCOL,
-          session: returnSession,
-          type: "tomos:return-ready",
-        }, WRITE_ORIGIN);
+        sendReturnReady(event.source);
         return;
       }
-
       if (message.type === "write:return-document") {
-        receiveReturnDocument(message, event.source, returnSession);
+        void receiveReturnDocument(message, event.source, returnSession);
       }
     };
 
     window.addEventListener("message", handleReturnMessage);
-    if (returnSource) {
-      returnSource.postMessage({
-        protocol: PROTOCOL,
-        session: returnSession,
-        type: "tomos:return-ready",
-      }, WRITE_ORIGIN);
-    }
+    sendReturnReady(returnSource);
   }
 })();

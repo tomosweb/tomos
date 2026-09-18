@@ -24,6 +24,9 @@ jobs:
           coverage: none
           tools: composer:v2
 
+      - name: Fetch released public v1.0.3 baseline
+        run: git fetch --no-tags https://github.com/tomosweb/tomos.git a966012bdf052b3c41ecac7a5a66a0b0990541b1
+
       - name: Prepare distribution dependencies
         run: bash tools/prepare-distribution-dependencies.sh
 
@@ -33,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           php tests/release_transition_check.php
-          unzip -t build/test-update/tomos-update-1.0.2-to-1.0.3-TEST.zip
+          unzip -t build/test-update/tomos-update-1.0.3-to-1.0.4-TEST.zip
           test -s build/test-update/test-public-key.pem
           test -s build/test-update/SHA256SUMS
           test -s build/test-update/TEST-ONLY.txt
@@ -42,6 +45,6 @@ jobs:
       - name: Upload test Update ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tomos-update-1.0.2-to-1.0.3-TEST-${{ github.sha }}
+          name: tomos-update-1.0.3-to-1.0.4-TEST-${{ github.sha }}
           path: build/test-update/
           if-no-files-found: error

@@ -389,7 +389,7 @@ final class PostInbox
     {
         if (!$this->ensureDirectory()) return new PostInboxReceiveResult(false, 500, '下書き保存領域を利用できません。');
         if ($fileName === '' || strpos($fileName, "\0") !== false || $fileName !== basename($fileName) || strpos($fileName, '/') !== false || strpos($fileName, '\\') !== false || strpos($fileName, ':') !== false) return new PostInboxReceiveResult(false, 400, 'ファイル名が正しくありません。');
-        if (strlen($content) > PostUploadInput::maxBytes()) return new PostInboxReceiveResult(false, 413, 'ファイルサイズが大きすぎます。初期版では1MBまでです。');
+        if (strlen($content) > PostUploadInput::maxBytes()) return new PostInboxReceiveResult(false, 413, 'ファイルサイズが大きすぎます。Markdownは1MBまでです。');
         $prepared = $this->submissionPreparer->prepare($content, $fileName, '', '');
         if (!$prepared->ok) return new PostInboxReceiveResult(false, 400, (string) ($prepared->errors[0] ?? 'Markdownを受信できません。'));
         return null;

@@ -87,7 +87,9 @@ try {
 
     $asset = request($baseUrl . '/post/assets/write-handoff.js', $cookie);
     assertSame(200, $asset['status'], 'Write handoff JS status');
-    assertContains('const WRITE_URL = `${WRITE_ORIGIN}/write/`;', $asset['body'], 'Write handoff JS payload');
+    assertContains('const writeUrlValue = document.body?.dataset?.tomosWriteUrl || "";', $asset['body'], 'Write handoff JS reads the server-provided canonical endpoint');
+    assertContains('data-tomos-write-url="https://tomoswords.org/write/"', $published['body'], 'published page exposes canonical Write endpoint');
+    assertContains('data-tomos-markdown-max-bytes="1048576"', $published['body'], 'published page exposes the 1 MiB Markdown limit');
 
     $handoff = request($baseUrl . '/post/write-handoff.php', $cookie, [
         '_token' => hiddenValue($published['body'], '_token'),
@@ -97,6 +99,17 @@ try {
     $payload = json_decode($handoff['body'], true);
     assertTrue(is_array($payload) && !empty($payload['ok']), 'Write handoff endpoint payload');
     assertContains('Write handoff regression body.', (string) ($payload['markdown'] ?? ''), 'Write handoff Markdown payload');
+
+    $directMarkdown = "---\ntitle: Direct Handoff Import\ndate: 2026-09-17\n---\nDirect Markdown import regression body.\n";
+    $directUpload = request($baseUrl . '/post/?section=upload', $cookie, [
+        'action' => 'upload',
+        '_token' => hiddenValue($published['body'], '_token'),
+        'submission_id' => bin2hex(random_bytes(32)),
+        'tomos_handoff_markdown' => $directMarkdown,
+        'tomos_handoff_filename' => 'direct-handoff-import.md',
+    ]);
+    assertSame(200, $directUpload['status'], 'direct Markdown import upload status');
+    assertContains('記事を公開しました。', $directUpload['body'], 'direct Markdown import result');
 
     echo "write_handoff_subdirectory_http_check: auth session, published button, JS asset, and handoff JSON passed\n";
 } catch (Throwable $exception) {

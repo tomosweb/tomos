@@ -18,8 +18,10 @@ requireNeedle($source, 'const approved = window.confirm(', 'approval must preced
 requireNeedle($source, 'if (!approved) return;', 'approval rejection must stop before opening Tomos Write');
 requireNeedle($source, 'writeWindow = window.open(`${WRITE_URL}#${fragment.toString()}`, "_blank");', 'the approved final Tomos Write URL must be opened directly');
 requireNeedle($source, "if (!writeWindow) {\n      failLaunch(", 'a blocked popup must stop the handoff');
-requireNeedle($source, 'writeWindow.postMessage({', 'the document handoff must use the opened window handle');
+requireNeedle($source, 'writeWindow.postMessage(envelope({', 'the document handoff must use the opened window handle');
 requireNeedle($source, '}, WRITE_ORIGIN);', 'postMessage must retain the exact target origin');
+requireNeedle($source, 'documentTransactionId = randomId();', 'document handoff must have a transaction ID');
+requireNeedle($source, 'RETRY_DELAYS_MS', 'document handoff must use bounded retries');
 
 $confirmPosition = strpos($source, 'const approved = window.confirm(');
 $openPosition = strpos($source, 'writeWindow = window.open(`${WRITE_URL}#${fragment.toString()}`, "_blank");');

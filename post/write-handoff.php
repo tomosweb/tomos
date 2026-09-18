@@ -78,8 +78,8 @@ if ($downloadName === '' || !preg_match('/\.(?:md|markdown|txt)$/i', $downloadNa
     $downloadName = 'download.md';
 }
 
-if (strlen($content) > 2 * 1024 * 1024) {
-    handoffResponse(['ok' => false, 'message' => 'この記事はブラウザ連携の上限2MBを超えています。Markdownを取得して編集してください。'], 413);
+if (strlen($content) > Tomos\PostUploadInput::maxBytes()) {
+    handoffResponse(['ok' => false, 'message' => 'この記事はTomosのMarkdown投稿上限1MBを超えています。Markdownを取得して編集してください。'], 413);
 }
 
 handoffResponse([

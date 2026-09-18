@@ -27,7 +27,7 @@ try {
         'size' => 1048577,
         'name' => 'large.md',
     ], static fn (string $path): bool => true);
-    assertError($result, 'ファイルサイズが大きすぎます。初期版では1MBまでです。', 'large file');
+    assertError($result, 'ファイルサイズが大きすぎます。Markdownは1MBまでです。', 'large file');
 
     file_put_contents($tmp, "# 日本語\n");
     $result = \Tomos\PostUploadInput::read([
