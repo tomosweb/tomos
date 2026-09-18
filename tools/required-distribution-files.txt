@@ -40,6 +40,7 @@ core/PostAuthReturnTo.php
 core/PostSubmissionGuard.php
 core/PostRateLimiter.php
 core/PostUpload.php
+core/TomosWriteHandoff.php
 core/PostInbox.php
 core/PostInboxPreview.php
 core/PostDrafts.php

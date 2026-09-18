@@ -69,7 +69,7 @@ final class PostUploadInput
             $errors[] = '空のファイルは投稿できません。';
         }
         if ($size > self::MAX_BYTES) {
-            $errors[] = 'ファイルサイズが大きすぎます。初期版では1MBまでです。';
+            $errors[] = 'ファイルサイズが大きすぎます。Markdownは1MBまでです。';
         }
 
         $content = @file_get_contents($tmpPath);

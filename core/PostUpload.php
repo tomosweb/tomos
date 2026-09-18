@@ -185,6 +185,12 @@ final class PostUpload
         bool $trustedStagedImages = false,
         string $submissionId = ''
     ): PostUploadResult {
+        if ($content === '') {
+            return new PostUploadResult(false, ['空のファイルは投稿できません。']);
+        }
+        if (strlen($content) > PostUploadInput::MAX_BYTES) {
+            return new PostUploadResult(false, ['ファイルサイズが大きすぎます。Markdownは1MBまでです。']);
+        }
         return $this->handlePreparedContent(
             $content,
             $originalFileName,
@@ -477,6 +483,7 @@ final class PostUpload
         $sourceStatus = $validated->sourceStatus;
         $source = $validated->source;
         $targetPath = $validated->targetPath;
+        $contentPath = (string) ($record->meta['content_path'] ?? '');
 
         $draft = $mode === 'draft';
         $markdown = $this->editableMarkdown->applyDraftState($record->markdown, $draft);
@@ -486,6 +493,8 @@ final class PostUpload
         if (!$draft && $sourceStatus === 'draft') {
             $markdown = PublishedMetadata::addIfMissing($markdown, $this->publishedNow());
         }
+        $oldImageRefs = $this->managedImageReferences((string) ($source['markdown'] ?? ''), $contentPath);
+        $newImageRefs = $this->managedImageReferences($markdown, $contentPath);
 
         $publish = $this->publisher->updateExisting(
             $targetPath,
@@ -498,8 +507,14 @@ final class PostUpload
         }
 
         $this->conflictManager->delete($tempId);
-        $contentPath = (string) ($record->meta['content_path'] ?? '');
         $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
+        $warnings = array_merge(
+            $warnings,
+            $this->publisher->deleteUnreferencedImagesIfSafe(
+                array_values(array_diff($oldImageRefs, $newImageRefs)),
+                $warnings
+            )
+        );
         $operation = $mode === 'draft'
             ? 'editable_draft'
             : ($sourceStatus === 'draft' ? 'editable_publish' : 'editable_update');
