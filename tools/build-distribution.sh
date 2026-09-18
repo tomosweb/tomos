@@ -7,6 +7,37 @@ REQUIRED_FILES_FILE="${ROOT_DIR}/tools/required-distribution-files.txt"
 WEBAUTHN_DIR="${ROOT_DIR}/core/webauthn"
 WEBAUTHN_TEST_DIR="${WEBAUTHN_DIR}/vendor/lbuchs/webauthn/_test"
 
+if ! command -v php >/dev/null 2>&1; then
+  echo "Error: PHP is required to read the initial bundled Theme policy."
+  exit 1
+fi
+
+INITIAL_BUNDLED_THEME_NAMES=()
+while IFS= read -r name || [[ -n "${name}" ]]; do
+  [[ -z "${name}" ]] && continue
+  INITIAL_BUNDLED_THEME_NAMES+=("${name}")
+done < <(
+  php -r 'require $argv[1]; foreach (\Tomos\InitialBundledThemes::names() as $name) { echo $name, PHP_EOL; }' \
+    "${ROOT_DIR}/core/InitialBundledThemes.php"
+)
+
+if [[ "${#INITIAL_BUNDLED_THEME_NAMES[@]}" -eq 0 ]]; then
+  echo "Error: initial bundled Theme policy is empty."
+  exit 1
+fi
+
+is_initial_bundled_theme() {
+  local candidate="$1"
+  local name
+  for name in "${INITIAL_BUNDLED_THEME_NAMES[@]}"; do
+    if [[ "${name}" == "${candidate}" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 if [[ ! -f "${VERSION_FILE}" ]]; then
   echo "Error: VERSION file is missing."
   exit 1
@@ -111,6 +142,25 @@ copy_item "trash"
 copy_item "themes"
 copy_item "content"
 copy_item "cache"
+
+echo "Restricting distribution Themes to the initial bundled Theme policy..."
+if [[ ! -d "${BUILD_DIR}/themes" ]]; then
+  echo "Error: themes directory is missing from the distribution build."
+  exit 1
+fi
+for theme_path in "${BUILD_DIR}/themes"/*; do
+  [[ -d "${theme_path}" ]] || continue
+  theme_name="$(basename "${theme_path}")"
+  if ! is_initial_bundled_theme "${theme_name}"; then
+    rm -rf "${theme_path}"
+  fi
+done
+for theme_name in "${INITIAL_BUNDLED_THEME_NAMES[@]}"; do
+  if [[ ! -d "${BUILD_DIR}/themes/${theme_name}" ]]; then
+    echo "Error: initial bundled Theme is missing from the distribution: ${theme_name}"
+    exit 1
+  fi
+done
 
 if [[ -L "${WEBAUTHN_TEST_DIR}" || -e "${WEBAUTHN_TEST_DIR}" ]]; then
   echo "Error: WebAuthn _test must be absent before Distribution build: core/webauthn/vendor/lbuchs/webauthn/_test"

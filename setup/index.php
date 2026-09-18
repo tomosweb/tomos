@@ -109,7 +109,9 @@ function renderPage(string $title, array $config, array $checks, array $errors, 
     $feed = $config['feed'] ?? [];
     $theme = $config['theme'] ?? [];
     $analytics = $config['analytics'] ?? [];
-    $themeResults = (new Tomos\ThemeRepository(dirname(__DIR__) . '/themes'))->all();
+    $themeResults = Tomos\InitialBundledThemes::only(
+        (new Tomos\ThemeRepository(dirname(__DIR__) . '/themes'))->all()
+    );
     $validThemeCount = count(array_filter($themeResults, function (array $result): bool {
         return !empty($result['valid']);
     }));

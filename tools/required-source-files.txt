@@ -21,6 +21,7 @@ core/UpdateService.php
 core/InstalledIntegrityVerifier.php
 core/UpdaterSelfUpdate.php
 core/required-installed-files.txt
+core/InitialBundledThemes.php
 core/PostBasicPage.php
 core/PostAuthRememberToken.php
 core/PostSubmissionGuard.php

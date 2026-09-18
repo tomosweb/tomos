@@ -32,7 +32,7 @@ final class SetupGuard
         $themesRoot = $rootDir . DIRECTORY_SEPARATOR . 'themes';
         $themeDir = $rootDir . DIRECTORY_SEPARATOR . 'themes' . DIRECTORY_SEPARATOR . 'tomos-minimal';
         $themeRepository = new ThemeRepository($themesRoot);
-        $themes = $themeRepository->all();
+        $themes = InitialBundledThemes::only($themeRepository->all());
         $validThemeCount = count(array_filter($themes, static function (array $theme): bool {
             return !empty($theme['valid']);
         }));

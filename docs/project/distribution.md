@@ -132,11 +132,8 @@ docs/theme/ai-theme-safe-workflow-draft.md
 - `post-reset.enable`: 管理用合言葉を再発行するための運用ファイルです。配布物には含めません。
 - `trash/.htaccess` / `trash/.gitkeep`: 取り下げ済みファイルの退避先を保護し、空ディレクトリを維持するために含めます。
 - `trash/content/`: 実行環境で取り下げ時に生成される退避ファイル置き場です。配布物には含めません。
-- `themes/tomos-minimal/`: 標準テーマとして含めます。追加テーマは `themes/` 配下に置きます。
-- `themes/tomos-journal/`: 日記・エッセイ・個人の記録向けの同梱サンプルテーマとして含めます。
-- `themes/tomos-dark/`: 暗い背景で文章を読める同梱サンプルテーマとして含めます。
-- `themes/tomos-90s/`: 1990年代風の同梱サンプルテーマとして含めます。
-- `themes/tomos-note/`: ノート風の同梱サンプルテーマとして含めます。
+- `themes/tomos-minimal/`、`themes/tomos-note/`、`themes/tomos-90s/`、`themes/tomos-dark/`、`themes/tomos-journal/`、`themes/tomos-blog/`: 初回セットアップで選択できる、本体に初期同梱する標準Themeです。allowlistは `core/InitialBundledThemes.php` を正とします。
+- `themes/` 配下のその他のTheme: リポジトリやTheme単体配布で保持できますが、Tomos本体distribution ZIPには含めません。初回セットアップには表示せず、インストール後のTomos Post Theme管理で扱います。
 - `themes/tomos-creator/` / `themes/tomos-radical-poster/`: 公開サイト用・試作用テーマのため、配布物には含めません。
 - `tests/`: 開発確認用です。公開配布物には含めなくて構いません。含める場合でも `tests/.htaccess` でWeb実行を拒否します。
 - `VERSION`: 配布バージョンを示します。
