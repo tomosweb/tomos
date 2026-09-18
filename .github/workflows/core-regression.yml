@@ -24,6 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --no-tags https://github.com/tomosweb/tomos.git a966012bdf052b3c41ecac7a5a66a0b0990541b1
           git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/tags/tomos-public-v0.5.2
           git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.7.0:refs/tags/tomos-public-v0.7.0
 
@@ -64,10 +65,6 @@ jobs:
             fi
             if [ "$test" = "tests/update_v073_to_v090_migration_check.php" ]; then
               echo "Skipping $test (immutable v0.7.3 fixture gate; run only against its historical baseline)"
-              continue
-            fi
-            if [ "$test" = "tests/theme_folder_pill_package_update_check.php" ]; then
-              echo "Skipping $test (Theme ZIP fixture is built and exercised by the Theme folder pill workflow)"
               continue
             fi
             echo "Running $test"

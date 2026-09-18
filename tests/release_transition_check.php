@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.2';
-$fromRef = 'a030290e5701a5c0b71e81dadf53ffa44ab5e65a';
+$fromVersion = '1.0.3';
+$fromRef = 'a966012bdf052b3c41ecac7a5a66a0b0990541b1';
 require_once $root . '/tools/UpdateFileSet.php';
-// a030290e is the public source baseline for the formally released v1.0.2.
+// a966012b is the dereferenced commit for the formally released public v1.0.3.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
@@ -123,9 +123,11 @@ try {
 
         foreach ([
             'VERSION',
-            'assets/tomos-default-favicon.png',
-            'core/TemplateRenderer.php',
+            'core/PostUpload.php',
+            'core/TomosWriteHandoff.php',
             'core/required-installed-files.txt',
+            'post/index.php',
+            'post/assets/write-handoff.js',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
