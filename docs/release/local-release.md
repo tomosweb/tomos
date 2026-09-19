@@ -240,3 +240,17 @@ Actionsがquota、障害、外部要因で利用できなくても、Formal loca
 ```
 
 これによりGitHub Actions利用時間を抑えながら、Release品質をActionsの可用性に依存させない。
+
+
+## Formal release artifacts
+
+`--mode=release` はtest用Updateに加えて、直前の正式公開versionから対象versionへの **production Browser Update ZIP** を本番署名鍵で生成する。
+
+v1.0.5では以下を生成・検証する。
+
+- `build/local-release/artifacts/update/tomos-update-1.0.4-to-1.0.5.zip`
+- `build/local-release/artifacts/update/SHA256SUMS`
+- production public keyによるUpdate manifest signature verification
+- Installer 6資産（Distribution ZIP / manifest / signature / installer / pointer / checksum）
+
+test用 `artifacts/test-update/` はephemeral test keyで署名されるため公開しない。
