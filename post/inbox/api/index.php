@@ -32,8 +32,20 @@ if (isset($_SERVER['HTTP_X_TOMOS_TOKEN'])) {
 if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
     $headers['Authorization'] = (string) $_SERVER['HTTP_AUTHORIZATION'];
 }
+if (isset($_SERVER['HTTP_X_TOMOS_ACTION'])) {
+    $headers['X-Tomos-Action'] = (string) $_SERVER['HTTP_X_TOMOS_ACTION'];
+}
+if (isset($_SERVER['HTTP_X_TOMOS_REQUEST_ID'])) {
+    $headers['X-Tomos-Request-Id'] = (string) $_SERVER['HTTP_X_TOMOS_REQUEST_ID'];
+}
 
-$api = new Tomos\PostInboxApi(new Tomos\PostInbox($config, $rootDir), $config);
+$inbox = new Tomos\PostInbox($config, $rootDir);
+$api = new Tomos\PostInboxApi(
+    $inbox,
+    $config,
+    new Tomos\PublisherStatusStore($config, $rootDir),
+    new Tomos\PostInboxAutoPublisher($inbox, $config, $rootDir)
+);
 $response = $api->handle(
     (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'),
     array_map(static fn ($value): string => is_string($value) ? $value : '', $headers),
