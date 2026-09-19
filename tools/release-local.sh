@@ -148,7 +148,8 @@ LOG_DIR="${OUTPUT_DIR}/logs"
 ARTIFACT_DIR="${OUTPUT_DIR}/artifacts"
 INSTALLER_DIR="${ARTIFACT_DIR}/installer"
 UPDATE_DIR="${ARTIFACT_DIR}/test-update"
-mkdir -p "${LOG_DIR}" "${INSTALLER_DIR}" "${UPDATE_DIR}"
+PRODUCTION_UPDATE_DIR="${ARTIFACT_DIR}/update"
+mkdir -p "${LOG_DIR}" "${INSTALLER_DIR}" "${UPDATE_DIR}" "${PRODUCTION_UPDATE_DIR}"
 
 STEPS=()
 run_step() {
@@ -221,7 +222,7 @@ write_report() {
 if [[ "${SKIP_FETCH}" -eq 0 ]]; then
   run_step fetch-public-baselines bash -c '
 set -euo pipefail
-git fetch --no-tags https://github.com/tomosweb/tomos.git a966012bdf052b3c41ecac7a5a66a0b0990541b1
+git fetch --no-tags https://github.com/tomosweb/tomos.git e022a6396b86d00e80181c44611f45ce85a443ab
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/tags/tomos-public-v0.5.2
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.7.0:refs/tags/tomos-public-v0.7.0
 '
@@ -250,8 +251,36 @@ done
 '
 
 run_step release-transition env TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR="${UPDATE_DIR}" php "${ROOT_DIR}/tests/release_transition_check.php"
-run_step test-update-zip unzip -t "${UPDATE_DIR}/tomos-update-1.0.3-to-${VERSION}-TEST.zip"
+run_step test-update-zip unzip -t "${UPDATE_DIR}/tomos-update-1.0.4-to-${VERSION}-TEST.zip"
 run_step test-update-checksums bash -c "cd \"${UPDATE_DIR}\" && sha256sum -c SHA256SUMS"
+
+if [[ "${MODE}" == "release" ]]; then
+  PRODUCTION_UPDATE_ZIP="${PRODUCTION_UPDATE_DIR}/tomos-update-1.0.4-to-${VERSION}.zip"
+  run_step production-update-package php "${ROOT_DIR}/tools/build-update-package.php" \
+    --from=1.0.4 \
+    --version="${VERSION}" \
+    --private-key="${PRIVATE_KEY}" \
+    --output="${PRODUCTION_UPDATE_ZIP}" \
+    --from-ref=e022a6396b86d00e80181c44611f45ce85a443ab \
+    --to-ref=HEAD
+  run_step production-update-zip unzip -t "${PRODUCTION_UPDATE_ZIP}"
+  run_step production-update-signature php -r '
+$zip = new ZipArchive();
+if ($zip->open($argv[1]) !== true) { fwrite(STDERR, "cannot open update zip\n"); exit(1); }
+$manifest = $zip->getFromName("manifest.json");
+$signature = $zip->getFromName("manifest.sig");
+$zip->close();
+$publicKey = file_get_contents($argv[2]);
+if (!is_string($manifest) || !is_string($signature) || !is_string($publicKey)
+    || openssl_verify($manifest, $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1
+) {
+    fwrite(STDERR, "production update signature verification failed\n");
+    exit(1);
+}
+echo "production_update_signature: OK\n";
+' "${PRODUCTION_UPDATE_ZIP}" "${PUBLIC_KEY}"
+  run_step production-update-checksum bash -c "cd \"${PRODUCTION_UPDATE_DIR}\" && sha256sum \"$(basename "${PRODUCTION_UPDATE_ZIP}")\" > SHA256SUMS && sha256sum -c SHA256SUMS"
+fi
 
 if [[ "${SKIP_MATRIX}" -eq 0 ]]; then
   MATRIX="${TOMOS_PHP_MATRIX:-}"
