@@ -256,14 +256,22 @@ run_step test-update-checksums bash -c "cd \"${UPDATE_DIR}\" && sha256sum -c SHA
 
 if [[ "${MODE}" == "release" ]]; then
   PRODUCTION_UPDATE_ZIP="${PRODUCTION_UPDATE_DIR}/tomos-update-1.0.4-to-${VERSION}.zip"
+  LEGACY_REQUIRED_LIST="${TMP_DIR}/required-installed-files-1.0.4.txt"
+  run_step production-update-legacy-required-list bash -c "git -C \"${ROOT_DIR}\" show e022a6396b86d00e80181c44611f45ce85a443ab:core/required-installed-files.txt > \"${LEGACY_REQUIRED_LIST}\" && test -s \"${LEGACY_REQUIRED_LIST}\""
   run_step production-update-package php "${ROOT_DIR}/tools/build-update-package.php" \
     --from=1.0.4 \
     --version="${VERSION}" \
     --private-key="${PRIVATE_KEY}" \
     --output="${PRODUCTION_UPDATE_ZIP}" \
+    --bootstrap-legacy-required-list="${LEGACY_REQUIRED_LIST}" \
     --from-ref=e022a6396b86d00e80181c44611f45ce85a443ab \
     --to-ref=HEAD
   run_step production-update-zip unzip -t "${PRODUCTION_UPDATE_ZIP}"
+  run_step production-update-candidate-v104-acceptance env \
+    TOMOS_CANDIDATE_UPDATE_PACKAGE="${PRODUCTION_UPDATE_ZIP}" \
+    TOMOS_CANDIDATE_FROM="1.0.4" \
+    TOMOS_CANDIDATE_TARGET="${VERSION}" \
+    php "${ROOT_DIR}/tests/public_artifact_update_acceptance_check.php"
   run_step production-update-signature php -r '
 $zip = new ZipArchive();
 if ($zip->open($argv[1]) !== true) { fwrite(STDERR, "cannot open update zip\n"); exit(1); }

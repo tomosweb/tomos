@@ -35,13 +35,20 @@ try {
     $keyPath = $tmp . '/private.pem';
     file_put_contents($keyPath, $privateKey, LOCK_EX);
 
+    $legacyRequiredList = $tmp . '/required-installed-files-' . $fromVersion . '.txt';
+    $legacyRequiredRaw = shell_exec('git -C ' . escapeshellarg($root) . ' show ' . escapeshellarg($fromRef . ':core/required-installed-files.txt'));
+    if (!is_string($legacyRequiredRaw) || $legacyRequiredRaw === '' || file_put_contents($legacyRequiredList, $legacyRequiredRaw, LOCK_EX) === false) {
+        throw new RuntimeException('could not materialize legacy required-installed-files baseline');
+    }
+
     $output = $tmp . '/tomos-update-' . $fromVersion . '-to-' . $targetVersion . '.zip';
     $command = escapeshellarg(PHP_BINARY)
         . ' ' . escapeshellarg($root . '/tools/build-update-package.php')
         . ' ' . escapeshellarg('--from=' . $fromVersion)
         . ' ' . escapeshellarg('--version=' . $targetVersion)
         . ' ' . escapeshellarg('--private-key=' . $keyPath)
-        . ' ' . escapeshellarg('--output=' . $output);
+        . ' ' . escapeshellarg('--output=' . $output)
+        . ' ' . escapeshellarg('--bootstrap-legacy-required-list=' . $legacyRequiredList);
     foreach ($runtimeFiles as $runtimeFile) {
         $command .= ' ' . escapeshellarg('--file=' . $runtimeFile);
     }
@@ -77,6 +84,10 @@ try {
         $manifestPaths = array_keys(is_array($manifest['files'] ?? null) ? $manifest['files'] : []);
         sort($manifestPaths);
         $expectedPaths = UpdateFileSet::packagePaths($runtimeFiles);
+        if (in_array('core/required-installed-files.txt', $runtimeFiles, true)) {
+            $expectedPaths[] = 'core/updater-pending/required-installed-files.txt';
+            $expectedPaths[] = 'core/updater-pending/required-installed-files.meta.json';
+        }
         sort($expectedPaths);
         if ($manifestPaths !== $expectedPaths) {
             throw new RuntimeException('manifest does not exactly cover the derived runtime update set');
@@ -90,8 +101,10 @@ try {
             ];
             $payloadPath = $path === 'docs/theme/theme-rules.json'
                 ? 'core/updater-pending/theme-rules.json'
-                : (($protectedGuardPayloads[$path] ?? null)
-                    ?: (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -4) === '.php'))[0] ?? $path));
+                : ($path === 'core/required-installed-files.txt'
+                    ? 'core/updater-pending/required-installed-files.txt'
+                    : (($protectedGuardPayloads[$path] ?? null)
+                        ?: (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -4) === '.php'))[0] ?? $path)));
             $bytes = $zip->getFromName('files/' . $payloadPath);
             if (!is_string($bytes)) {
                 throw new RuntimeException($targetVersion . ' package payload missing: ' . $path);
@@ -99,10 +112,12 @@ try {
             if (($manifest['files'][$payloadPath] ?? null) !== hash('sha256', $bytes)) {
                 throw new RuntimeException($targetVersion . ' manifest hash mismatch: ' . $path);
             }
-            if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php', 'docs/theme/theme-rules.json', 'cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess'], true)) {
+            if (in_array($path, ['update/index.php', 'core/UpdateService.php', 'core/UpdateLock.php', 'docs/theme/theme-rules.json', 'cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess', 'core/required-installed-files.txt', 'oauth-client-metadata.json.php', 'tomos-bluesky-jwks.json.php'], true)) {
                 $metadataPath = $path === 'docs/theme/theme-rules.json'
                     ? 'core/updater-pending/theme-rules.meta.json'
-                    : (string) (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'))[0] ?? '');
+                    : ($path === 'core/required-installed-files.txt'
+                        ? 'core/updater-pending/required-installed-files.meta.json'
+                        : (string) (array_values(array_filter($packagePaths, static fn (string $value): bool => substr($value, -5) === '.json'))[0] ?? ''));
                 $metadataBytes = $zip->getFromName('files/' . $metadataPath);
                 if (!is_string($metadataBytes)) {
                     throw new RuntimeException($targetVersion . ' pending updater metadata missing');
@@ -116,6 +131,11 @@ try {
                 }
             }
         }
+        $legacyRequiredBytes = $zip->getFromName('files/core/required-installed-files.txt');
+        if (!is_string($legacyRequiredBytes) || $legacyRequiredBytes !== $legacyRequiredRaw) {
+            throw new RuntimeException($targetVersion . ' main update must retain the v' . $fromVersion . ' required-file list until finalize');
+        }
+
         $versionBytes = $zip->getFromName('files/VERSION');
         if (!is_string($versionBytes) || trim($versionBytes) !== $targetVersion) {
             throw new RuntimeException($targetVersion . ' package VERSION payload mismatch');

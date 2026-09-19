@@ -89,6 +89,12 @@ final class UpdateFileSet
             } elseif ($path === 'docs/theme/theme-rules.json') {
                 $paths[] = 'core/updater-pending/theme-rules.json';
                 $paths[] = 'core/updater-pending/theme-rules.meta.json';
+            } elseif ($path === 'oauth-client-metadata.json.php') {
+                $paths[] = 'core/updater-pending/oauth-client-metadata.php';
+                $paths[] = 'core/updater-pending/oauth-client-metadata.meta.json';
+            } elseif ($path === 'tomos-bluesky-jwks.json.php') {
+                $paths[] = 'core/updater-pending/tomos-bluesky-jwks.php';
+                $paths[] = 'core/updater-pending/tomos-bluesky-jwks.meta.json';
             } elseif (self::isProtectedGuardTarget($path)) {
                 $name = substr($path, 0, strpos($path, '/'));
                 $paths[] = 'core/updater-pending/' . $name . '-htaccess';

@@ -40,6 +40,38 @@ try {
         fail('target VERSION is missing or invalid');
     }
 
+    $candidatePackage = trim((string) getenv('TOMOS_CANDIDATE_UPDATE_PACKAGE'));
+    if ($candidatePackage !== '') {
+        $candidateFrom = trim((string) (getenv('TOMOS_CANDIDATE_FROM') ?: '1.0.4'));
+        $candidateTarget = trim((string) (getenv('TOMOS_CANDIDATE_TARGET') ?: $targetVersion));
+        if (!is_file($candidatePackage) || $candidateFrom !== '1.0.4' || $candidateTarget !== $targetVersion) {
+            fail('candidate acceptance inputs are invalid');
+        }
+        $baselineUrlTemplate = getenv('TOMOS_PUBLIC_BASELINE_URL_TEMPLATE')
+            ?: 'https://github.com/tomosweb/tomos/releases/download/v%s/tomos-%s.zip';
+        $tmp = sys_get_temp_dir() . '/tomos-candidate-artifact-gate-' . bin2hex(random_bytes(8));
+        if (!mkdir($tmp, 0700, true)) {
+            fail('could not create candidate gate workspace');
+        }
+        try {
+            $baseline = $tmp . '/tomos-' . str_replace('.', '_', $candidateFrom) . '.zip';
+            $download = downloadGithubArtifact(sprintf($baselineUrlTemplate, $candidateFrom, $candidateFrom), $baseline);
+            check((int) $download['size'] > 0, 'candidate baseline has content');
+            check(isValidZip($baseline), 'candidate baseline is readable');
+            $rulesPath = $root . '/docs/theme/theme-rules.json';
+            if (!is_file($rulesPath)) {
+                fail('runtime Theme rules file is missing from the checkout');
+            }
+            $rulesHash = strtolower((string) hash_file('sha256', $rulesPath));
+            runTransitionChild($root, $baseline, $candidatePackage, $candidateFrom, $candidateTarget, $rulesHash, 'success');
+            echo "CANDIDATE TRANSITION {$candidateFrom} -> {$candidateTarget}: PASS" . PHP_EOL;
+            echo "candidate_artifact_update_acceptance_check: PASS" . PHP_EOL;
+        } finally {
+            removeTree($tmp);
+        }
+        exit(0);
+    }
+
     $catalogUrl = getenv('TOMOS_PUBLIC_CATALOG_URL') ?: UpdateReleaseProvider::CATALOG_URL;
     $rulesPath = $root . '/docs/theme/theme-rules.json';
     if (!is_file($rulesPath)) {
@@ -211,6 +243,18 @@ function runChildTransition(string $root, string $baseline, string $package, str
             if (!is_file($fixture . '/' . $required)) {
                 throw new RuntimeException('runtime required file is missing: ' . $required);
             }
+        }
+        foreach (['oauth-client-metadata.json.php', 'tomos-bluesky-jwks.json.php'] as $requiredRootEndpoint) {
+            if (!is_file($fixture . '/' . $requiredRootEndpoint)) {
+                throw new RuntimeException('runtime root endpoint is missing: ' . $requiredRootEndpoint);
+            }
+        }
+        $requiredList = file($fixture . '/core/required-installed-files.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!is_array($requiredList)
+            || !in_array('oauth-client-metadata.json.php', $requiredList, true)
+            || !in_array('tomos-bluesky-jwks.json.php', $requiredList, true)
+        ) {
+            throw new RuntimeException('final required-installed-files list does not require Bluesky root endpoints');
         }
         if (protectedSnapshot($fixture) !== $before) {
             throw new RuntimeException('protected data changed during public artifact update');

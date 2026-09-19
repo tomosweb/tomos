@@ -123,6 +123,14 @@ $pendingTargets = [
         'pending' => 'core/updater-pending/trash-htaccess',
         'metadata' => 'core/updater-pending/trash-htaccess.meta.json',
     ],
+    'oauth-client-metadata.json.php' => [
+        'pending' => 'core/updater-pending/oauth-client-metadata.php',
+        'metadata' => 'core/updater-pending/oauth-client-metadata.meta.json',
+    ],
+    'tomos-bluesky-jwks.json.php' => [
+        'pending' => 'core/updater-pending/tomos-bluesky-jwks.php',
+        'metadata' => 'core/updater-pending/tomos-bluesky-jwks.meta.json',
+    ],
 ];
 $bootstrapPendingTargets = [
     'core/required-installed-files.txt' => [
