@@ -14,6 +14,7 @@ foreach ([
     'PostInboxPreview' => 'PostInboxPreview.php',
     'PostDrafts' => 'PostDrafts.php',
     'PostInboxImageStore' => 'PostInboxImageStore.php',
+    'PublisherStatusStore' => 'PublisherStatusStore.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -165,7 +166,7 @@ final class PostInbox
             return false;
         }
         $this->imageStore->deleteForFile(basename($relativePath));
-        $this->clearPublisherFailure(basename($relativePath));
+        @unlink($this->publisherMetadataPath(basename($relativePath)));
         return true;
     }
 
@@ -283,6 +284,23 @@ final class PostInbox
 
     /** @return array<int,array<string,mixed>> */
     public function stagedImageFiles(string $fileName): array { return $this->imageStore->stagedFiles($fileName); }
+
+    public function rememberPublisherRequestId(string $fileName, string $requestId): bool
+    {
+        if ($fileName === '' || !PublisherStatusStore::isValidRequestId($requestId)) {
+            return false;
+        }
+        $data = $this->publisherMetadata($fileName);
+        $data['request_id'] = $requestId;
+        return $this->writePublisherMetadata($fileName, $data);
+    }
+
+    public function publisherRequestId(string $fileName): string
+    {
+        $data = $this->publisherMetadata($fileName);
+        $requestId = is_string($data['request_id'] ?? null) ? (string) $data['request_id'] : '';
+        return PublisherStatusStore::isValidRequestId($requestId) ? $requestId : '';
+    }
 
     public function markPublisherAutoPublishFailure(string $relativePath): bool
     {
@@ -413,19 +431,45 @@ final class PostInbox
 
     private function publisherMetadataDir(): string { return $this->inboxDir . DIRECTORY_SEPARATOR . '.publisher'; }
     private function publisherMetadataPath(string $fileName): string { return $this->publisherMetadataDir() . DIRECTORY_SEPARATOR . hash('sha256', $fileName) . '.json'; }
-    private function writePublisherFailure(string $fileName, string $content): bool
-    {
-        if (!is_dir($this->publisherMetadataDir()) && !@mkdir($this->publisherMetadataDir(), 0700, true) && !is_dir($this->publisherMetadataDir())) return false;
-        $data = json_encode(['replaceable' => true, 'content_hash' => hash('sha256', $content)], JSON_UNESCAPED_SLASHES);
-        return is_string($data) && @file_put_contents($this->publisherMetadataPath($fileName), $data . "\n", LOCK_EX) !== false;
-    }
-    private function isPublisherFailureCandidate(string $fileName, string $content): bool
+
+    /** @return array<string,mixed> */
+    private function publisherMetadata(string $fileName): array
     {
         $raw = @file_get_contents($this->publisherMetadataPath($fileName));
         $data = is_string($raw) ? json_decode($raw, true) : null;
-        return is_array($data) && !empty($data['replaceable']) && is_string($data['content_hash'] ?? null) && hash_equals((string) $data['content_hash'], hash('sha256', $content));
+        return is_array($data) ? $data : [];
     }
-    private function clearPublisherFailure(string $fileName): void { @unlink($this->publisherMetadataPath($fileName)); }
+
+    /** @param array<string,mixed> $data */
+    private function writePublisherMetadata(string $fileName, array $data): bool
+    {
+        if (!is_dir($this->publisherMetadataDir()) && !@mkdir($this->publisherMetadataDir(), 0700, true) && !is_dir($this->publisherMetadataDir())) return false;
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return is_string($json) && @file_put_contents($this->publisherMetadataPath($fileName), $json . "\n", LOCK_EX) !== false;
+    }
+
+    private function writePublisherFailure(string $fileName, string $content): bool
+    {
+        $data = $this->publisherMetadata($fileName);
+        $data['replaceable'] = true;
+        $data['content_hash'] = hash('sha256', $content);
+        return $this->writePublisherMetadata($fileName, $data);
+    }
+    private function isPublisherFailureCandidate(string $fileName, string $content): bool
+    {
+        $data = $this->publisherMetadata($fileName);
+        return !empty($data['replaceable']) && is_string($data['content_hash'] ?? null) && hash_equals((string) $data['content_hash'], hash('sha256', $content));
+    }
+    private function clearPublisherFailure(string $fileName): void
+    {
+        $data = $this->publisherMetadata($fileName);
+        unset($data['replaceable'], $data['content_hash']);
+        if ($data === []) {
+            @unlink($this->publisherMetadataPath($fileName));
+            return;
+        }
+        $this->writePublisherMetadata($fileName, $data);
+    }
 
     /** @param array<string,mixed> $result */
     private function imageResult(array $result): PostInboxReceiveResult { return new PostInboxReceiveResult(!empty($result['ok']), (int) ($result['status'] ?? 500), (string) ($result['message'] ?? '画像を処理できませんでした。'), (string) ($result['upload_id'] ?? '')); }

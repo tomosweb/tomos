@@ -7,6 +7,8 @@ namespace Tomos;
 foreach ([
     'PostInbox' => 'PostInbox.php',
     'PostPassword' => 'PostPassword.php',
+    'PublisherStatusStore' => 'PublisherStatusStore.php',
+    'PostInboxAutoPublisher' => 'PostInboxAutoPublisher.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -31,11 +33,19 @@ final class PostInboxApi
 {
     private PostInbox $inbox;
     private string $tokenHash;
+    private ?PublisherStatusStore $statusStore;
+    private ?PostInboxAutoPublisher $autoPublisher;
 
-    public function __construct(PostInbox $inbox, array $config)
-    {
+    public function __construct(
+        PostInbox $inbox,
+        array $config,
+        ?PublisherStatusStore $statusStore = null,
+        ?PostInboxAutoPublisher $autoPublisher = null
+    ) {
         $this->inbox = $inbox;
         $this->tokenHash = (string) (($config['security']['inbox_api_token_hash'] ?? '') ?: '');
+        $this->statusStore = $statusStore;
+        $this->autoPublisher = $autoPublisher;
     }
 
     /** @param array<string,string> $headers @param array<string,mixed> $server */
@@ -51,6 +61,27 @@ final class PostInboxApi
         }
 
         if (strtoupper($method) === 'GET') {
+            if (strtolower($this->header($headers, 'x-tomos-action')) === 'status') {
+                $requestId = $this->header($headers, 'x-tomos-request-id');
+                if (!PublisherStatusStore::isValidRequestId($requestId)) {
+                    return $this->response(400, '投稿結果のrequest_idが正しくありません。');
+                }
+                if ($this->statusStore === null) {
+                    return $this->response(503, '投稿結果の確認機能を利用できません。');
+                }
+                if ($this->autoPublisher !== null) {
+                    try {
+                        $this->autoPublisher->process(null, '');
+                    } catch (\Throwable $exception) {
+                        // Status lookup remains available even when best-effort auto publish fails.
+                    }
+                }
+                $status = $this->statusStore->load($requestId);
+                if ($status === null) {
+                    return $this->response(404, '投稿結果がまだありません。');
+                }
+                return new PostInboxApiResponse(200, array_merge(['ok' => true], $status));
+            }
             return new PostInboxApiResponse(200, ['ok' => true, 'message' => 'Tomos投稿APIに接続できます。']);
         }
         if (strtoupper($method) !== 'POST') {
@@ -78,7 +109,16 @@ final class PostInboxApi
             $content = $payload['content'] ?? null;
             $images = $payload['images'] ?? null;
             if (!is_string($fileName) || !is_string($content) || !is_array($images)) return $this->response(400, 'ファイル名、Markdown本文、画像一覧が必要です。');
-            return $this->resultResponse($this->inbox->beginImageReceive($fileName, $content, $images));
+            $requestId = is_string($payload['request_id'] ?? null) ? trim((string) $payload['request_id']) : '';
+            if ($requestId !== '' && !PublisherStatusStore::isValidRequestId($requestId)) {
+                return $this->response(400, 'request_idが正しくありません。');
+            }
+            $result = $this->inbox->beginImageReceive($fileName, $content, $images);
+            if ($result->ok && $requestId !== '') {
+                $this->inbox->rememberPublisherRequestId($fileName, $requestId);
+                $this->saveReceivedStatus($requestId, $fileName, 'receiving_images', '画像を受信しています。');
+            }
+            return $this->resultResponse($result, $requestId);
         }
         if ($action === 'finalize') {
             $uploadId = $payload['upload_id'] ?? null;
@@ -97,7 +137,17 @@ final class PostInboxApi
             return $this->response(400, 'ファイル名とMarkdown本文が必要です。');
         }
 
-        return $this->resultResponse($this->inbox->receive($fileName, $content));
+        $requestId = is_string($payload['request_id'] ?? null) ? trim((string) $payload['request_id']) : '';
+        if ($requestId !== '' && !PublisherStatusStore::isValidRequestId($requestId)) {
+            return $this->response(400, 'request_idが正しくありません。');
+        }
+        $result = $this->inbox->receive($fileName, $content);
+        if ($result->ok && $requestId !== '') {
+            $this->inbox->rememberPublisherRequestId($fileName, $requestId);
+            $this->saveReceivedStatus($requestId, $fileName, 'received', 'Markdownを受信しました。');
+        }
+
+        return $this->resultResponse($result, $requestId);
     }
 
     /** @param array<string,string> $headers */
@@ -140,10 +190,25 @@ final class PostInboxApi
         return new PostInboxApiResponse($status, ['ok' => false, 'message' => $message]);
     }
 
-    private function resultResponse(PostInboxReceiveResult $result): PostInboxApiResponse
+    private function resultResponse(PostInboxReceiveResult $result, string $requestId = ''): PostInboxApiResponse
     {
         $payload = ['ok' => $result->ok, 'message' => $result->message];
         if ($result->uploadId !== '') $payload['upload_id'] = $result->uploadId;
+        if ($requestId !== '') $payload['request_id'] = $requestId;
         return new PostInboxApiResponse($result->status, $payload);
+    }
+
+    private function saveReceivedStatus(string $requestId, string $fileName, string $state, string $message): void
+    {
+        if ($this->statusStore === null) {
+            return;
+        }
+        $this->statusStore->save($requestId, [
+            'state' => $state,
+            'filename' => $fileName,
+            'message' => $message,
+            'article_url' => '',
+            'social' => null,
+        ]);
     }
 }

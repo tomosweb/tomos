@@ -102,6 +102,12 @@ copy_item() {
       --exclude='security/post-submissions/*.json' \
       --exclude='security/post-submissions/*.lock' \
       --exclude='security/post-submissions/*.tmp-*' \
+      --exclude='security/post-auth/.htaccess' \
+      --exclude='security/post-submissions/.htaccess' \
+      --exclude='security/post-rate-limit/.htaccess' \
+      --exclude='inbox/.publisher-status/' \
+      --exclude='inbox/.publisher-articles/' \
+      --exclude='inbox/.auto-publish.lock' \
       --include='update-backups/.gitkeep' \
       --include='update-logs/.gitkeep' \
       --include='update-tmp/.gitkeep' \
@@ -121,6 +127,8 @@ copy_item() {
 echo "Copying distribution files..."
 copy_item "index.php"
 copy_item ".htaccess"
+copy_item "oauth-client-metadata.json.php"
+copy_item "tomos-bluesky-jwks.json.php"
 copy_item "assets"
 copy_item "config.sample.php"
 copy_item "README.md"
@@ -310,8 +318,11 @@ if [[ -n "$(find "${BUILD_DIR}/cache/post-upload-sessions" -mindepth 1 ! -name '
   exit 1
 fi
 
-if [[ -n "$(find "${BUILD_DIR}/storage" -type f ! -name '.htaccess' ! -name '.gitkeep' -print -quit)" ]]; then
+unexpected_storage_files="$(find "${BUILD_DIR}/storage" -type f ! -name '.htaccess' ! -name '.gitkeep' -print)"
+if [[ -n "${unexpected_storage_files}" ]]; then
   echo "Error: generated Tomos Update data must not be included in distribution."
+  echo "Unexpected storage files:"
+  printf '%s\n' "${unexpected_storage_files#${BUILD_DIR}/}"
   exit 1
 fi
 
@@ -336,7 +347,7 @@ done < <(find "${BUILD_DIR}/cache" -type f -print0)
 while IFS= read -r -d '' path; do
   relative="${path#${BUILD_DIR}/}"
   case "${relative}" in
-    storage/.htaccess|storage/.gitkeep|storage/update-backups/.gitkeep|storage/update-logs/.gitkeep|storage/update-tmp/.gitkeep) ;;
+    storage/.htaccess|storage/.gitkeep|storage/inbox/.htaccess|storage/inbox/.gitkeep|storage/update-backups/.gitkeep|storage/update-logs/.gitkeep|storage/update-tmp/.gitkeep) ;;
     *) echo "Error: unexpected storage data in distribution: ${relative}"; exit 1 ;;
   esac
 done < <(find "${BUILD_DIR}/storage" -type f -print0)
@@ -436,7 +447,7 @@ if command -v unzip >/dev/null 2>&1; then
     echo "Error: generated trash metadata files must not be included in ZIP."
     exit 1
   fi
-  if grep -E '^storage/.+' <<< "${ZIP_LIST}" | grep -Ev '^storage/(\.htaccess|\.gitkeep|update-backups/(\.gitkeep)?|update-logs/(\.gitkeep)?|update-tmp/(\.gitkeep)?)$' >/dev/null; then
+  if grep -E '^storage/.+' <<< "${ZIP_LIST}" | grep -Ev "^storage/(\\.htaccess|\\.gitkeep|inbox/((\\.htaccess|\\.gitkeep))?|update-backups/(\\.gitkeep)?|update-logs/(\\.gitkeep)?|update-tmp/(\\.gitkeep)?)\$" >/dev/null; then
     echo "Error: generated Tomos Update data must not be included in ZIP."
     exit 1
   fi
