@@ -7,6 +7,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -24,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags https://github.com/tomosweb/tomos.git a966012bdf052b3c41ecac7a5a66a0b0990541b1
+          git fetch --no-tags https://github.com/tomosweb/tomos.git e022a6396b86d00e80181c44611f45ce85a443ab
           git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/tags/tomos-public-v0.5.2
           git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.7.0:refs/tags/tomos-public-v0.7.0
 
