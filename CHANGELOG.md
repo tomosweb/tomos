@@ -1,5 +1,28 @@
 # 更新履歴
 
+## v1.0.5 - 2026-09-19
+
+Tomosの記事をBlueskyへ告知できるSocial Publishingを追加し、Tomos Publisherからの公開結果確認と安全な再送更新に対応しました。
+
+### Added
+
+- Frontmatterの `social` / `social_text` 指定に応じて、Tomos記事公開後にBlueskyへ告知できるようにしました
+- Bluesky OAuth接続、投稿文の自動生成・手動指定、external card、投稿履歴、二重投稿防止に対応しました
+- Tomos Publisherが送信ごとの `request_id` で公開結果を取得し、Tomos公開・Bluesky投稿・再投稿防止・下書きをNoticeへ表示できるようにしました
+
+### Improved
+
+- Publisherから作成した記事は安全な管理記録に基づいて再送更新し、Publisher管理外の既存記事は自動上書きしないようにしました
+- Bluesky連携設定画面をTomos Post共通UIへ統一しました
+- Social Publishing失敗時もTomos記事公開を維持する分離構造にしました
+- 初期Setupで選べるThemeをTomos本体に同梱する標準Themeだけに限定します
+
+### Compatibility / Update
+
+- v1.0.4からv1.0.5へ、署名付きTomos Updateで更新します
+- `config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashの運用データを保持します
+- Markdownを `content/` へ直接配置した場合の自動Social Publishingはv1.0.5では対象外です
+
 ## v1.0.4 - 2026-09-18
 
 Tomos PostとTomos Writeの往復編集を安定させ、公開済み記事の画像管理を安全にしました。
