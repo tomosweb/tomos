@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.3';
-$fromRef = 'a966012bdf052b3c41ecac7a5a66a0b0990541b1';
+$fromVersion = '1.0.4';
+$fromRef = 'e022a6396b86d00e80181c44611f45ce85a443ab';
 require_once $root . '/tools/UpdateFileSet.php';
-// a966012b is the dereferenced commit for the formally released public v1.0.3.
+// e022a639 is the dereferenced commit for the formally released public v1.0.4.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
@@ -123,11 +123,17 @@ try {
 
         foreach ([
             'VERSION',
-            'core/PostUpload.php',
-            'core/TomosWriteHandoff.php',
+            'core/InitialBundledThemes.php',
+            'core/PostInbox.php',
+            'core/PostInboxApi.php',
+            'core/PostInboxAutoPublisher.php',
+            'core/PublisherArticleStore.php',
+            'core/PublisherStatusStore.php',
+            'core/SetupGuard.php',
             'core/required-installed-files.txt',
-            'post/index.php',
-            'post/assets/write-handoff.js',
+            'post/inbox/api/index.php',
+            'post/social/bluesky/index.php',
+            'setup/index.php',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
