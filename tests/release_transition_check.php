@@ -131,6 +131,8 @@ try {
             'core/PublisherStatusStore.php',
             'core/SetupGuard.php',
             'core/required-installed-files.txt',
+            'oauth-client-metadata.json.php',
+            'tomos-bluesky-jwks.json.php',
             'post/inbox/api/index.php',
             'post/social/bluesky/index.php',
             'setup/index.php',
