@@ -115,6 +115,8 @@ final class UpdateFileSet
         return $path === 'VERSION'
             || $path === 'docs/theme/theme-rules.json'
             || $path === 'index.php'
+            || $path === 'oauth-client-metadata.json.php'
+            || $path === 'tomos-bluesky-jwks.json.php'
             || preg_match('#\A(core|post|setup|assets)/[A-Za-z0-9._/-]+\z#', $path) === 1;
     }
 
