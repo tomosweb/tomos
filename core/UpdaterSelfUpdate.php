@@ -58,6 +58,16 @@ final class UpdaterSelfUpdate
             'directory' => 'core',
             'format' => 'required_files',
         ],
+        'oauth-client-metadata.json.php' => [
+            'pending_file' => 'oauth-client-metadata.php',
+            'metadata_file' => 'oauth-client-metadata.meta.json',
+            'directory' => '',
+        ],
+        'tomos-bluesky-jwks.json.php' => [
+            'pending_file' => 'tomos-bluesky-jwks.php',
+            'metadata_file' => 'tomos-bluesky-jwks.meta.json',
+            'directory' => '',
+        ],
     ];
 
     private $rootDir;
@@ -304,7 +314,9 @@ final class UpdaterSelfUpdate
         $rootReal = realpath($this->rootDir);
         $expectedPath = $rootReal === false
             ? ''
-            : $rootReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $expectedDirectory);
+            : ($expectedDirectory === ''
+                ? $rootReal
+                : $rootReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $expectedDirectory));
         if ($rootReal === false || $expectedPath === ''
             || is_link($targetDir) || (file_exists($targetDir) && !is_dir($targetDir))
         ) {
@@ -408,6 +420,8 @@ final class UpdaterSelfUpdate
             'cache/.htaccess',
             'storage/.htaccess',
             'trash/.htaccess',
+            'oauth-client-metadata.json.php',
+            'tomos-bluesky-jwks.json.php',
         ], true) && !file_exists($targetPath);
         if (!isset(self::TARGETS[$target])
             || !is_dir($targetDir) || is_link($targetDir)
@@ -415,7 +429,7 @@ final class UpdaterSelfUpdate
             || ($isNewTarget && (is_link($targetPath) || file_exists($targetPath)))
             || !is_writable($targetDir)
             || $rootReal === false || $targetDirReal === false
-            || $targetDirReal !== $rootReal . DIRECTORY_SEPARATOR . $expectedDirectory
+            || $targetDirReal !== ($expectedDirectory === '' ? $rootReal : $rootReal . DIRECTORY_SEPARATOR . $expectedDirectory)
         ) {
             throw new RuntimeException('current_target');
         }
