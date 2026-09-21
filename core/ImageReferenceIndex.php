@@ -172,6 +172,7 @@ final class ImageReferenceIndex
     {
         $parsed = $this->frontMatterParser->parse($markdown);
         $references = $this->extractReferences($parsed['body'], $contentPath);
+        $this->appendFrontMatterImageReference($parsed['metadata'] ?? [], $contentPath, $references);
 
         return $references['managed'];
     }
@@ -262,6 +263,7 @@ final class ImageReferenceIndex
         }
 
         $references = $this->extractReferences($parsed['body'], $relativePath);
+        $this->appendFrontMatterImageReference($parsed['metadata'] ?? [], $relativePath, $references);
 
         return [
             'path' => $relativePath,
@@ -300,6 +302,28 @@ final class ImageReferenceIndex
             'managed' => $managed,
             'external' => $external,
         ];
+    }
+
+    /**
+     * @param mixed $metadata
+     * @param array{managed:string[],external:string[]} $references
+     */
+    private function appendFrontMatterImageReference($metadata, string $contentPath, array &$references): void
+    {
+        if (!is_array($metadata)) {
+            return;
+        }
+
+        $target = trim((string) ($metadata['image'] ?? ''));
+        if ($target === '') {
+            return;
+        }
+
+        $this->classifyTarget($target, $contentPath, $references['managed'], $references['external']);
+        $references['managed'] = array_values(array_unique($references['managed']));
+        $references['external'] = array_values(array_unique($references['external']));
+        sort($references['managed']);
+        sort($references['external']);
     }
 
     /**

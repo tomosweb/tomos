@@ -28,6 +28,11 @@ RewriteEngine On
 # must remain an application route when that directory exists on the server.
 RewriteRule ^docs/?$ index.php [L]
 
+# AT Protocol OAuth public metadata endpoints. These must return JSON directly
+# from the exact URL declared as client_id / jwks_uri.
+RewriteRule ^oauth-client-metadata\.json$ oauth-client-metadata.json.php [L]
+RewriteRule ^\.well-known/tomos-bluesky-jwks\.json$ tomos-bluesky-jwks.json.php [L]
+
 # `/post/site-settings.php` is the canonical Site Settings entrypoint.
 # Keep the former directory URL only as a compatibility redirect so normal
 # Tomos Post navigation never depends on shared-hosting DirectoryIndex behavior.

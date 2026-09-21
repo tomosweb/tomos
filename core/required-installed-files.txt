@@ -34,6 +34,7 @@ core/PostInboxPreview.php
 core/PostDrafts.php
 core/PostPublished.php
 core/PostInboxApi.php
+core/InboxApiCors.php
 core/PostInboxAutoPublisher.php
 core/PublisherStatusStore.php
 core/PublisherArticleStore.php

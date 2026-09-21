@@ -2,7 +2,7 @@
 
 Tomosは、Markdownで書いた文章を自分のWebサイトとして公開するための、軽量なMarkdown公開プログラムです。
 
-現在のバージョンは `v1.0.5` です。Tomos v1.0.5の正式版です。
+現在のバージョンは `v1.0.6` です。Tomos v1.0.6の正式版です。
 
 > **古いv0.1.0-alpha.17以前の環境から更新する方へ**
 >
@@ -11,9 +11,9 @@ Tomosは、Markdownで書いた文章を自分のWebサイトとして公開す�
 > 1. Tomos Updateで `tomos-update-0.1.0-alpha.18.zip` を適用します。
 > 2. 更新後に `/post/update-finalize/` を開き、「Updater更新を反映する」を実行します。
 >
-> 2まで完了するとalpha.18の新しいUpdaterへ完全に移行します。その後、Tomos Updateからalpha.19、beta.1へ1バージョンずつ更新できます。現在のv1.0.5への更新は、下記のv1.0.5更新案内を確認してください。
+> 2まで完了するとalpha.18の新しいUpdaterへ完全に移行します。その後、Tomos Updateからalpha.19、beta.1へ1バージョンずつ更新できます。現在のv1.0.6への更新は、下記のv1.0.6更新案内を確認してください。
 
-詳しくは [v1.0.5の更新案内](https://github.com/tomosweb/tomos/blob/main/docs/releases/v1.0.5.md) を確認してください。過去のalpha/betaからの移行手順は[公式サイトの更新手順](https://tomoswords.org/docs/update/)に掲載しています。
+詳しくは [v1.0.6の更新案内](https://github.com/tomosweb/tomos/blob/main/docs/releases/v1.0.6.md) を確認してください。過去のalpha/betaからの移行手順は[公式サイトの更新手順](https://tomoswords.org/docs/update/)に掲載しています。
 
 ## 主な機能
 

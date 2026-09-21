@@ -95,10 +95,22 @@ try {
     assertTrue(hash_file('sha256', $managedImage) !== $oldManagedHash, 'successful update must keep new managed image');
     assertSame([], glob($managedImage . '.tomos-backup-*') ?: [], 'successful update must remove old image backup');
 
+    $ogpDir = $contentDir . '/ogp';
+    mkdir($ogpDir . '/images', 0777, true);
+    $ogpImageName = 'tms-0123456789abcdef.png';
+    file_put_contents($ogpDir . '/images/' . $ogpImageName, 'ogp-image');
+    file_put_contents($ogpDir . '/article.md', "---\ntitle: OGP\nimage: images/{$ogpImageName}\n---\n# OGP\n");
+
     $warnings = $publisher->rebuildIndexes('article.md');
     assertSame([], $warnings, 'successful publication must rebuild indexes without warnings');
     assertTrue(is_file($cacheDir . '/index/pages.json'), 'metadata index must be rebuilt');
     assertTrue(is_file($cacheDir . '/index/image-references.json'), 'image reference index must be rebuilt');
+    $imageIndex = json_decode((string) file_get_contents($cacheDir . '/index/image-references.json'), true);
+    assertTrue(
+        is_array($imageIndex)
+        && isset($imageIndex['images']['ogp/images/' . $ogpImageName]),
+        'Front Matter OGP image must be retained in the managed image reference index'
+    );
 
     echo "post_publisher_check: OK\n";
 } finally {

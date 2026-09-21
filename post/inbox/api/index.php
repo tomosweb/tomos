@@ -22,6 +22,23 @@ spl_autoload_register(static function (string $class) use ($rootDir): void {
     }
 });
 
+
+$origin = isset($_SERVER['HTTP_ORIGIN']) ? (string) $_SERVER['HTTP_ORIGIN'] : '';
+$corsHeaders = Tomos\InboxApiCors::responseHeaders($origin, $config);
+foreach ($corsHeaders as $name => $value) {
+    header($name . ': ' . $value);
+}
+
+if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'OPTIONS') {
+    if ($origin === '' || !Tomos\InboxApiCors::isAllowed($origin, $config)) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'message' => 'このOriginからの接続は許可されていません。'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+    http_response_code(204);
+    exit;
+}
+
 $headers = function_exists('getallheaders') ? getallheaders() : [];
 if (!is_array($headers)) {
     $headers = [];

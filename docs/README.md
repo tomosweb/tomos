@@ -2,9 +2,9 @@
 
 Tomosのドキュメントは、目的別に分けています。
 
-現在のバージョン: `v1.0.5`
+現在のバージョン: `v1.0.6`
 
-Tomos v1.0.5正式版のドキュメントです。
+Tomos v1.0.6正式版のドキュメントです。
 
 ## 最短ルート
 
@@ -76,3 +76,5 @@ Tomosには次の6テーマを同梱しています。
 - `project/performance.md`: 通常表示とキャッシュの計測メモ
 
 ルートの `SECURITY.md` は外部向けの概要、`project/security.md` は開発者・設置者向けの詳細です。
+
+- [公式サイト更新のActions非依存手順](release/official-site-manual-deploy.md)

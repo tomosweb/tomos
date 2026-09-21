@@ -24,6 +24,13 @@ foreach ([
     'PostConflictManager' => 'PostConflictManager.php',
     'PostMarkdownComparator' => 'PostMarkdownComparator.php',
     'PostInbox' => 'PostInbox.php',
+    'SocialPublishResult' => 'SocialPublishResult.php',
+    'SocialPostIntent' => 'SocialPostIntent.php',
+    'SocialProvider' => 'SocialProvider.php',
+    'SocialPostStore' => 'SocialPostStore.php',
+    'SocialPublishingService' => 'SocialPublishingService.php',
+    'BlueskyOAuthSessionClient' => 'BlueskyOAuthSessionClient.php',
+    'BlueskyProvider' => 'BlueskyProvider.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -56,6 +63,7 @@ final class PostUploadResult
     public bool $destinationChanged = false;
     public bool $hasRelativeImages = false;
     public bool $isDraft = false;
+    public ?SocialPublishResult $socialResult = null;
 
     /**
      * @param string[] $errors
@@ -123,8 +131,9 @@ final class PostUpload
     private PostPublisher $publisher;
     private PostConflictManager $conflictManager;
     private PostInbox $inbox;
+    private SocialPublishingService $socialPublishing;
 
-    public function __construct(array $config, string $rootDir)
+    public function __construct(array $config, string $rootDir, ?SocialProvider $socialProvider = null)
     {
         $this->contentDir = (string) (($config['paths']['content_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'content'));
         $this->cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
@@ -151,6 +160,21 @@ final class PostUpload
             $this->htmlCacheEnabled,
             $this->includeDrafts,
             $this->site
+        );
+        if ($socialProvider === null) {
+            try {
+                $blueskySession = new BlueskyOAuthSessionClient($config, $rootDir);
+                if ($blueskySession->isConnected()) {
+                    $socialProvider = new BlueskyProvider($blueskySession);
+                }
+            } catch (\Throwable $exception) {
+                $socialProvider = null;
+            }
+        }
+        $this->socialPublishing = new SocialPublishingService(
+            $this->frontMatterParser,
+            new SocialPostStore($config, $rootDir),
+            $socialProvider
         );
     }
 
@@ -243,7 +267,8 @@ final class PostUpload
             return new PostUploadResult(false, $publish->errors);
         }
         $warnings = array_merge($publish->warnings, $this->publisher->rebuildIndexes($contentPath));
-        return new PostUploadResult(true, [], $warnings, $contentPath, $this->urlFromContentPath($contentPath), $this->absolutePublicUrl($this->urlFromContentPath($contentPath)), basename($contentPath), basename($contentPath), false, '', '', (string) ($metadata['title'] ?? ''), '', 'draft_publish', '', 0);
+        $result = new PostUploadResult(true, [], $warnings, $contentPath, $this->urlFromContentPath($contentPath), $this->absolutePublicUrl($this->urlFromContentPath($contentPath)), basename($contentPath), basename($contentPath), false, '', '', (string) ($metadata['title'] ?? ''), '', 'draft_publish', '', 0);
+        return $this->attachSocialResult($result, $published);
     }
 
     private function handlePreparedContent(
@@ -383,7 +408,7 @@ final class PostUpload
         $isDraft = $this->isDraftMarkdown($content);
         $result = new PostUploadResult(true, [], $warnings, $contentPath, $internalUrl, $absoluteUrl, $chosenName, $safeFileName, false, '', '', '', '', $isDraft ? 'draft_create' : 'create', '', count($imagePlan));
         $result->isDraft = $isDraft;
-        return $result;
+        return $this->attachSocialResult($result, $content);
     }
 
     public function updateFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
@@ -443,8 +468,8 @@ final class PostUpload
             '',
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
-        $result->isDraft = $this->isDraftMarkdown($record->markdown);
-        return $result;
+        $result->isDraft = $this->isDraftMarkdown($updatedMarkdown);
+        return $this->attachSocialResult($result, $updatedMarkdown);
     }
 
     public function isPublishedContentEquivalent(string $contentPath, string $markdown): bool
@@ -538,7 +563,7 @@ final class PostUpload
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
         $result->isDraft = $draft;
-        return $result;
+        return $this->attachSocialResult($result, $markdown);
     }
 
     public function createEditableFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
@@ -592,7 +617,7 @@ final class PostUpload
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
         $result->isDraft = $draft;
-        return $result;
+        return $this->attachSocialResult($result, $markdown);
     }
 
     public function createRenamedFromTemp(string $tempId, string $fileNameInput, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
@@ -641,7 +666,7 @@ final class PostUpload
             (int) ($record->meta['image_count'] ?? count($record->imagePaths))
         );
         $result->isDraft = $this->isDraftMarkdown($record->markdown);
-        return $result;
+        return $this->attachSocialResult($result, $record->markdown);
     }
 
     public function cancelTemp(string $tempId, ?string $sessionId = null): bool
@@ -842,13 +867,19 @@ final class PostUpload
      */
     private function extractImageReferences(string $markdown): array
     {
-        if (preg_match_all('/!\[[^\]\n]*\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/iu', $markdown, $matches) < 1) {
-            return [];
+        $references = [];
+
+        if (preg_match_all('/!\[[^\]\n]*\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/iu', $markdown, $matches) >= 1) {
+            foreach ($matches[1] as $fileName) {
+                $references[] = strtolower((string) $fileName);
+            }
         }
 
-        $references = [];
-        foreach ($matches[1] as $fileName) {
-            $references[] = strtolower((string) $fileName);
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = is_array($parsed['metadata'] ?? null) ? $parsed['metadata'] : [];
+        $ogpImage = trim((string) ($metadata['image'] ?? ''));
+        if (preg_match('/\Aimages\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\z/i', $ogpImage, $match) === 1) {
+            $references[] = strtolower((string) $match[1]);
         }
 
         return array_values(array_unique($references));
@@ -1071,6 +1102,30 @@ final class PostUpload
 
         return Security::absoluteUrl($siteUrl, Security::publicUrl($internalUrl, $this->publicBasePath()));
     }
+
+    private function attachSocialResult(PostUploadResult $result, string $markdown): PostUploadResult
+    {
+        if (!$result->ok || $result->isDraft || $result->contentPath === '' || $result->absoluteUrl === '') {
+            return $result;
+        }
+
+        try {
+            $result->socialResult = $this->socialPublishing->publishArticle(
+                $result->contentPath,
+                $result->absoluteUrl,
+                $markdown
+            );
+        } catch (\Throwable $exception) {
+            $result->socialResult = SocialPublishResult::failed(
+                'bluesky',
+                'provider_error',
+                '記事は公開しましたが、Bluesky投稿処理を完了できませんでした。'
+            );
+        }
+
+        return $result;
+    }
+
 
     private function publicBasePath(): string
     {

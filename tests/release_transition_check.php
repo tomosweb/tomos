@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.4';
-$fromRef = 'e022a6396b86d00e80181c44611f45ce85a443ab';
+$fromVersion = '1.0.5';
+$fromRef = 'refs/tags/tomos-public-v1.0.5';
 require_once $root . '/tools/UpdateFileSet.php';
-// e022a639 is the dereferenced commit for the formally released public v1.0.4.
+// tomos-public-v1.0.5 is fetched from the formally released public v1.0.5 tag.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
@@ -141,21 +141,18 @@ try {
             throw new RuntimeException($targetVersion . ' package VERSION payload mismatch');
         }
 
-        foreach ([
+        foreach([
             'VERSION',
-            'core/InitialBundledThemes.php',
-            'core/PostInbox.php',
-            'core/PostInboxApi.php',
-            'core/PostInboxAutoPublisher.php',
-            'core/PublisherArticleStore.php',
-            'core/PublisherStatusStore.php',
-            'core/SetupGuard.php',
-            'core/required-installed-files.txt',
-            'oauth-client-metadata.json.php',
-            'tomos-bluesky-jwks.json.php',
+            'core/InboxApiCors.php',
             'post/inbox/api/index.php',
-            'post/social/bluesky/index.php',
-            'setup/index.php',
+            'core/BlueskyOAuthHttpClient.php',
+            'core/BlueskyOAuthMetadata.php',
+            'core/BlueskyOAuthSessionClient.php',
+            'core/BlueskyProvider.php',
+            'core/ImageReferenceIndex.php',
+            'core/PostInbox.php',
+            'core/PostUpload.php',
+            'core/required-installed-files.txt',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);

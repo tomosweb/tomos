@@ -1,5 +1,25 @@
 # 更新履歴
 
+## v1.0.6 - 2026-09-21
+
+Blueskyの外部リンクカードへ記事のOGP画像を表示できるようにし、Tomos WorkspaceからInbox APIへ安全に接続するためのCORS対応を正式収録します。
+
+### Added / Improved
+
+- Bluesky投稿のexternal cardで、公開記事に `og:image` がある場合は画像付きカードを表示します
+- OGP画像はBlueskyへBlobとしてアップロードし、取得・アップロードできない場合は従来の画像なしカードへ安全にフォールバックします
+- Bluesky OAuthに画像Blobアップロード権限を追加します
+- Front Matterの `image:` にTomos管理画像を指定した場合も、画像参照index・cleanup・Publisher Inbox受信で管理対象として扱います
+- Tomos Workspaceなど許可したブラウザクライアントから `/post/inbox/api/` を利用できるCORS / OPTIONS preflight対応を収録します
+
+### Compatibility / Update
+
+- v1.0.5からv1.0.6へ、署名付きTomos Updateで更新します
+- 既存のBluesky接続は従来どおり投稿できますが、画像付きカードを利用するには更新後にBlueskyを一度再接続して新しいBlob権限を取得する必要があります
+- OGP画像がない場合、または画像取得・Blob uploadに失敗した場合もTomos記事公開とBlueskyのテキストカード投稿は維持されます
+- Workspace向けCORS対応後も従来のTomos Publisher token認証を維持します
+- `config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashの運用データを保持します
+
 ## v1.0.5 - 2026-09-19
 
 Tomosの記事をBlueskyへ告知できるSocial Publishingを追加し、Tomos Publisherからの公開結果確認と安全な再送更新に対応しました。
