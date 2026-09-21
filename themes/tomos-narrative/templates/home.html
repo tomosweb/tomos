@@ -1,0 +1,11 @@
+<section class="narrative-intro" aria-label="プロフィール">
+  <p class="narrative-name">{{ site.name }}</p>
+  {{# site.description }}<p class="narrative-description">{{ site.description }}</p>{{/ site.description }}
+  <nav class="narrative-profile-links" aria-label="プロフィールリンク">
+    <a href="{{ nav.about_url }}">プロフィール</a>{{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+  </nav>
+</section>
+
+<section class="narrative-feed" aria-label="記事一覧">
+  {{{ list.latest_pages }}}
+</section>
