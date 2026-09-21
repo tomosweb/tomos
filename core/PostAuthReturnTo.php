@@ -12,6 +12,7 @@ final class PostAuthReturnTo
     private const ALLOWED_ROUTES = [
         '/post/theme/' => '/post/theme/',
         '/post/site-settings.php' => '/post/site-settings.php',
+        '/post/social/bluesky/' => '/post/social/bluesky/',
     ];
 
     public static function normalize(mixed $value): string

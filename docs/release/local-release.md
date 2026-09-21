@@ -145,6 +145,7 @@ Local automated gateの前後でAIは次を確認する。
 - Release Noteの対象version / transition
 - official siteのNews / docs更新要否
 - one-file Installer / Browser Updateへの影響
+- Workspace / browser clientからInbox APIへ接続する変更が含まれる場合、CORS / OPTIONS preflightの配布物反映
 
 ### After
 
@@ -178,6 +179,17 @@ Social Publishingなら少なくとも:
 - external card
 - 記事更新時の再投稿防止
 - draft非投稿
+
+WorkspaceなどブラウザクライアントからInbox APIへ直接接続するReleaseでは、追加で以下を確認する。
+
+- 配布物に `core/InboxApiCors.php` と対応する `post/inbox/api/index.php` が含まれる
+- 許可Originからの `OPTIONS /post/inbox/api/` がトークン認証より先に処理される
+- preflightが `204` を返す
+- `Access-Control-Allow-Origin` が要求Originと一致する
+- `Access-Control-Allow-Methods` に `GET, POST, OPTIONS` が含まれる
+- `Access-Control-Allow-Headers` にWorkspaceが使用するTomosヘッダーが含まれる
+- 未許可Originは拒否される
+- CORS対応後も従来のPublisher token認証が維持される
 
 ### 公開時
 
@@ -246,9 +258,9 @@ Actionsがquota、障害、外部要因で利用できなくても、Formal loca
 
 `--mode=release` はtest用Updateに加えて、直前の正式公開versionから対象versionへの **production Browser Update ZIP** を本番署名鍵で生成する。
 
-v1.0.5では以下を生成・検証する。
+v1.0.6では以下を生成・検証する。
 
-- `build/local-release/artifacts/update/tomos-update-1.0.4-to-1.0.5.zip`
+- `build/local-release/artifacts/update/tomos-update-1.0.5-to-1.0.6.zip`
 - `build/local-release/artifacts/update/SHA256SUMS`
 - production public keyによるUpdate manifest signature verification
 - Installer 6資産（Distribution ZIP / manifest / signature / installer / pointer / checksum）

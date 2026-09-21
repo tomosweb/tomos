@@ -126,15 +126,39 @@ final class FrontMatterParser
         $metadata = [];
         $currentKey = null;
         $lines = explode("\n", $frontMatter);
+        $lineCount = count($lines);
 
-        foreach ($lines as $line) {
-            if (preg_match('/^([A-Za-z0-9_-]+):\s*(.*)$/', $line, $matches) === 1) {
+        for ($index = 0; $index < $lineCount; $index++) {
+            $line = $lines[$index];
+
+            if (preg_match('/^social_text:\\s*$/', $line) === 1) {
+                $currentKey = null;
+                [$value, $lastIndex, $terminated] = $this->parseTomosSocialTextBlock($lines, $index + 1);
+                if ($terminated) {
+                    $metadata['social_text'] = $value;
+                    $index = $lastIndex;
+                } else {
+                    $metadata['social_text'] = '';
+                    $metadata['__social_text_error'] = 'missing_terminator';
+                }
+                continue;
+            }
+
+            if (preg_match('/^([A-Za-z0-9_-]+):\\s*\\|\\s*$/', $line, $matches) === 1) {
+                $currentKey = null;
+                [$value, $lastIndex] = $this->parseLiteralBlock($lines, $index + 1);
+                $metadata[$matches[1]] = $value;
+                $index = $lastIndex;
+                continue;
+            }
+
+            if (preg_match('/^([A-Za-z0-9_-]+):\\s*(.*)$/', $line, $matches) === 1) {
                 $currentKey = $matches[1];
                 $metadata[$currentKey] = trim($matches[2]);
                 continue;
             }
 
-            if ($currentKey !== null && preg_match('/^\s*-\s*(.+)$/', $line, $matches) === 1) {
+            if ($currentKey !== null && preg_match('/^\\s*-\\s*(.+)$/', $line, $matches) === 1) {
                 if (!is_array($metadata[$currentKey])) {
                     $metadata[$currentKey] = [];
                 }
@@ -148,6 +172,93 @@ final class FrontMatterParser
         }
 
         return $metadata;
+    }
+
+    /**
+     * Parse Tomos' simplified multiline social_text form.
+     *
+     * social_text:
+     * first line
+     * second line|
+     *
+     * @param string[] $lines
+     * @return array{0:string,1:int,2:bool}
+     */
+    private function parseTomosSocialTextBlock(array $lines, int $startIndex): array
+    {
+        $lineCount = count($lines);
+        $terminatorIndex = null;
+
+        for ($index = $startIndex; $index < $lineCount; $index++) {
+            if (preg_match('/\\|\\s*$/', $lines[$index]) === 1) {
+                $terminatorIndex = $index;
+                break;
+            }
+        }
+
+        if ($terminatorIndex === null) {
+            return ['', $startIndex - 1, false];
+        }
+
+        $collected = [];
+        for ($index = $startIndex; $index <= $terminatorIndex; $index++) {
+            $line = $lines[$index];
+            if ($index === $terminatorIndex) {
+                $line = preg_replace('/\\|\\s*$/', '', $line) ?? $line;
+            }
+            $collected[] = $line;
+        }
+
+        while ($collected !== [] && end($collected) === '') {
+            array_pop($collected);
+        }
+
+        return [implode("\n", $collected), $terminatorIndex, true];
+    }
+
+    /**
+     * Parse the limited YAML literal block form supported by Tomos.
+     *
+     * @param string[] $lines
+     * @return array{0:string,1:int}
+     */
+    private function parseLiteralBlock(array $lines, int $startIndex): array
+    {
+        $lineCount = count($lines);
+        $indent = null;
+        $collected = [];
+        $lastIndex = $startIndex - 1;
+
+        for ($index = $startIndex; $index < $lineCount; $index++) {
+            $line = $lines[$index];
+
+            if (trim($line) === '') {
+                $collected[] = '';
+                $lastIndex = $index;
+                continue;
+            }
+
+            if (preg_match('/^(\\s+)(.*)$/', $line, $matches) !== 1) {
+                break;
+            }
+
+            $lineIndent = strlen($matches[1]);
+            if ($indent === null) {
+                $indent = $lineIndent;
+            }
+            if ($lineIndent < $indent) {
+                break;
+            }
+
+            $collected[] = substr($line, $indent);
+            $lastIndex = $index;
+        }
+
+        while ($collected !== [] && end($collected) === '') {
+            array_pop($collected);
+        }
+
+        return [implode("\n", $collected), $lastIndex];
     }
 
     private function normalizeMetadata(array $metadata): array

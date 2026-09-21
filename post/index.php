@@ -936,6 +936,18 @@ function renderPage(
     $displayUrl = $uploadResult instanceof Tomos\PostUploadResult
         ? ($uploadResult->absoluteUrl !== '' ? $uploadResult->absoluteUrl : Tomos\Security::publicUrl($uploadResult->internalUrl, $publicBasePath))
         : '';
+    if ($uploadResult instanceof Tomos\PostUploadResult && $uploadResult->socialResult instanceof Tomos\SocialPublishResult) {
+        $social = $uploadResult->socialResult;
+        if ($social->status === Tomos\SocialPublishResult::SUCCESS) {
+            $messages[] = $social->message !== '' ? $social->message : 'Blueskyへ投稿しました。';
+        } elseif ($social->status === Tomos\SocialPublishResult::FAILED) {
+            $reason = $social->message !== '' ? $social->message : 'Blueskyへの投稿に失敗しました。';
+            $warnings[] = 'Blueskyには投稿していません。' . $reason;
+        } elseif ($social->status === Tomos\SocialPublishResult::SKIPPED && $social->code === 'already_posted') {
+            $reason = $social->message !== '' ? $social->message : 'この記事はBlueskyへ投稿済みです。';
+            $warnings[] = 'Blueskyには再投稿していません。' . $reason;
+        }
+    }
     $trashSummary = trashSummary();
     $tomosMessageShownAt = time();
     $showTomosDailyMessage = !$disabled
@@ -1279,13 +1291,16 @@ function renderSettingsHomeSection(string $token, array $config, string $returnT
     $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
     $siteSettingsUrl = Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath);
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
+    $socialUrl = Tomos\Security::publicUrl('/post/social/bluesky/', $publicBasePath);
     if (!$authenticated) {
         $siteSettingsUrl = $securityUrl . '?return_to=' . rawurlencode('/post/site-settings.php');
         $themeUrl = $securityUrl . '?return_to=' . rawurlencode('/post/theme/');
+        $socialUrl = $securityUrl . '?return_to=' . rawurlencode('/post/social/bluesky/');
     }
     $links = [
         [$siteSettingsUrl, 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
         [$themeUrl, 'テーマ', '公開サイトの見た目を切り替えます。'],
+        [$socialUrl, 'Bluesky連携', '記事公開時のBluesky投稿と接続アカウントを管理します。'],
         [$securityUrl, 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
         [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', '署名済みの更新を実行します。'],
     ];

@@ -416,8 +416,21 @@ final class PostInbox
     /** @return string[] */
     private function managedImageReferences(string $markdown): array
     {
-        if (preg_match_all('/!\[[^\]\n]*\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/iu', $markdown, $matches) < 1) return [];
-        return array_values(array_unique(array_map(static fn ($name): string => strtolower((string) $name), $matches[1])));
+        $references = [];
+        if (preg_match_all('/!\[[^\]\n]*\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/iu', $markdown, $matches) >= 1) {
+            foreach ($matches[1] as $name) {
+                $references[] = strtolower((string) $name);
+            }
+        }
+
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = is_array($parsed['metadata'] ?? null) ? $parsed['metadata'] : [];
+        $ogpImage = trim((string) ($metadata['image'] ?? ''));
+        if (preg_match('/\Aimages\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\z/i', $ogpImage, $match) === 1) {
+            $references[] = strtolower((string) $match[1]);
+        }
+
+        return array_values(array_unique($references));
     }
 
     private function replaceFile(string $path, string $content): bool
