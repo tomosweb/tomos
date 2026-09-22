@@ -12,6 +12,7 @@ spl_autoload_register(static function (string $class): void {
 require_once dirname(__DIR__) . '/core/PostSubmissionGuard.php';
 
 checkDirectHandoffImageStateOrder();
+checkFrontMatterLocalOgpImageHandoff();
 checkExistingImagesNeedNoReuploadAndAreKept();
 checkEditableRemovedImageIsDeleted();
 checkSharedImageIsPreserved();
@@ -39,6 +40,26 @@ function checkDirectHandoffImageStateOrder(): void
         'renderImageMatches(new Set());',
     ], 'direct handoff must resolve editability before rendering image requirements');
     assertContains($direct, '既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。', 'direct handoff must show the editable image guidance');
+}
+
+function checkFrontMatterLocalOgpImageHandoff(): void
+{
+    $source = (string) file_get_contents(dirname(__DIR__) . '/post/index.php');
+    assertContains($source, 'const extractFrontMatterLocalImage = (markdown) => {', 'Tomos Post must detect a local Front Matter OGP image');
+    assertContains($source, 'const ogpImageStatus = document.getElementById("ogp-image-status");', 'Tomos Post must render OGP status separately from article image status');
+    assertContains($source, 'let frontMatterImage = null;', 'Front Matter OGP image must be tracked separately from article images');
+    assertContains($source, 'const wikiPattern = /!\\[\\[', 'Tomos Post must detect Obsidian wiki image embeds');
+    assertContains($source, 'kind: "local"', 'local article images must be distinguished from already-managed images');
+    assertContains($source, 'String(image.sourceName || "").toLowerCase() === file.name.toLowerCase()', 'Tomos Post must match selected local article image sources');
+    assertContains($source, 'String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase()', 'Tomos Post must match the selected OGP source independently');
+    assertContains($source, 'const articleRewrittenMarkdown = rewriteLocalArticleImages(loadedMarkdown);', 'Tomos Post must rewrite local article images before submit');
+    assertContains($source, 'const rewrittenMarkdown = rewriteFrontMatterLocalImage(articleRewrittenMarkdown);', 'Tomos Post must rewrite local OGP Front Matter after article image rewriting');
+    assertContains($source, 'handoffMarkdownInput.value = rewrittenMarkdown;', 'rewritten OGP Front Matter must be submitted instead of the original local path');
+    assertContains($source, 'frontMatterImage.fileName === "" || !selectedImages.has(frontMatterImage.fileName)', 'local OGP image must be required independently before publication');
+    assertTrue(strpos($source, 'Front Matter指定:') === false, 'OGP image UI must not show the redundant Front Matter path label');
+    assertContains($source, '元画像:', 'OGP image UI must show the source filename');
+    assertContains($source, '<strong>OGP画像</strong>', 'OGP image must have a separate display block');
+    assertContains($source, '<strong>投稿する画像</strong>', 'article images must keep the existing display block');
 }
 
 function checkExistingImagesNeedNoReuploadAndAreKept(): void
