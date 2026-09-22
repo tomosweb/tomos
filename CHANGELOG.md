@@ -1,5 +1,26 @@
 # 更新履歴
 
+## v1.0.7 - 2026-09-21
+
+Tomos Postで、記事Front Matterに指定したローカルOGP画像を投稿時にTomos管理画像へ変換し、記事単位のOGP画像として正しく利用できるようにしました。
+
+### Fixed / Improved
+
+- `image: image/example.jpg` のようなFront Matterのローカル画像指定をTomos Postで検出し、元画像を選択して投稿できるようにしました
+- 投稿時だけFront Matterを `image: images/tms-....jpg` へ変換し、元のローカルMarkdownは変更しません
+- Tomos PostでFront MatterのOGP画像と本文画像を別々に検出・確認し、それぞれ独立して管理画像へ変換するようにしました
+- Obsidianの `![[image.jpg]]` を本文画像として検出し、Front Matterの `image:` と混同しないようにしました
+- BlueskyのOGPカード画像は、保存済み記事OGP画像をBlob uploadし、返却Blobをexternal cardの `thumb` に設定する公式フローへ統一しました
+- Blueskyの画像上限を超える場合は、記事画像を変更せずBluesky送信用だけ縮小・再圧縮して2MB未満に収めるようにしました
+- 記事Front Matterに有効な `image:` がある場合はその記事画像をOGPへ優先し、未指定時はサイト既定OGPを使う既存仕様を維持します
+- 外部HTTP/HTTPS画像、サイトルート相対画像、既存のTomos管理画像参照は従来どおり扱います
+
+### Compatibility / Update
+
+- v1.0.6からv1.0.7へ、署名付きTomos Updateで更新します
+- `config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashの運用データを保持します
+- Bluesky external cardはBlob upload → external.thumbの公式フローを維持します
+
 ## v1.0.6 - 2026-09-21
 
 Blueskyの外部リンクカードへ記事のOGP画像を表示できるようにし、Tomos WorkspaceからInbox APIへ安全に接続するためのCORS対応を正式収録します。
