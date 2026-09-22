@@ -1354,9 +1354,16 @@ function renderUploadResult(array $errors, ?Tomos\PostUploadResult $result, stri
     }
 
     echo '<div class="result">';
-    if ($result->originalFileName !== '' && $result->savedFileName !== '' && $result->originalFileName !== $result->savedFileName) {
+    $displayOriginalFileName = $result->originalFileName;
+    if (class_exists('Normalizer')) {
+        $normalizedDisplayName = \Normalizer::normalize($displayOriginalFileName, \Normalizer::FORM_C);
+        if (is_string($normalizedDisplayName)) {
+            $displayOriginalFileName = $normalizedDisplayName;
+        }
+    }
+    if ($displayOriginalFileName !== '' && $result->savedFileName !== '' && $displayOriginalFileName !== $result->savedFileName) {
         echo '<div class="notice">';
-        echo '<p>ファイル名に使用できない文字が含まれていたため、安全な名前に変更しました。</p>';
+        echo '<p>ファイル名を投稿用に変更しました。</p>';
         echo '<p><strong>元のファイル名:</strong><br><code>' . e($result->originalFileName) . '</code></p>';
         echo '<p><strong>保存されたファイル名:</strong><br><code>' . e($result->savedFileName) . '</code></p>';
         echo '</div>';
@@ -1621,6 +1628,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<p class="hint">Markdownに画像がある場合は、Tomos Writeで使った元画像を選んでください。画像内容から自動で照合します。</p>';
     echo '<div id="image-frontmatter-notice" class="hint" hidden></div>';
     echo '<div id="image-match-status" class="result" hidden></div>';
+    echo '<div id="ogp-image-status" class="result" hidden></div>';
     echo '<p id="image-processing-status" class="hint" role="status" aria-live="polite" hidden></p>';
     echo '<label for="folder">保存先フォルダ</label>';
     echo '<input id="folder" type="text" name="folder" placeholder="例: diary">';
@@ -1639,6 +1647,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   const notice = document.getElementById("folder-frontmatter-notice");
   const imageNotice = document.getElementById("image-frontmatter-notice");
   const imageMatchStatus = document.getElementById("image-match-status");
+  const ogpImageStatus = document.getElementById("ogp-image-status");
   const imageInput = document.getElementById("image_files");
   const form = document.getElementById("post-upload-form");
   const handoffMarkdownInput = document.getElementById("tomos-handoff-markdown");
@@ -1646,11 +1655,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   const submitButton = document.getElementById("post-upload-submit");
   const processingStatus = document.getElementById("image-processing-status");
   const pageTypeNotice = document.getElementById("page-type-notice");
-  if (!fileInput || !folderInput || !notice || !imageNotice || !imageMatchStatus || !imageInput || !form || !handoffMarkdownInput || !handoffFilenameInput || !submitButton || !processingStatus || !pageTypeNotice || typeof FileReader === "undefined") return;
+  if (!fileInput || !folderInput || !notice || !imageNotice || !imageMatchStatus || !ogpImageStatus || !imageInput || !form || !handoffMarkdownInput || !handoffFilenameInput || !submitButton || !processingStatus || !pageTypeNotice || typeof FileReader === "undefined") return;
 
   const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
   let effectiveImageMaxBytes = MAX_IMAGE_BYTES;
   let requiredImages = [];
+  let frontMatterImage = null;
+  let loadedMarkdown = "";
+  let loadedMarkdownFilename = "";
   const selectedImages = new Map();
   const supportsFileTransfer = (() => {
     if (typeof DataTransfer === "undefined") return false;
@@ -1821,17 +1833,158 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+  const extractFrontMatterLocalImage = (markdown) => {
+    const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+    if ((lines[0] || "").trim() !== "---") return null;
+    for (let index = 1; index < lines.length; index += 1) {
+      const line = lines[index] || "";
+      if (line.trim() === "---") break;
+      const match = line.match(/^image\s*:\s*(.*)$/i);
+      if (!match) continue;
+      const value = unquoteScalar(match[1]).trim();
+      if (
+        value === "" ||
+        /^(?:https?:|data:|#)/i.test(value) ||
+        value.startsWith("/") ||
+        value.startsWith("//") ||
+        /^images\/tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp)$/i.test(value)
+      ) {
+        return null;
+      }
+      const normalized = value.replace(/\\/g, "/");
+      const sourceName = normalized.split("/").pop() || "";
+      return sourceName === "" ? null : { sourcePath: value, sourceName };
+    }
+    return null;
+  };
+
+  const localImageReference = (value) => {
+    const trimmed = String(value || "").trim();
+    if (
+      trimmed === "" ||
+      /^(?:https?:|data:|#)/i.test(trimmed) ||
+      trimmed.startsWith("/") ||
+      trimmed.startsWith("//") ||
+      /^images\/tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp)$/i.test(trimmed)
+    ) {
+      return null;
+    }
+    const normalized = trimmed.replace(/\\/g, "/");
+    if (!/\.(?:jpg|jpeg|png|gif|webp)$/i.test(normalized)) return null;
+    const sourceName = normalized.split("/").pop() || "";
+    return sourceName === "" ? null : { sourcePath: trimmed, sourceName };
+  };
+
   const extractImages = (markdown) => {
     const images = [];
-    const pattern = /!\[([^\]\n]*)\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/giu;
     let match;
-    while ((match = pattern.exec(markdown)) !== null) {
+
+    const managedPattern = /!\[([^\]\n]*)\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/giu;
+    while ((match = managedPattern.exec(markdown)) !== null) {
       const fileName = match[2].toLowerCase();
-      if (!images.some((image) => image.fileName === fileName)) {
-        images.push({ label: match[1] || "画像", fileName });
+      if (!images.some((image) => image.kind === "managed" && image.fileName === fileName)) {
+        images.push({ label: match[1] || "画像", fileName, kind: "managed" });
       }
     }
+
+    const markdownPattern = /!\[([^\]\n]*)\]\(([^)\s]+)\)/giu;
+    while ((match = markdownPattern.exec(markdown)) !== null) {
+      const local = localImageReference(match[2]);
+      if (!local) continue;
+      if (!images.some((image) => image.kind === "local" && image.sourcePath === local.sourcePath)) {
+        images.push({
+          label: match[1] || local.sourceName,
+          fileName: "",
+          kind: "local",
+          syntax: "markdown",
+          sourcePath: local.sourcePath,
+          sourceName: local.sourceName,
+        });
+      }
+    }
+
+    const wikiPattern = /!\[\[([^\]\n|]+?\.(?:jpg|jpeg|png|gif|webp))(?:\|[^\]\n]*)?\]\]/giu;
+    while ((match = wikiPattern.exec(markdown)) !== null) {
+      const local = localImageReference(match[1]);
+      if (!local) continue;
+      if (!images.some((image) => image.kind === "local" && image.sourcePath === local.sourcePath)) {
+        images.push({
+          label: local.sourceName,
+          fileName: "",
+          kind: "local",
+          syntax: "wiki",
+          sourcePath: local.sourcePath,
+          sourceName: local.sourceName,
+        });
+      }
+    }
+
     return images;
+  };
+
+  const rewriteLocalArticleImages = (markdown) => {
+    const localByPath = new Map(
+      requiredImages
+        .filter((image) => image.kind === "local" && image.fileName !== "")
+        .map((image) => [String(image.sourcePath || ""), image])
+    );
+    if (localByPath.size === 0) return markdown;
+
+    let rewritten = markdown.replace(
+      /!\[([^\]\n]*)\]\(([^)\s]+)\)/giu,
+      (whole, alt, target) => {
+        const image = localByPath.get(String(target || ""));
+        return image ? `![${alt}](images/${image.fileName})` : whole;
+      }
+    );
+    rewritten = rewritten.replace(
+      /!\[\[([^\]\n|]+?\.(?:jpg|jpeg|png|gif|webp))(?:\|[^\]\n]*)?\]\]/giu,
+      (whole, target) => {
+        const image = localByPath.get(String(target || ""));
+        if (!image) return whole;
+        const alt = String(image.sourceName || "画像").replace(/\.[^.]+$/, "");
+        return `![${alt}](images/${image.fileName})`;
+      }
+    );
+    return rewritten;
+  };
+
+  const rewriteFrontMatterLocalImage = (markdown) => {
+    if (!frontMatterImage || frontMatterImage.fileName === "") return markdown;
+    const frontMatterEnd = markdown.startsWith("---\n") ? markdown.indexOf("\n---", 4) : -1;
+    if (frontMatterEnd < 0) return markdown;
+    const frontMatter = markdown.slice(0, frontMatterEnd + 1);
+    const rewritten = frontMatter.replace(
+      /^([ \t]*image[ \t]*:).*$/mi,
+      `$1 images/${frontMatterImage.fileName}`
+    );
+    return rewritten + markdown.slice(frontMatterEnd + 1);
+  };
+
+  const renderOgpImage = () => {
+    if (!frontMatterImage) {
+      ogpImageStatus.hidden = true;
+      ogpImageStatus.innerHTML = "";
+      return;
+    }
+    const selected = frontMatterImage.fileName !== "" && selectedImages.has(frontMatterImage.fileName);
+    const selectedFile = selected ? selectedImages.get(frontMatterImage.fileName) : null;
+    const status = selected
+      ? '<span class="image-status-ok">選択済み</span>'
+      : '<span class="image-status-missing">画像が必要です</span>';
+    const displayName = escapeHtml(frontMatterImage.sourceName || "OGP画像");
+    const details = selectedFile
+      ? `<small>元画像: <code>${escapeHtml(selectedFile.name)}</code><br>公開用: <code>images/${escapeHtml(frontMatterImage.fileName)}</code></small>`
+      : `<small>元画像: <code>${displayName}</code></small>`;
+    ogpImageStatus.hidden = false;
+    ogpImageStatus.innerHTML = [
+      '<strong>OGP画像</strong>',
+      '<ul class="image-status-list">',
+      '<li class="image-status-item">',
+      `<div class="image-status-line"><span><strong>${displayName}</strong><br>${details}</span>${status}</div>`,
+      '</li>',
+      '</ul>',
+    ].join("");
   };
 
   const omittedImageNames = () => new Set(
@@ -1847,9 +2000,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     }
 
     const rows = requiredImages.map((image) => {
-      const selected = selectedImages.has(image.fileName);
+      const selected = image.fileName !== "" && selectedImages.has(image.fileName);
       const selectedFile = selected ? selectedImages.get(image.fileName) : null;
-      const omitted = preservedOmissions.has(image.fileName);
+      const omitted = image.kind === "managed" && preservedOmissions.has(image.fileName);
       const status = selected
         ? '<span class="image-status-ok">選択済み</span>'
         : editableReupload
@@ -1857,15 +2010,19 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         : omitted
           ? '<span>掲載しません</span>'
           : '<span class="image-status-missing">画像が必要です</span>';
-      const omission = selected || editableReupload ? "" : [
+      const omission = image.kind === "local" || selected || editableReupload ? "" : [
         '<label class="image-omit-label">',
         `<input type="checkbox" name="omit_images[]" value="${escapeHtml(image.fileName)}"${omitted ? " checked" : ""}>`,
         '<span>この画像の掲載をやめる<br><small>投稿用のMarkdownだけから画像記述を外します。</small></span>',
         '</label>',
       ].join("");
-      const fileNames = selectedFile
-        ? `<small>元画像: <code>${escapeHtml(selectedFile.name)}</code><br>公開用: <code>${escapeHtml(image.fileName)}</code></small>`
-        : `<small>公開用: <code>${escapeHtml(image.fileName)}</code></small>`;
+      const fileNames = image.kind === "local"
+        ? selectedFile
+          ? `<small>元画像: <code>${escapeHtml(selectedFile.name)}</code><br>公開用: <code>images/${escapeHtml(image.fileName)}</code></small>`
+          : `<small>元画像: <code>${escapeHtml(image.sourceName || "")}</code></small>`
+        : selectedFile
+          ? `<small>元画像: <code>${escapeHtml(selectedFile.name)}</code><br>公開用: <code>${escapeHtml(image.fileName)}</code></small>`
+          : `<small>公開用: <code>${escapeHtml(image.fileName)}</code></small>`;
       return [
         '<li class="image-status-item">',
         `<div class="image-status-line"><span><strong>${escapeHtml(image.label)}</strong><br>${fileNames}</span>${status}</div>`,
@@ -1914,22 +2071,28 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     imageNotice.hidden = true;
     imageNotice.textContent = "";
     requiredImages = [];
+    frontMatterImage = null;
     selectedImages.clear();
     unmatchedImageCount = 0;
     oversizedImageCount = 0;
     formatMismatchImageCount = 0;
     imageInput.value = "";
     renderImageMatches(new Set());
+    renderOgpImage();
     const file = fileInput.files && fileInput.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       const markdown = String(reader.result || "");
+      loadedMarkdown = markdown;
+      loadedMarkdownFilename = file.name;
       draftState = extractDraftState(markdown);
       updatePageSelection();
       const images = extractImages(markdown);
       requiredImages = images;
+      frontMatterImage = extractFrontMatterLocalImage(markdown);
+      renderOgpImage();
       if (images.length > 0) {
         imageNotice.hidden = false;
         imageNotice.textContent = `このMarkdownには画像が${images.length}点あります。Tomos Writeで使った元画像を選んでください。`;
@@ -1993,15 +2156,19 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     importedFilename = "";
     handoffMarkdownInput.value = "";
     handoffFilenameInput.value = "";
+    loadedMarkdown = "";
+    loadedMarkdownFilename = "";
     imageNotice.hidden = true;
     imageNotice.textContent = "";
     requiredImages = [];
+    frontMatterImage = null;
     selectedImages.clear();
     unmatchedImageCount = 0;
     oversizedImageCount = 0;
     formatMismatchImageCount = 0;
     imageInput.value = "";
     renderImageMatches(new Set());
+    renderOgpImage();
   };
 
   const MAX_MARKDOWN_BYTES = Number(document.body.dataset.tomosMarkdownMaxBytes || 0);
@@ -2014,6 +2181,8 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     fileInput.value = "";
     handoffMarkdownInput.value = markdown;
     handoffFilenameInput.value = safeFilename;
+    loadedMarkdown = markdown;
+    loadedMarkdownFilename = safeFilename;
     draftState = extractDraftState(markdown);
     const sourceMetadata = extractSourceMetadata(markdown);
     const sourceMetadataIncomplete = sourceMetadata.count > 0 && !sourceMetadata.complete;
@@ -2032,6 +2201,8 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     }
     const images = extractImages(markdown);
     requiredImages = images;
+    frontMatterImage = extractFrontMatterLocalImage(markdown);
+    renderOgpImage();
     if (images.length > 0) {
       imageNotice.hidden = false;
       imageNotice.textContent = editableReupload
@@ -2127,7 +2298,19 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         }
         try {
           const managedName = await managedNameForFile(file);
-          if (managedName !== "" && requiredImages.some((image) => image.fileName === managedName)) {
+          const managedMatch = managedName !== "" && requiredImages.some(
+            (image) => image.kind === "managed" && image.fileName === managedName
+          );
+          const localMatches = managedName === "" ? [] : requiredImages.filter(
+            (image) => image.kind === "local"
+              && String(image.sourceName || "").toLowerCase() === file.name.toLowerCase()
+          );
+          const ogpMatch = managedName !== ""
+            && frontMatterImage
+            && String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase();
+          if (managedMatch || localMatches.length > 0 || ogpMatch) {
+            localMatches.forEach((image) => { image.fileName = managedName; });
+            if (ogpMatch) frontMatterImage.fileName = managedName;
             selectedImages.set(managedName, file);
           } else {
             unmatched += 1;
@@ -2141,6 +2324,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       formatMismatchImageCount = formatMismatch;
       syncSelectedInput();
       renderImageMatches();
+      renderOgpImage();
       processingStatus.textContent = formatMismatch > 0
         ? `拡張子と画像データの形式が一致しない画像が${formatMismatch}点あります。元画像を確認してください。`
         : oversized > 0
@@ -2190,16 +2374,29 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     await imageSelectionTask;
 
     const omitted = omittedImageNames();
-    const missing = editableReupload
-      ? []
-      : requiredImages.filter((image) => !selectedImages.has(image.fileName) && !omitted.has(image.fileName));
-    if (missing.length > 0) {
+    const missing = requiredImages.filter((image) => {
+      if (editableReupload && image.kind === "managed") return false;
+      if (image.kind === "local") return image.fileName === "" || !selectedImages.has(image.fileName);
+      return !selectedImages.has(image.fileName) && !omitted.has(image.fileName);
+    });
+    const missingOgp = frontMatterImage
+      && (frontMatterImage.fileName === "" || !selectedImages.has(frontMatterImage.fileName));
+    if (missing.length > 0 || missingOgp) {
       processingStatus.hidden = false;
-      processingStatus.textContent = `画像が${missing.length}点不足しています。画像を追加で選ぶか、掲載をやめる画像を指定してください。`;
+      const missingCount = missing.length + (missingOgp ? 1 : 0);
+      processingStatus.textContent = `画像が${missingCount}点不足しています。画像を追加で選んでください。`;
       processingStatus.style.color = "var(--tomos-danger-text)";
       renderImageMatches(omitted);
-      imageMatchStatus.scrollIntoView({ behavior: scrollBehavior, block: "center" });
+      renderOgpImage();
+      (missing.length > 0 ? imageMatchStatus : ogpImageStatus).scrollIntoView({ behavior: scrollBehavior, block: "center" });
       return;
+    }
+
+    const articleRewrittenMarkdown = rewriteLocalArticleImages(loadedMarkdown);
+    const rewrittenMarkdown = rewriteFrontMatterLocalImage(articleRewrittenMarkdown);
+    if (rewrittenMarkdown !== loadedMarkdown) {
+      handoffMarkdownInput.value = rewrittenMarkdown;
+      handoffFilenameInput.value = loadedMarkdownFilename || "article.md";
     }
 
     const files = Array.from(selectedImages.entries()).filter(([imageName]) => !omitted.has(imageName));
