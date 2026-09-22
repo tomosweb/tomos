@@ -48,6 +48,9 @@ $errors = [];
 $messages = [];
 $accountStore = new Tomos\BlueskyAccountStore($rootDir);
 $account = $accountStore->load();
+$accountScope = is_array($account) ? trim((string) ($account['scope'] ?? '')) : '';
+$grantedScopes = $accountScope !== '' ? (preg_split('/\\s+/', $accountScope) ?: []) : [];
+$hasBlobPermission = in_array('blob:*/*', $grantedScopes, true);
 
 $oauthStatus = (string) ($_GET['oauth'] ?? '');
 if ($oauthStatus === 'connected') {
@@ -119,7 +122,14 @@ header('X-Robots-Tag: noindex, nofollow');
 
 <?php if (is_array($account)): ?>
 <h2>接続済み</h2>
+<?php if (!$hasBlobPermission): ?>
+<div class="result ng">
+<strong>画像投稿の権限が不足しています。</strong>
+<p>OGP画像をBlueskyカードに付けるには再接続が必要です。いったん接続を解除し、もう一度Blueskyと接続してください。</p>
+</div>
+<?php else: ?>
 <p class="hint">Blueskyアカウントと接続されています。</p>
+<?php endif; ?>
 <div class="result">
 <strong>接続中のアカウント</strong><br>
 <?php if ((string) ($account['handle'] ?? '') !== ''): ?>

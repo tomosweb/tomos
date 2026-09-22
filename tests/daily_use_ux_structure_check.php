@@ -11,7 +11,11 @@ $distribution = readSource($root . '/tools/required-distribution-files.txt');
 $installed = readSource($root . '/core/required-installed-files.txt');
 
 assertContains($index, 'prefers-reduced-motion: reduce', 'Post upload must detect reduced motion');
-assertContains($index, 'imageMatchStatus.scrollIntoView({ behavior: scrollBehavior', 'missing-image scroll must use the reduced-motion behavior');
+assertContains(
+    $index,
+    '(missing.length > 0 ? imageMatchStatus : ogpImageStatus).scrollIntoView({ behavior: scrollBehavior',
+    'missing body/OGP image scroll must use the reduced-motion behavior'
+);
 assertContains($writeHandoff, 'prefers-reduced-motion: reduce', 'Write handoff must detect reduced motion');
 assertContains($writeHandoff, 'scrollIntoView({ behavior: scrollBehavior', 'Write return scroll must use the reduced-motion behavior');
 assertNotContains($index, 'scrollIntoView({ behavior: "smooth"', 'Post upload must not hard-code smooth scrolling');

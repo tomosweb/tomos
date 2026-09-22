@@ -1,3 +1,5 @@
+.DS_Store
+**/.DS_Store
 /config.php
 /cache/
 !/cache/
@@ -14,3 +16,5 @@
 /backups/
 /staging/
 /test-results/
+
+/build/
