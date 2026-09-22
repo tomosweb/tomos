@@ -8,6 +8,8 @@ final class BlueskyProvider implements SocialProvider
 {
     private const MAX_CARD_HTML_BYTES = 262144;
     private const MAX_THUMB_BYTES = 2000000;
+    private const THUMB_TARGET_BYTES = 1800000;
+    private const THUMB_MAX_EDGE = 1600;
 
     private BlueskyOAuthSessionClient $session;
 
@@ -57,7 +59,12 @@ final class BlueskyProvider implements SocialProvider
                 'description' => trim((string) ($pageMetadata['description'] ?? '')),
             ];
 
-            $thumb = $this->cardThumbnail($articleUrl, $account);
+            $thumb = $this->cardThumbnail(
+                $articleUrl,
+                $account,
+                trim((string) ($context['social_image_url'] ?? '')),
+                trim((string) ($context['social_image_path'] ?? ''))
+            );
             if ($thumb !== null) {
                 $external['thumb'] = $thumb;
             }
@@ -123,36 +130,60 @@ final class BlueskyProvider implements SocialProvider
         );
     }
 
-    private function cardThumbnail(string $articleUrl, array $account): ?array
-    {
+    private function cardThumbnail(
+        string $articleUrl,
+        array $account,
+        string $explicitImageUrl = '',
+        string $explicitImagePath = ''
+    ): ?array {
         if (!$this->hasBlobPermission($account)) {
             return null;
         }
 
         try {
-            $page = $this->session->getPublic($articleUrl, self::MAX_CARD_HTML_BYTES);
-            if ($page->status < 200 || $page->status >= 300 || $page->body === '') {
+            $imageBody = '';
+            $mimeType = '';
+
+            if ($explicitImagePath !== '' && is_file($explicitImagePath)) {
+                $imageBody = (string) @file_get_contents($explicitImagePath);
+                $mimeType = $this->mimeTypeFromPath($explicitImagePath, $imageBody);
+            }
+
+            if ($imageBody === '' || $mimeType === '') {
+                $imageUrl = $this->validHttpsImageUrl($explicitImageUrl);
+                if ($imageUrl === '') {
+                    $page = $this->session->getPublic($articleUrl, self::MAX_CARD_HTML_BYTES);
+                    if ($page->status < 200 || $page->status >= 300 || $page->body === '') {
+                        return null;
+                    }
+
+                    $imageUrl = $this->ogImageUrl($page->body);
+                    if ($imageUrl === '') {
+                        return null;
+                    }
+                }
+
+                $image = $this->session->getPublic($imageUrl, self::MAX_THUMB_BYTES);
+                if ($image->status < 200 || $image->status >= 300 || $image->body === '') {
+                    return null;
+                }
+
+                $imageBody = $image->body;
+                $mimeType = $this->imageMimeType($image);
+            }
+
+            if ($imageBody === '' || $mimeType === '') {
                 return null;
             }
 
-            $imageUrl = $this->ogImageUrl($page->body);
-            if ($imageUrl === '') {
-                return null;
-            }
-
-            $image = $this->session->getPublic($imageUrl, self::MAX_THUMB_BYTES);
-            if ($image->status < 200 || $image->status >= 300 || $image->body === '') {
-                return null;
-            }
-
-            $mimeType = $this->imageMimeType($image);
-            if ($mimeType === '') {
+            [$imageBody, $mimeType] = $this->prepareThumbnailForBluesky($imageBody, $mimeType);
+            if ($imageBody === '' || $mimeType === '' || strlen($imageBody) > self::MAX_THUMB_BYTES) {
                 return null;
             }
 
             $upload = $this->session->postBinary(
                 '/xrpc/com.atproto.repo.uploadBlob',
-                $image->body,
+                $imageBody,
                 $mimeType
             );
             if ($upload->status < 200 || $upload->status >= 300) {
@@ -166,9 +197,125 @@ final class BlueskyProvider implements SocialProvider
 
             return is_array($blob) ? $blob : null;
         } catch (\Throwable $exception) {
-            // The article remains publishable even when the social card image cannot be attached.
             return null;
         }
+    }
+
+    private function mimeTypeFromPath(string $path, string $body): string
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if ($extension === 'jpg' || $extension === 'jpeg') {
+            return 'image/jpeg';
+        }
+        if ($extension === 'png') {
+            return 'image/png';
+        }
+        if ($extension === 'webp') {
+            return 'image/webp';
+        }
+
+        if (function_exists('finfo_open')) {
+            $handle = finfo_open(FILEINFO_MIME_TYPE);
+            if ($handle !== false) {
+                $detected = finfo_buffer($handle, $body);
+                finfo_close($handle);
+                if (is_string($detected) && in_array($detected, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+                    return $detected;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /** @return array{0:string,1:string} */
+    private function prepareThumbnailForBluesky(string $body, string $mimeType): array
+    {
+        if (strlen($body) <= self::THUMB_TARGET_BYTES) {
+            return [$body, $mimeType];
+        }
+
+        if (
+            !function_exists('imagecreatefromstring') ||
+            !function_exists('imagecreatetruecolor') ||
+            !function_exists('imagecopyresampled') ||
+            !function_exists('imagejpeg')
+        ) {
+            return ['', ''];
+        }
+
+        $source = @imagecreatefromstring($body);
+        if ($source === false) {
+            return ['', ''];
+        }
+
+        try {
+            $sourceWidth = imagesx($source);
+            $sourceHeight = imagesy($source);
+            if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+                return ['', ''];
+            }
+
+            $longEdge = max($sourceWidth, $sourceHeight);
+            $initialScale = $longEdge > self::THUMB_MAX_EDGE
+                ? self::THUMB_MAX_EDGE / $longEdge
+                : 1.0;
+
+            $qualitySteps = [82, 74, 66, 58, 50];
+            $dimensionSteps = [1.0, 0.85, 0.70, 0.55];
+
+            foreach ($dimensionSteps as $dimensionScale) {
+                $scale = $initialScale * $dimensionScale;
+                $targetWidth = max(1, (int) round($sourceWidth * $scale));
+                $targetHeight = max(1, (int) round($sourceHeight * $scale));
+
+                $canvas = imagecreatetruecolor($targetWidth, $targetHeight);
+                if ($canvas === false) {
+                    continue;
+                }
+
+                $white = imagecolorallocate($canvas, 255, 255, 255);
+                if ($white !== false) {
+                    imagefilledrectangle($canvas, 0, 0, $targetWidth, $targetHeight, $white);
+                }
+
+                imagealphablending($canvas, true);
+                if (!@imagecopyresampled(
+                    $canvas,
+                    $source,
+                    0,
+                    0,
+                    0,
+                    0,
+                    $targetWidth,
+                    $targetHeight,
+                    $sourceWidth,
+                    $sourceHeight
+                )) {
+                    imagedestroy($canvas);
+                    continue;
+                }
+
+                foreach ($qualitySteps as $quality) {
+                    ob_start();
+                    $saved = @imagejpeg($canvas, null, $quality);
+                    $candidate = ob_get_clean();
+                    if (!$saved || !is_string($candidate) || $candidate === '') {
+                        continue;
+                    }
+                    if (strlen($candidate) <= self::THUMB_TARGET_BYTES) {
+                        imagedestroy($canvas);
+                        return [$candidate, 'image/jpeg'];
+                    }
+                }
+
+                imagedestroy($canvas);
+            }
+        } finally {
+            imagedestroy($source);
+        }
+
+        return ['', ''];
     }
 
     private function hasBlobPermission(array $account): bool
@@ -180,6 +327,21 @@ final class BlueskyProvider implements SocialProvider
 
         $granted = preg_split('/\\s+/', $scope) ?: [];
         return in_array('blob:*/*', $granted, true);
+    }
+
+    private function validHttpsImageUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '' || preg_match('/[\x00-\x1F\x7F]/', $url) === 1) {
+            return '';
+        }
+
+        $parts = parse_url($url);
+        return is_array($parts)
+            && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+            && trim((string) ($parts['host'] ?? '')) !== ''
+            ? $url
+            : '';
     }
 
     private function ogImageUrl(string $html): string
