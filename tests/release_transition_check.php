@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.5';
-$fromRef = 'refs/tags/tomos-public-v1.0.5';
+$fromVersion = '1.0.6';
+$fromRef = 'refs/tags/tomos-public-v1.0.6';
 require_once $root . '/tools/UpdateFileSet.php';
-// tomos-public-v1.0.5 is fetched from the formally released public v1.0.5 tag.
+// tomos-public-v1.0.6 is fetched from the formally released public v1.0.6 tag.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
@@ -131,9 +131,13 @@ try {
                 }
             }
         }
-        $legacyRequiredBytes = $zip->getFromName('files/core/required-installed-files.txt');
-        if (!is_string($legacyRequiredBytes) || $legacyRequiredBytes !== $legacyRequiredRaw) {
-            throw new RuntimeException($targetVersion . ' main update must retain the v' . $fromVersion . ' required-file list until finalize');
+        if (in_array('core/required-installed-files.txt', $runtimeFiles, true)) {
+            $legacyRequiredBytes = $zip->getFromName('files/core/required-installed-files.txt');
+            if (!is_string($legacyRequiredBytes) || $legacyRequiredBytes !== $legacyRequiredRaw) {
+                throw new RuntimeException($targetVersion . ' main update must retain the v' . $fromVersion . ' required-file list until finalize');
+            }
+        } elseif ($zip->getFromName('files/core/required-installed-files.txt') !== false) {
+            throw new RuntimeException($targetVersion . ' update must not include an unchanged required-file list');
         }
 
         $versionBytes = $zip->getFromName('files/VERSION');
@@ -143,16 +147,7 @@ try {
 
         foreach([
             'VERSION',
-            'core/InboxApiCors.php',
-            'post/inbox/api/index.php',
-            'core/BlueskyOAuthHttpClient.php',
-            'core/BlueskyOAuthMetadata.php',
-            'core/BlueskyOAuthSessionClient.php',
-            'core/BlueskyProvider.php',
-            'core/ImageReferenceIndex.php',
-            'core/PostInbox.php',
-            'core/PostUpload.php',
-            'core/required-installed-files.txt',
+            'post/index.php',
         ] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
