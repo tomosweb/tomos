@@ -7,6 +7,7 @@ namespace Tomos;
 foreach ([
     'Security' => 'Security.php',
     'FrontMatterParser' => 'FrontMatterParser.php',
+    'SeoMetadata' => 'SeoMetadata.php',
     'Route' => 'Router.php',
     'PageRepository' => 'PageRepository.php',
     'HtmlCache' => 'HtmlCache.php',
@@ -1110,10 +1111,15 @@ final class PostUpload
         }
 
         try {
+            $socialImage = $this->explicitSocialImage($markdown, $result->contentPath);
             $result->socialResult = $this->socialPublishing->publishArticle(
                 $result->contentPath,
                 $result->absoluteUrl,
-                $markdown
+                $markdown,
+                [
+                    'social_image_url' => $socialImage['url'],
+                    'social_image_path' => $socialImage['path'],
+                ]
             );
         } catch (\Throwable $exception) {
             $result->socialResult = SocialPublishResult::failed(
@@ -1126,6 +1132,56 @@ final class PostUpload
         return $result;
     }
 
+
+    /** @return array{url:string,path:string} */
+    private function explicitSocialImage(string $markdown, string $contentPath): array
+    {
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = is_array($parsed['metadata'] ?? null) ? $parsed['metadata'] : [];
+        $target = trim((string) ($metadata['image'] ?? ''));
+        if ($target === '') {
+            return ['url' => '', 'path' => ''];
+        }
+
+        $page = $this->frontMatterParser->buildPageMetadata(
+            $metadata,
+            (string) ($parsed['body'] ?? ''),
+            $contentPath
+        );
+        $seo = SeoMetadata::build(
+            $page,
+            $this->site,
+            $this->publicBasePath(),
+            null,
+            $this->contentDir
+        );
+        $url = trim((string) ($seo['social_image_url'] ?? ''));
+
+        if (!Security::isSafeRelativePath($target)) {
+            return ['url' => $url, 'path' => ''];
+        }
+
+        $pageDirectory = dirname(str_replace('\\', '/', $contentPath));
+        $base = rtrim($this->contentDir, DIRECTORY_SEPARATOR);
+        if ($pageDirectory !== '' && $pageDirectory !== '.') {
+            $base .= DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, trim($pageDirectory, '/'));
+        }
+
+        $candidate = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $target);
+        $realContentDir = realpath($this->contentDir);
+        $realCandidate = realpath($candidate);
+        if (
+            $realContentDir === false ||
+            $realCandidate === false ||
+            !is_file($realCandidate) ||
+            !Security::isPathInside($realCandidate, $realContentDir) ||
+            !in_array(strtolower(pathinfo($realCandidate, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp'], true)
+        ) {
+            return ['url' => $url, 'path' => ''];
+        }
+
+        return ['url' => $url, 'path' => $realCandidate];
+    }
 
     private function publicBasePath(): string
     {
