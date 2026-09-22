@@ -20,7 +20,7 @@ final class SocialPublishingService
         $this->blueskyProvider = $blueskyProvider;
     }
 
-    public function publishArticle(string $articleId, string $articleUrl, string $markdown): SocialPublishResult
+    public function publishArticle(string $articleId, string $articleUrl, string $markdown, array $context = []): SocialPublishResult
     {
         $parsed = $this->frontMatterParser->parse($markdown);
         $metadata = is_array($parsed['metadata'] ?? null) ? $parsed['metadata'] : [];
@@ -60,6 +60,8 @@ final class SocialPublishingService
             'metadata' => $metadata,
             'page_metadata' => $pageMetadata,
             'automatic_text' => !$custom,
+            'social_image_url' => trim((string) ($context['social_image_url'] ?? '')),
+            'social_image_path' => trim((string) ($context['social_image_path'] ?? '')),
         ]);
 
         if (!$this->store->append($articleId, $result, $text)) {
