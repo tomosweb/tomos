@@ -231,6 +231,7 @@ git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.7.0:refs/tags/tomos-public-v0.7.0
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.0.5:refs/tags/tomos-public-v1.0.5
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.0.6:refs/tags/tomos-public-v1.0.6
+git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.0.7:refs/tags/tomos-public-v1.0.7
 '
 fi
 run_step php-lint bash -c 'set -euo pipefail; while IFS= read -r -d "" file; do php -l "$file" >/dev/null; done < <(find . -path "./core/webauthn/vendor" -prune -o -name "*.php" -print0)' 
@@ -256,25 +257,25 @@ done
 '
 
 run_step release-transition env TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR="${UPDATE_DIR}" php "${ROOT_DIR}/tests/release_transition_check.php"
-run_step test-update-zip unzip -t "${UPDATE_DIR}/tomos-update-1.0.6-to-${VERSION}-TEST.zip"
+run_step test-update-zip unzip -t "${UPDATE_DIR}/tomos-update-1.0.7-to-${VERSION}-TEST.zip"
 run_step test-update-checksums bash -c "cd \"${UPDATE_DIR}\" && sha256sum -c SHA256SUMS"
 
 if [[ "${MODE}" == "release" ]]; then
-  PRODUCTION_UPDATE_ZIP="${PRODUCTION_UPDATE_DIR}/tomos-update-1.0.6-to-${VERSION}.zip"
-  LEGACY_REQUIRED_LIST="${TMP_DIR}/required-installed-files-1.0.6.txt"
-  run_step production-update-legacy-required-list bash -c "git -C \"${ROOT_DIR}\" show refs/tags/tomos-public-v1.0.6:core/required-installed-files.txt > \"${LEGACY_REQUIRED_LIST}\" && test -s \"${LEGACY_REQUIRED_LIST}\""
+  PRODUCTION_UPDATE_ZIP="${PRODUCTION_UPDATE_DIR}/tomos-update-1.0.7-to-${VERSION}.zip"
+  LEGACY_REQUIRED_LIST="${TMP_DIR}/required-installed-files-1.0.7.txt"
+  run_step production-update-legacy-required-list bash -c "git -C \"${ROOT_DIR}\" show refs/tags/tomos-public-v1.0.7:core/required-installed-files.txt > \"${LEGACY_REQUIRED_LIST}\" && test -s \"${LEGACY_REQUIRED_LIST}\""
   run_step production-update-package php "${ROOT_DIR}/tools/build-update-package.php" \
-    --from=1.0.6 \
+    --from=1.0.7 \
     --version="${VERSION}" \
     --private-key="${PRIVATE_KEY}" \
     --output="${PRODUCTION_UPDATE_ZIP}" \
     --bootstrap-legacy-required-list="${LEGACY_REQUIRED_LIST}" \
-    --from-ref=refs/tags/tomos-public-v1.0.6 \
+    --from-ref=refs/tags/tomos-public-v1.0.7 \
     --to-ref=HEAD
   run_step production-update-zip unzip -t "${PRODUCTION_UPDATE_ZIP}"
-  run_step production-update-candidate-v106-acceptance env \
+  run_step production-update-candidate-v107-acceptance env \
     TOMOS_CANDIDATE_UPDATE_PACKAGE="${PRODUCTION_UPDATE_ZIP}" \
-    TOMOS_CANDIDATE_FROM="1.0.6" \
+    TOMOS_CANDIDATE_FROM="1.0.7" \
     TOMOS_CANDIDATE_TARGET="${VERSION}" \
     php "${ROOT_DIR}/tests/public_artifact_update_acceptance_check.php"
   run_step production-update-signature php -r '

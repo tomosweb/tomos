@@ -74,6 +74,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['return_to']) && !empty(
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'GET'
+    && (string) ($_GET['social_resume'] ?? '') === '1'
+    && !empty($_SESSION['tomos_post_authenticated'])
+    && !empty($_SESSION['tomos_pending_social_content_path'])
+) {
+    $pendingContentPath = (string) $_SESSION['tomos_pending_social_content_path'];
+    $pendingMessage = (string) ($_SESSION['tomos_pending_social_message'] ?? '記事を公開しました。');
+    $pendingWarnings = is_array($_SESSION['tomos_pending_social_warnings'] ?? null)
+        ? $_SESSION['tomos_pending_social_warnings']
+        : [];
+    unset(
+        $_SESSION['tomos_pending_social_content_path'],
+        $_SESSION['tomos_pending_social_message'],
+        $_SESSION['tomos_pending_social_warnings']
+    );
+
+    $messages[] = $pendingMessage;
+    $warnings = array_merge($warnings, $pendingWarnings);
+    $socialResult = (new Tomos\PostUpload($config, $rootDir))->publishSocialFromSavedContent($pendingContentPath);
+    if ($socialResult->status === Tomos\SocialPublishResult::SUCCESS) {
+        $messages[] = $socialResult->message;
+    } elseif ($socialResult->status === Tomos\SocialPublishResult::FAILED) {
+        $warnings[] = $socialResult->message;
+    }
+}
+
 $inboxPreviewPath = trim((string) ($_GET['preview_inbox'] ?? ''));
 $inboxDownloadPath = trim((string) ($_GET['download_inbox_markdown'] ?? ($_GET['download_inbox'] ?? '')));
 $postDraftPreviewPath = trim((string) ($_GET['preview_draft'] ?? ''));
@@ -439,13 +465,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $handoffMarkdown = (string) ($_POST['tomos_handoff_markdown'] ?? '');
                     $handoffFilename = (string) ($_POST['tomos_handoff_filename'] ?? 'article.md');
                     $uploadResult = $handoffMarkdown !== ''
-                        ? $upload->handleContent($handoffMarkdown, $handoffFilename, (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId)
-                        : $upload->handle($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId);
+                        ? $upload->handleContentDeferredSocial($handoffMarkdown, $handoffFilename, (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId)
+                        : $upload->handleDeferredSocial($_FILES['markdown_file'] ?? [], (string) ($_POST['folder'] ?? ''), '', session_id(), $stagedFiles, $omittedImages, true, $submissionId);
                     if ($uploadResult->ok) {
                         $sessionStore->deleteOwned($uploadSessionId, session_id(), $submissionId);
-                        $messages[] = uploadSuccessMessage($uploadResult);
-                        $warnings = array_merge($warnings, $uploadResult->warnings);
+                        $_SESSION['tomos_pending_social_content_path'] = $uploadResult->contentPath;
+                        $_SESSION['tomos_pending_social_message'] = uploadSuccessMessage($uploadResult);
+                        $_SESSION['tomos_pending_social_warnings'] = $uploadResult->warnings;
                         $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                        header('Location: ?section=upload&social_resume=1');
+                        exit;
                     } elseif ($uploadResult->conflict) {
                         $sessionStore->deleteOwned($uploadSessionId, session_id(), $submissionId);
                     } else {

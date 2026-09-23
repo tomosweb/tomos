@@ -1,5 +1,25 @@
 # 更新履歴
 
+## v1.0.8 - 2026-09-23
+
+BlueskyのOGP画像付き投稿を安定化し、記事保存とSocial Publishingを分離しました。高メモリ負荷の画像を含む投稿でも、記事公開を先に確定し、その後の別リクエストでBluesky投稿を行います。
+
+### Fixed / Improved
+
+- Tomos Postの記事保存とBluesky投稿を同一リクエストから分離し、記事保存完了後の新しいリクエストでSocial Publishingを再開するようにしました
+- 保存済みMarkdownを読み直してFront Matterの `image:` を解決し、保存済みOGP画像をBluesky external cardへ渡すようにしました
+- ローカルOGP JPEGと外部取得JPEGのEXIF Orientation 2〜8をBluesky送信用画像へ反映し、画像の向きが回転したまま投稿される問題を修正しました
+- 1.8MB未満のJPEGでもOrientation補正が必要な場合はraw bytesをそのまま送らず、補正済み画像を生成します
+- Bluesky用GD画像処理の前に展開後メモリを見積もり、危険な場合は画像なしexternal cardへ安全にフォールバックします
+- Social Publishingに失敗しても、すでに保存された記事とMarkdownは維持します
+- deferred Social Publishing、Front Matter OGP解決、EXIF Orientation 2〜8、PNG/WebP、大容量JPEG、メモリガードの回帰テストを追加しました
+
+### Compatibility / Update
+
+- v1.0.7からv1.0.8へ、署名付きTomos Updateで更新します
+- `config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashの運用データを保持します
+- Blueskyへの画像アップロードに失敗した場合も記事公開を維持し、可能な場合は画像なしカードとして投稿を継続します
+
 ## v1.0.7 - 2026-09-21
 
 Tomos Postで、記事Front Matterに指定したローカルOGP画像を投稿時にTomos管理画像へ変換し、記事単位のOGP画像として正しく利用できるようにしました。
