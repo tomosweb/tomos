@@ -199,6 +199,58 @@ final class PostUpload
         );
     }
 
+    public function handleDeferredSocial(array $file, string $folderInput, string $fileNameInput, ?string $sessionId = null, array $imageFiles = [], array $omittedImages = [], bool $trustedStagedImages = false, string $submissionId = ''): PostUploadResult
+    {
+        $input = PostUploadInput::read($file);
+        if (!$input->canContinue) {
+            return new PostUploadResult(false, $input->errors);
+        }
+
+        return $this->handlePreparedContent(
+            $input->content,
+            $input->originalFileName,
+            $folderInput,
+            $fileNameInput,
+            $sessionId,
+            $imageFiles,
+            $omittedImages,
+            $trustedStagedImages,
+            $submissionId,
+            true
+        );
+    }
+
+    public function handleContentDeferredSocial(
+        string $content,
+        string $originalFileName,
+        string $folderInput = '',
+        string $fileNameInput = '',
+        ?string $sessionId = null,
+        array $imageFiles = [],
+        array $omittedImages = [],
+        bool $trustedStagedImages = false,
+        string $submissionId = ''
+    ): PostUploadResult {
+        if ($content === '') {
+            return new PostUploadResult(false, ['空のファイルは投稿できません。']);
+        }
+        if (strlen($content) > PostUploadInput::MAX_BYTES) {
+            return new PostUploadResult(false, ['ファイルサイズが大きすぎます。Markdownは1MBまでです。']);
+        }
+        return $this->handlePreparedContent(
+            $content,
+            $originalFileName,
+            $folderInput,
+            $fileNameInput,
+            $sessionId,
+            $imageFiles,
+            $omittedImages,
+            $trustedStagedImages,
+            $submissionId,
+            true
+        );
+    }
+
     public function handleContent(
         string $content,
         string $originalFileName,
@@ -281,7 +333,8 @@ final class PostUpload
         array $imageFiles,
         array $omittedImages,
         bool $trustedStagedImages,
-        string $submissionId
+        string $submissionId,
+        bool $deferSocial = false
     ): PostUploadResult {
 
         $prepared = $this->submissionPreparer->prepare(
@@ -409,7 +462,7 @@ final class PostUpload
         $isDraft = $this->isDraftMarkdown($content);
         $result = new PostUploadResult(true, [], $warnings, $contentPath, $internalUrl, $absoluteUrl, $chosenName, $safeFileName, false, '', '', '', '', $isDraft ? 'draft_create' : 'create', '', count($imagePlan));
         $result->isDraft = $isDraft;
-        return $this->attachSocialResult($result, $content);
+        return $deferSocial ? $result : $this->attachSocialResult($result, $content);
     }
 
     public function updateFromTemp(string $tempId, ?string $sessionId = null, string $submissionId = ''): PostUploadResult
@@ -471,6 +524,47 @@ final class PostUpload
         );
         $result->isDraft = $this->isDraftMarkdown($updatedMarkdown);
         return $this->attachSocialResult($result, $updatedMarkdown);
+    }
+
+    public function publishSocialFromSavedContent(string $contentPath): SocialPublishResult
+    {
+        if (!Security::isSafeRelativePath($contentPath) || !Security::hasAllowedExtension($contentPath, ['md'])) {
+            return SocialPublishResult::failed('bluesky', 'invalid_article', '公開済み記事を確認できませんでした。');
+        }
+
+        $contentBase = realpath($this->contentDir);
+        $candidate = rtrim($this->contentDir, DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $contentPath);
+        $real = realpath($candidate);
+        if ($contentBase === false || $real === false || !is_file($real) || !Security::isPathInside($real, $contentBase)) {
+            return SocialPublishResult::failed('bluesky', 'invalid_article', '公開済み記事を確認できませんでした。');
+        }
+
+        $markdown = @file_get_contents($real);
+        if (!is_string($markdown) || $markdown === '') {
+            return SocialPublishResult::failed('bluesky', 'invalid_article', '公開済み記事を読み込めませんでした。');
+        }
+
+        try {
+            $socialImage = $this->explicitSocialImage($markdown, $contentPath);
+            $internalUrl = $this->urlFromContentPath($contentPath);
+            return $this->socialPublishing->publishArticle(
+                $contentPath,
+                $this->absolutePublicUrl($internalUrl),
+                $markdown,
+                [
+                    'social_image_url' => $socialImage['url'],
+                    'social_image_path' => $socialImage['path'],
+                ]
+            );
+        } catch (\Throwable $exception) {
+            return SocialPublishResult::failed(
+                'bluesky',
+                'provider_error',
+                '記事は公開しましたが、Bluesky投稿処理を完了できませんでした。'
+            );
+        }
     }
 
     public function isPublishedContentEquivalent(string $contentPath, string $markdown): bool

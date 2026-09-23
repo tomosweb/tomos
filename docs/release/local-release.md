@@ -258,9 +258,9 @@ Actionsがquota、障害、外部要因で利用できなくても、Formal loca
 
 `--mode=release` はtest用Updateに加えて、直前の正式公開versionから対象versionへの **production Browser Update ZIP** を本番署名鍵で生成する。
 
-v1.0.6では以下を生成・検証する。
+v1.0.8では以下を生成・検証する。
 
-- `build/local-release/artifacts/update/tomos-update-1.0.5-to-1.0.6.zip`
+- `build/local-release/artifacts/update/tomos-update-1.0.7-to-1.0.8.zip`
 - `build/local-release/artifacts/update/SHA256SUMS`
 - production public keyによるUpdate manifest signature verification
 - Installer 6資産（Distribution ZIP / manifest / signature / installer / pointer / checksum）
