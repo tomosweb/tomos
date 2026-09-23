@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.6';
-$fromRef = 'refs/tags/tomos-public-v1.0.6';
+$fromVersion = '1.0.7';
+$fromRef = 'refs/tags/tomos-public-v1.0.7';
 require_once $root . '/tools/UpdateFileSet.php';
-// tomos-public-v1.0.6 is fetched from the formally released public v1.0.6 tag.
+// tomos-public-v1.0.7 is fetched from the formally released public v1.0.7 tag.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
