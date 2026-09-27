@@ -299,7 +299,8 @@ function hiddenValue(string $html, string $name): string
     return html_entity_decode($matches[1], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-function assertSame(mixed $expected, mixed $actual, string $label): void
+/** @param mixed $expected @param mixed $actual */
+function assertSame($expected, $actual, string $label): void
 {
     if ($expected !== $actual) {
         throw new RuntimeException($label . ': expected ' . var_export($expected, true) . ', got ' . var_export($actual, true));

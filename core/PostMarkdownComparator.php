@@ -32,7 +32,8 @@ final class PostMarkdownComparator
         return rtrim(str_replace(["\r\n", "\r"], "\n", $body), "\n");
     }
 
-    private static function canonical(mixed $value): string
+    /** @param mixed $value */
+    private static function canonical($value): string
     {
         if (is_array($value)) {
             ksort($value);

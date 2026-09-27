@@ -15,7 +15,8 @@ final class PostAuthReturnTo
         '/post/social/bluesky/' => '/post/social/bluesky/',
     ];
 
-    public static function normalize(mixed $value): string
+    /** @param mixed $value */
+    public static function normalize($value): string
     {
         if (!is_string($value) || $value === '') {
             return self::DEFAULT_ROUTE;
