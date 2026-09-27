@@ -43,11 +43,7 @@ final class BlueskyProvider implements SocialProvider
             return SocialPublishResult::failed('bluesky', 'authentication_failed', 'Blueskyの接続情報を確認できません。');
         }
 
-        $record = [
-            '$type' => 'app.bsky.feed.post',
-            'text' => $text,
-            'createdAt' => gmdate('Y-m-d\TH:i:s\Z'),
-        ];
+        $record = $this->postRecord($text);
 
         if ($articleUrl !== '') {
             $pageMetadata = is_array($context['page_metadata'] ?? null)
@@ -722,6 +718,85 @@ final class BlueskyProvider implements SocialProvider
         }
 
         return '';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function postRecord(string $text): array
+    {
+        $record = [
+            '$type' => 'app.bsky.feed.post',
+            'text' => $text,
+            'createdAt' => gmdate('Y-m-d\TH:i:s\Z'),
+        ];
+        $facets = $this->hashtagFacets($text);
+        if ($facets !== []) {
+            $record['facets'] = $facets;
+        }
+
+        return $record;
+    }
+
+    /**
+     * @return array<int,array{index:array{byteStart:int,byteEnd:int},features:array<int,array{'$type':string,tag:string}>}>
+     */
+    private function hashtagFacets(string $text): array
+    {
+        $matches = [];
+        $matched = preg_match_all(
+            '/(^|[\\s(])#([^\\d\\s]\\S*)/u',
+            $text,
+            $matches,
+            PREG_OFFSET_CAPTURE
+        );
+        if ($matched === false || $matched === 0) {
+            return [];
+        }
+
+        $facets = [];
+        foreach ($matches[0] as $index => $match) {
+            $prefix = isset($matches[1][$index][0]) ? (string) $matches[1][$index][0] : '';
+            $rawTag = isset($matches[2][$index][0]) ? (string) $matches[2][$index][0] : '';
+            $matchOffset = (int) ($match[1] ?? -1);
+            $tag = preg_replace('/\\p{P}+$/u', '', $rawTag);
+
+            if (!is_string($tag) || $tag === '' || $matchOffset < 0) {
+                continue;
+            }
+            if (strlen($tag) > 640 || $this->graphemeLength($tag) > 64) {
+                continue;
+            }
+
+            $byteStart = $matchOffset + strlen($prefix);
+            $facetText = '#' . $tag;
+            $facets[] = [
+                'index' => [
+                    'byteStart' => $byteStart,
+                    'byteEnd' => $byteStart + strlen($facetText),
+                ],
+                'features' => [[
+                    '$type' => 'app.bsky.richtext.facet#tag',
+                    'tag' => $tag,
+                ]],
+            ];
+        }
+
+        return $facets;
+    }
+
+    private function graphemeLength(string $text): int
+    {
+        if (function_exists('grapheme_strlen')) {
+            $length = grapheme_strlen($text);
+            if (is_int($length)) {
+                return $length;
+            }
+        }
+
+        $matches = [];
+        $count = preg_match_all('/\\X/u', $text, $matches);
+        return $count === false ? PHP_INT_MAX : $count;
     }
 
     private function fitsPostLimit(string $text): bool
