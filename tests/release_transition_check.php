@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.7';
-$fromRef = 'refs/tags/tomos-public-v1.0.7';
+$fromVersion = '1.0.8';
+$fromRef = 'refs/tomos-public/v1.0.8';
 require_once $root . '/tools/UpdateFileSet.php';
-// tomos-public-v1.0.7 is fetched from the formally released public v1.0.7 tag.
+// tomos-public/v1.0.8 is fetched from the formally released public v1.0.8 tag.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';
@@ -145,10 +145,7 @@ try {
             throw new RuntimeException($targetVersion . ' package VERSION payload mismatch');
         }
 
-        foreach([
-            'VERSION',
-            'post/index.php',
-        ] as $requiredCurrentRuntime) {
+        foreach (['VERSION'] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
             }

@@ -114,13 +114,22 @@ final class App
             return;
         }
 
+        if ($route->isValid && $this->isAllRoute($route->urlPath)) {
+            echo $this->renderAllPage($renderer, $navigation, $pages, $publicBasePath);
+            return;
+        }
+
         $page = $this->findIndexedPageForRoute($pages, $route);
         $contentHtml = null;
+        $contentToc = '';
+        $relatedItems = [];
         if ($page !== null) {
             $page['file'] = $this->sourceFileForIndexedPage($page);
-            $cachedHtml = $htmlCache->read((string) ($page['path'] ?? ''), (string) ($page['file'] ?? ''));
-            if ($cachedHtml !== null) {
-                $contentHtml = $cachedHtml;
+            $cachedContent = $htmlCache->readWithToc((string) ($page['path'] ?? ''), (string) ($page['file'] ?? ''));
+            if ($cachedContent !== null) {
+                $contentHtml = $cachedContent['html'];
+                $contentToc = $cachedContent['toc'];
+                $relatedItems = $this->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
                 $performance->set('html_cache', 'hit');
             } else {
                 $performance->set('html_cache', 'miss');
@@ -154,7 +163,10 @@ final class App
                 }
 
                 $page = $lookup->page;
-                $contentHtml = $this->renderMarkdownContentHtml($page, $markdownParser, $pages, $publicBasePath, $htmlCache, $performance);
+                $renderedContent = $this->renderMarkdownContent($page, $markdownParser, $pages, $publicBasePath, $htmlCache, $performance);
+                $contentHtml = $renderedContent['html'];
+                $contentToc = $renderedContent['toc'];
+                $relatedItems = $renderedContent['related_items'];
             }
         } else {
             $performance->set('markdown_render', 'skipped');
@@ -176,6 +188,8 @@ final class App
             'language' => $page['language'] ?? null,
             'tags_html' => $this->pageTagsHtml(is_array($page['tags']) ? $page['tags'] : [], $publicBasePath),
             'content' => $contentHtml,
+            'toc' => $contentToc,
+            'related_items' => $relatedItems,
             'path' => $page['path'],
             'folder_path' => $page['folder_path'] ?? '',
             'folder_page_number' => $this->positivePageNumber($requestUri),
@@ -188,23 +202,32 @@ final class App
         }
     }
 
-    private function renderMarkdownContentHtml(
+    /**
+     * @return array{html: string, toc: string, related_items: array<int, array{title: string, url: string}>}
+     */
+    private function renderMarkdownContent(
         array $page,
         MarkdownParser $markdownParser,
         array $pages,
         string $publicBasePath,
         HtmlCache $htmlCache,
         PerformanceLogger $performance
-    ): string {
+    ): array {
         $sourcePath = (string) ($page['path'] ?? '');
         $sourceFile = (string) ($page['file'] ?? '');
-        $cachedHtml = $htmlCache->read($sourcePath, $sourceFile);
-        if ($cachedHtml !== null) {
+        $cachedContent = $htmlCache->readWithToc($sourcePath, $sourceFile);
+        if ($cachedContent !== null) {
             $performance->set('html_cache', 'hit');
             $performance->set('markdown_render', 'skipped');
             $performance->set('wiki_link_parse', 'skipped');
             $performance->lap('html_cache_check');
-            return $cachedHtml;
+            $cachedContent['related_items'] = $this->relatedItemsFromHtml(
+                $cachedContent['html'],
+                (string) ($page['url'] ?? ''),
+                $pages,
+                $publicBasePath
+            );
+            return $cachedContent;
         }
         $performance->set('html_cache', 'miss');
         $performance->lap('html_cache_check');
@@ -216,14 +239,15 @@ final class App
         $contentRaw = $imageEmbedParser->replace($contentRaw, $sourcePath !== '' ? $sourcePath : 'index.md');
         $contentRaw = $wikiLinkParser->replace($contentRaw);
         $performance->set('wiki_link_parse', 'run');
-        $contentHtml = $markdownParser->toHtml($contentRaw);
+        $rendered = $markdownParser->toHtmlWithToc($contentRaw);
         $performance->set('markdown_render', 'run');
-        $contentHtml = $wikiLinkParser->restore($contentHtml);
+        $contentHtml = $wikiLinkParser->restore($rendered['html']);
         $contentHtml = $imageEmbedParser->restore($contentHtml);
+        $relatedItems = $this->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
 
-        $htmlCache->write($sourcePath, $sourceFile, $contentHtml);
+        $htmlCache->write($sourcePath, $sourceFile, $contentHtml, $rendered['toc']);
 
-        return $contentHtml;
+        return ['html' => $contentHtml, 'toc' => $rendered['toc'], 'related_items' => $relatedItems];
     }
 
     private function loadPages(MetadataIndex $metadataIndex, PerformanceLogger $performance): array
@@ -511,6 +535,33 @@ final class App
         ]);
     }
 
+    private function renderAllPage(
+        TemplateRenderer $renderer,
+        NavigationBuilder $navigation,
+        array $pages,
+        string $publicBasePath
+    ): string {
+        return $this->renderPage($renderer, $navigation, $pages, [
+            'title' => 'すべての項目',
+            'description' => '公開中のすべてのページを一覧します。',
+            'url' => Security::publicUrl('/all/', $publicBasePath),
+            'page_type' => 'website',
+            'title_explicit' => true,
+            'date' => '',
+            'published' => '',
+            'updated' => '',
+            'image' => '',
+            'excerpt' => '公開中のすべてのページを一覧します。',
+            'tags' => [],
+            'tags_html' => '',
+            'content' => $navigation->pageList($pages),
+            'toc' => '',
+            'related_items' => [],
+            'internal_url' => '/all/',
+            'breadcrumbs' => $navigation->breadcrumbs($pages, '/all/'),
+        ]);
+    }
+
     private function renderPage(TemplateRenderer $renderer, NavigationBuilder $navigation, array $pages, array $page): string
     {
         $currentUrl = (string) ($page['internal_url'] ?? '');
@@ -532,8 +583,21 @@ final class App
             ? $navigation->tree($pages, $currentUrl, false, !empty($this->config['features']['rss']))
             : '';
 
+        $needsTagContext = isset($requiredVariables['tag.list']) || isset($requiredVariables['tag.items']);
+        $tagIndex = $needsTagContext ? new TagIndex($pages, $this->publicBasePath()) : null;
+
         return $renderer->renderPage($page + [
+            'toc' => '',
             'tags_html' => '',
+            'related_items' => [],
+            'tag' => [
+                'list' => isset($requiredVariables['tag.list']) && $tagIndex !== null
+                    ? $tagIndex->indexHtml()
+                    : '',
+                'items' => isset($requiredVariables['tag.items']) && $tagIndex !== null
+                    ? $tagIndex->items()
+                    : [],
+            ],
             'nav' => [
                 'tree' => isset($requiredVariables['nav.tree']) ? $tree : '',
                 'mobile_tree' => isset($requiredVariables['nav.mobile_tree']) ? $tree : '',
@@ -597,6 +661,11 @@ final class App
     private function isTagsRoute(string $urlPath): bool
     {
         return $urlPath === '/tags' || $urlPath === '/tags/' || strpos($urlPath, '/tags/') === 0;
+    }
+
+    private function isAllRoute(string $urlPath): bool
+    {
+        return $urlPath === '/all' || $urlPath === '/all/';
     }
 
     private function isSearchRoute(string $urlPath): bool
@@ -675,6 +744,134 @@ final class App
         }
 
         return $path;
+    }
+
+    /**
+     * @return array<int, array{title: string, url: string}>
+     */
+    private function relatedItemsFromHtml(string $html, string $currentUrl, array $pages, string $publicBasePath): array
+    {
+        $pagesByUrl = [];
+        foreach ($pages as $page) {
+            if (!is_array($page) || !empty($page['draft'])) {
+                continue;
+            }
+
+            $url = $this->normalizePagePath((string) ($page['url'] ?? ''));
+            if ($url === null) {
+                continue;
+            }
+
+            $pagesByUrl[$url] = $page;
+        }
+
+        $current = $this->normalizePagePath($currentUrl);
+        if ($pagesByUrl === [] || $current === null) {
+            return [];
+        }
+
+        preg_match_all(
+            '/<a\\b[^>]*\\bhref\\s*=\\s*(["\\\'])(.*?)\\1[^>]*>.*?<\\/a>/isu',
+            $html,
+            $matches,
+            PREG_SET_ORDER
+        );
+
+        $related = [];
+        $seen = [];
+        foreach ($matches as $match) {
+            $anchorHtml = (string) ($match[0] ?? '');
+            if (stripos($anchorHtml, '<img') !== false) {
+                continue;
+            }
+
+            $path = $this->internalLinkPath((string) ($match[2] ?? ''), $current, $publicBasePath);
+            if ($path === null || $path === $current || isset($seen[$path]) || !isset($pagesByUrl[$path])) {
+                continue;
+            }
+
+            $target = $pagesByUrl[$path];
+            $title = trim((string) ($target['title'] ?? ''));
+            if ($title === '') {
+                $title = (string) ($target['path'] ?? 'Untitled');
+            }
+
+            $seen[$path] = true;
+            $related[] = [
+                'title' => $title,
+                'url' => Security::publicUrl($path, $publicBasePath),
+            ];
+        }
+
+        return $related;
+    }
+
+    private function internalLinkPath(string $href, string $currentUrl, string $publicBasePath): ?string
+    {
+        $href = html_entity_decode(trim($href), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($href === '' || $href[0] === '#' || strpos($href, '//') === 0) {
+            return null;
+        }
+
+        $scheme = parse_url($href, PHP_URL_SCHEME);
+        if ($scheme !== null) {
+            return null;
+        }
+
+        $positions = array_filter([strpos($href, '?'), strpos($href, '#')], static function ($position): bool {
+            return $position !== false;
+        });
+        if ($positions !== []) {
+            $href = substr($href, 0, min($positions));
+        }
+        if ($href === '') {
+            return null;
+        }
+
+        if ($href[0] !== '/') {
+            $base = substr($currentUrl, -1) === '/'
+                ? rtrim($currentUrl, '/')
+                : dirname($currentUrl);
+            $href = rtrim($base, '/') . '/' . ltrim($href, '/');
+        }
+
+        $publicBasePath = Security::normalizeBasePath($publicBasePath);
+        if ($publicBasePath !== '') {
+            if ($href === $publicBasePath) {
+                $href = '/';
+            } elseif (strpos($href, $publicBasePath . '/') === 0) {
+                $href = substr($href, strlen($publicBasePath));
+            } else {
+                return null;
+            }
+        }
+
+        return $this->normalizePagePath($href);
+    }
+
+    private function normalizePagePath(string $url): ?string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return null;
+        }
+
+        $positions = array_filter([strpos($url, '?'), strpos($url, '#')], static function ($position): bool {
+            return $position !== false;
+        });
+        if ($positions !== []) {
+            $url = substr($url, 0, min($positions));
+        }
+        if ($url === '' || $url[0] !== '/') {
+            $url = '/' . $url;
+        }
+
+        $validation = Security::validateUrlPath($url);
+        if (empty($validation['is_valid'])) {
+            return null;
+        }
+
+        return (string) $validation['path'];
     }
 
     private function publicBasePath(): string

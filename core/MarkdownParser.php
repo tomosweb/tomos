@@ -19,11 +19,26 @@ final class MarkdownParser
 
     public function toHtml(string $markdown): string
     {
-        $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
-        return implode("\n", $this->renderBlocks(explode("\n", $markdown)));
+        return $this->toHtmlWithToc($markdown)['html'];
     }
 
-    private function renderBlocks(array $lines): array
+    /**
+     * @return array{html: string, toc: string}
+     */
+    public function toHtmlWithToc(string $markdown): array
+    {
+        $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
+        $headings = [];
+        $usedHeadingIds = [];
+        $html = implode("\n", $this->renderBlocks(explode("\n", $markdown), $headings, $usedHeadingIds));
+
+        return [
+            'html' => $html,
+            'toc' => $this->renderToc($headings),
+        ];
+    }
+
+    private function renderBlocks(array $lines, array &$headings, array &$usedHeadingIds): array
     {
         $html = [];
         $paragraph = [];
@@ -72,7 +87,19 @@ final class MarkdownParser
             if (preg_match('/^(#{1,6})\s+(.+)$/', $trimmed, $matches) === 1) {
                 $this->flushParagraph($html, $paragraph);
                 $level = strlen($matches[1]);
-                $html[] = '<h' . $level . '>' . $this->inline($matches[2]) . '</h' . $level . '>';
+                $headingHtml = $this->inline($matches[2]);
+                if ($level >= 2 && $level <= 4) {
+                    $headingLabel = $this->headingLabel($headingHtml, $matches[2]);
+                    $headingId = $this->uniqueHeadingId($headingLabel, $usedHeadingIds);
+                    $headings[] = [
+                        'level' => $level,
+                        'id' => $headingId,
+                        'label' => $headingLabel,
+                    ];
+                    $html[] = '<h' . $level . ' id="' . $this->escape($headingId) . '">' . $headingHtml . '</h' . $level . '>';
+                } else {
+                    $html[] = '<h' . $level . '>' . $headingHtml . '</h' . $level . '>';
+                }
                 $index++;
                 continue;
             }
@@ -115,6 +142,90 @@ final class MarkdownParser
         }
 
         $this->flushParagraph($html, $paragraph);
+        return $html;
+    }
+
+    private function headingLabel(string $headingHtml, string $source): string
+    {
+        $label = strip_tags($headingHtml);
+        $label = html_entity_decode($label, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $label = preg_replace('/\s+/u', ' ', trim($label)) ?? trim($label);
+        if ($label !== '') {
+            return $label;
+        }
+
+        $fallback = preg_replace('/\s+/u', ' ', trim($source)) ?? trim($source);
+        return $fallback !== '' ? $fallback : 'section';
+    }
+
+    private function uniqueHeadingId(string $label, array &$usedHeadingIds): string
+    {
+        $slug = preg_replace('/[^\p{L}\p{N}\p{M}_-]+/u', '-', $label) ?? '';
+        $slug = preg_replace('/-+/u', '-', $slug) ?? $slug;
+        $slug = trim($slug, '-_');
+        if ($slug === '') {
+            $slug = 'section';
+        }
+
+        $candidate = $slug;
+        $suffix = 2;
+        while (isset($usedHeadingIds[$candidate])) {
+            $candidate = $slug . '-' . $suffix;
+            $suffix++;
+        }
+        $usedHeadingIds[$candidate] = true;
+
+        return $candidate;
+    }
+
+    private function renderToc(array $headings): string
+    {
+        if ($headings === []) {
+            return '';
+        }
+
+        $root = [];
+        $stack = [];
+        foreach ($headings as $heading) {
+            $node = [
+                'id' => (string) $heading['id'],
+                'label' => (string) $heading['label'],
+                'children' => [],
+            ];
+            $level = (int) $heading['level'];
+
+            while ($stack !== [] && $level <= (int) $stack[count($stack) - 1]['level']) {
+                array_pop($stack);
+            }
+
+            if ($stack === []) {
+                $root[] = $node;
+                $index = count($root) - 1;
+                $stack[] = ['level' => $level, 'node' => &$root[$index]];
+                continue;
+            }
+
+            $parent = &$stack[count($stack) - 1]['node'];
+            $parent['children'][] = $node;
+            $index = count($parent['children']) - 1;
+            $stack[] = ['level' => $level, 'node' => &$parent['children'][$index]];
+            unset($parent);
+        }
+
+        return '<nav class="toc" aria-label="目次"><ul>' . $this->renderTocNodes($root) . '</ul></nav>';
+    }
+
+    private function renderTocNodes(array $nodes): string
+    {
+        $html = '';
+        foreach ($nodes as $node) {
+            $html .= '<li><a href="#' . $this->escape((string) $node['id']) . '">' . $this->escape((string) $node['label']) . '</a>';
+            if ($node['children'] !== []) {
+                $html .= '<ul>' . $this->renderTocNodes($node['children']) . '</ul>';
+            }
+            $html .= '</li>';
+        }
+
         return $html;
     }
 
