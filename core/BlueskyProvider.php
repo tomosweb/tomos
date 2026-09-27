@@ -724,6 +724,64 @@ final class BlueskyProvider implements SocialProvider
         return '';
     }
 
+    /**
+     * @return array<int,array{index:array{byteStart:int,byteEnd:int},features:array<int,array{'$type':string,tag:string}>}>
+     */
+    private function hashtagFacets(string $text): array
+    {
+        $matches = [];
+        $matched = preg_match_all(
+            '/(?<![\\p{L}\\p{N}_])#([\\p{L}\\p{N}\\p{M}_]+)/u',
+            $text,
+            $matches,
+            PREG_OFFSET_CAPTURE
+        );
+        if ($matched === false || $matched === 0) {
+            return [];
+        }
+
+        $facets = [];
+        foreach ($matches[0] as $index => $match) {
+            $facetText = (string) ($match[0] ?? '');
+            $byteStart = (int) ($match[1] ?? -1);
+            $tag = isset($matches[1][$index][0]) ? (string) $matches[1][$index][0] : '';
+
+            if ($facetText === '' || $byteStart < 0 || $tag === '') {
+                continue;
+            }
+            if (strlen($tag) > 640 || $this->graphemeLength($tag) > 64) {
+                continue;
+            }
+
+            $facets[] = [
+                'index' => [
+                    'byteStart' => $byteStart,
+                    'byteEnd' => $byteStart + strlen($facetText),
+                ],
+                'features' => [[
+                    '$type' => 'app.bsky.richtext.facet#tag',
+                    'tag' => $tag,
+                ]],
+            ];
+        }
+
+        return $facets;
+    }
+
+    private function graphemeLength(string $text): int
+    {
+        if (function_exists('grapheme_strlen')) {
+            $length = grapheme_strlen($text);
+            if (is_int($length)) {
+                return $length;
+            }
+        }
+
+        $matches = [];
+        $count = preg_match_all('/\\X/u', $text, $matches);
+        return $count === false ? PHP_INT_MAX : $count;
+    }
+
     private function fitsPostLimit(string $text): bool
     {
         if (strlen($text) > 3000) {
