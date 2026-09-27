@@ -28,10 +28,19 @@ RewriteEngine On
 # must remain an application route when that directory exists on the server.
 RewriteRule ^docs/?$ index.php [L]
 
+# BEGIN TOMOS MANAGED OAUTH
 # AT Protocol OAuth public metadata endpoints. These must return JSON directly
 # from the exact URL declared as client_id / jwks_uri.
+# Prefer static backing at those legacy URLs when it is available.
+RewriteCond %{REQUEST_FILENAME} ^(.+)/oauth-client-metadata\.json\.php$
+RewriteCond %1/oauth-client-metadata.static.json -f
+RewriteRule ^oauth-client-metadata\.json\.php$ oauth-client-metadata.static.json [END]
+RewriteCond %{REQUEST_FILENAME} ^(.+)/tomos-bluesky-jwks\.json\.php$
+RewriteCond %1/tomos-bluesky-jwks.static.json -f
+RewriteRule ^tomos-bluesky-jwks\.json\.php$ tomos-bluesky-jwks.static.json [END]
 RewriteRule ^oauth-client-metadata\.json$ oauth-client-metadata.json.php [L]
 RewriteRule ^\.well-known/tomos-bluesky-jwks\.json$ tomos-bluesky-jwks.json.php [L]
+# END TOMOS MANAGED OAUTH
 
 # `/post/site-settings.php` is the canonical Site Settings entrypoint.
 # Keep the former directory URL only as a compatibility redirect so normal
