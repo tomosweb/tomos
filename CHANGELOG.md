@@ -1,5 +1,29 @@
 # 更新履歴
 
+## v1.1.0 - 2026-09-27
+
+Wiki・百科事典型Themeから利用できる、記事内移動とサイト全体探索のためのCore APIを追加しました。
+
+### Added
+
+- MarkdownのH2〜H4見出しへ安全で一意なHTMLアンカーを付与し、`page.toc`として記事内目次をThemeへ提供します
+- サイト全体のタグ名・URL・記事数を構造化した`tag.items`としてThemeへ提供します
+- 公開中の全ページを一覧できる`/all/` routeと、Themeから利用できる`nav.all_url`を追加します
+- 記事本文から明示的にリンクされた公開内部ページを`page.related_items`としてThemeへ提供します
+
+### Theme developer API
+
+- `page.toc`
+- `tag.items`
+- `nav.all_url`
+- `page.related_items`
+
+### Compatibility / Update
+
+- 既存Themeは新しいContextを使用しない限り表示変更ありません
+- 既存の標準Theme・Quiet・Indexとの互換性を維持します
+- v1.0.8からv1.1.0へのBrowser Updateでは、設定・記事・画像・追加Themeなどの運用データを更新対象に含めません
+
 ## v1.0.8 - 2026-09-23
 
 BlueskyのOGP画像付き投稿を安定化し、記事保存とSocial Publishingを分離しました。高メモリ負荷の画像を含む投稿でも、記事公開を先に確定し、その後の別リクエストでBluesky投稿を行います。
