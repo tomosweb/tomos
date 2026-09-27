@@ -91,8 +91,10 @@ GitHub ActionsではPHP 7.4 / 8.0 / 8.2 / 8.5を確認している。
 
 ```bash
 TOMOS_PHP_MATRIX="php74 php80 php82 php85" \
-bash tools/release-local.sh
+bash tools/release-local.sh --from-version=1.1.0
 ```
+
+Browser Updateの正式な更新元は、毎回`--from-version`で明示します。公開済みの一般配布版と異なる値を推測して実行しないでください。
 
 Check modeでmatrixを指定しない場合は現在のPHPだけを確認し、reportへ `PARTIAL` と記録する。
 
@@ -108,6 +110,7 @@ Formal release modeでは7.4 / 8.0 / 8.2 / 8.5の4系統を必須とし、不足
 TOMOS_PHP_MATRIX="php74 php80 php82 php85" \
 bash tools/release-local.sh \
   --mode=release \
+  --from-version=1.1.0 \
   --private-key=/secure/outside-project/install-signing-private.pem
 ```
 

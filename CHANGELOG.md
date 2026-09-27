@@ -1,5 +1,19 @@
 # 更新履歴
 
+## v1.1.2 - 2026-09-27
+
+Bluesky投稿とObsidian Publisher連携を含むv1.1.1の改善に加え、Bluesky投稿文をより自然に扱えるようにしました。
+
+### Fixed / Improved
+
+- `social_text`を引用符付きで指定した場合も、引用符を投稿本文へ含めずにBlueskyへ投稿します
+- 日本語、URL、複数ハッシュタグを含む`social_text`の既存投稿処理を維持します
+- Browser Updateの更新元をリリース実行時に明示できるようにし、公開済み一般配布版からの差分を誤生成しないようにしました
+
+### Compatibility / Update
+
+- v1.1.0からv1.1.2へのBrowser Updateでは、設定、記事、画像、追加Themeなどの運用データを保護します
+
 ## v1.1.1 - 2026-09-27
 
 Bluesky投稿、Obsidianからの公開、PHP 7.4互換性を改善し、Bluesky OAuth公開情報を静的JSONで安全に応答できるようにしました。

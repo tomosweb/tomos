@@ -42,9 +42,9 @@ try {
 
     $candidatePackage = trim((string) getenv('TOMOS_CANDIDATE_UPDATE_PACKAGE'));
     if ($candidatePackage !== '') {
-        $candidateFrom = trim((string) (getenv('TOMOS_CANDIDATE_FROM') ?: '1.0.8'));
+        $candidateFrom = trim((string) (getenv('TOMOS_CANDIDATE_FROM') ?: ''));
         $candidateTarget = trim((string) (getenv('TOMOS_CANDIDATE_TARGET') ?: $targetVersion));
-        if (!is_file($candidatePackage) || $candidateFrom !== '1.0.8' || $candidateTarget !== $targetVersion) {
+        if (!is_file($candidatePackage) || $candidateFrom === '' || !preg_match('/\A[0-9]+(?:\.[0-9]+)*\z/', $candidateFrom) || $candidateTarget !== $targetVersion) {
             fail('candidate acceptance inputs are invalid');
         }
         $baselineUrlTemplate = getenv('TOMOS_PUBLIC_BASELINE_URL_TEMPLATE')

@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $targetVersion = trim((string) file_get_contents($root . '/VERSION'));
-$fromVersion = '1.0.8';
-$fromRef = 'refs/tomos-public/v1.0.8';
+$fromVersion = trim((string) (getenv('TOMOS_RELEASE_FROM_VERSION') ?: ''));
+$fromRef = trim((string) (getenv('TOMOS_RELEASE_FROM_REF') ?: ''));
+if ($fromVersion === '' || preg_match('/\A[0-9]+(?:\.[0-9]+)*\z/', $fromVersion) !== 1) {
+    throw new RuntimeException('TOMOS_RELEASE_FROM_VERSION must be provided as a stable version');
+}
+if ($fromRef === '') {
+    $fromRef = 'refs/tomos-public/v' . $fromVersion;
+}
 require_once $root . '/tools/UpdateFileSet.php';
-// tomos-public/v1.0.8 is fetched from the formally released public v1.0.8 tag.
+// The caller provides the formally released public baseline explicitly.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
     $runtimeFiles[] = 'VERSION';

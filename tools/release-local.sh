@@ -6,6 +6,7 @@ MODE="check"
 OUTPUT_DIR="${ROOT_DIR}/build/local-release"
 PRIVATE_KEY=""
 PUBLIC_KEY="${ROOT_DIR}/update/public-key.pem"
+FROM_VERSION="${TOMOS_RELEASE_FROM_VERSION:-}"
 ALLOW_DIRTY=0
 SKIP_FETCH=0
 SKIP_MATRIX=0
@@ -24,6 +25,7 @@ Modes:
 Options:
   --private-key=PATH External production signing key. Required for --mode=release.
   --public-key=PATH  Verification public key (default: update/public-key.pem).
+  --from-version=V   Formally released source version for the Browser Update transition.
   --output-dir=PATH  Output root (default: build/local-release).
   --report=PATH      Markdown report path (default: <output-dir>/release-report.md).
   --allow-dirty      Allow a dirty working tree (never recommended for formal release).
@@ -39,10 +41,11 @@ PHP matrix:
     7.4 8.0 8.2 8.5
 
 Examples:
-  bash tools/release-local.sh
+  bash tools/release-local.sh --from-version=1.1.0
 
   TOMOS_PHP_MATRIX="php74 php80 php82 php85" \
   bash tools/release-local.sh --mode=release \
+    --from-version=1.1.0 \
     --private-key=/secure/outside-project/install-signing-private.pem
 USAGE
 }
@@ -52,6 +55,7 @@ for argument in "$@"; do
     --mode=*) MODE="${argument#*=}" ;;
     --private-key=*) PRIVATE_KEY="${argument#*=}" ;;
     --public-key=*) PUBLIC_KEY="${argument#*=}" ;;
+    --from-version=*) FROM_VERSION="${argument#*=}" ;;
     --output-dir=*) OUTPUT_DIR="${argument#*=}" ;;
     --report=*) REPORT_FILE="${argument#*=}" ;;
     --allow-dirty) ALLOW_DIRTY=1 ;;
@@ -66,6 +70,11 @@ if [[ "${MODE}" != "check" && "${MODE}" != "release" ]]; then
   echo "Error: --mode must be check or release." >&2
   exit 2
 fi
+if [[ -z "${FROM_VERSION}" || ! "${FROM_VERSION}" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+  echo "Error: --from-version (or TOMOS_RELEASE_FROM_VERSION) is required and must be a stable version." >&2
+  exit 2
+fi
+PUBLIC_BASELINE_REF="refs/tomos-public/v${FROM_VERSION}"
 
 mkdir -p "${OUTPUT_DIR}"
 if [[ -z "${REPORT_FILE}" ]]; then
@@ -224,14 +233,14 @@ write_report() {
 }
 
 if [[ "${SKIP_FETCH}" -eq 0 ]]; then
-  run_step fetch-public-baselines bash -c '
+  run_step fetch-public-baselines env TOMOS_RELEASE_FROM_VERSION="${FROM_VERSION}" bash -c '
 set -euo pipefail
 git fetch --no-tags https://github.com/tomosweb/tomos.git e022a6396b86d00e80181c44611f45ce85a443ab
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.5.2:refs/tags/tomos-public-v0.5.2
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v0.7.0:refs/tags/tomos-public-v0.7.0
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.0.5:refs/tags/tomos-public-v1.0.5
 git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.0.6:refs/tags/tomos-public-v1.0.6
-git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.0.8:refs/tomos-public/v1.0.8
+git fetch --no-tags https://github.com/tomosweb/tomos.git "refs/tags/v${TOMOS_RELEASE_FROM_VERSION}:refs/tomos-public/v${TOMOS_RELEASE_FROM_VERSION}"
 '
 fi
 run_step php-lint bash -c 'set -euo pipefail; while IFS= read -r -d "" file; do php -l "$file" >/dev/null; done < <(find . -path "./core/webauthn/vendor" -prune -o -name "*.php" -print0)' 
@@ -243,7 +252,7 @@ run_step core-regression bash -c '
 set -euo pipefail
 for test in tests/*_check.php; do
   case "$test" in
-    tests/installer_phase5_check.php|tests/public_artifact_update_acceptance_check.php|tests/update_v073_to_v090_migration_check.php)
+    tests/installer_phase5_check.php|tests/public_artifact_update_acceptance_check.php|tests/release_transition_check.php|tests/update_v073_to_v090_migration_check.php)
       continue
       ;;
     tests/update_self_update_no_proc_open_check.php)
@@ -256,26 +265,26 @@ for test in tests/*_check.php; do
 done
 '
 
-run_step release-transition env TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR="${UPDATE_DIR}" php "${ROOT_DIR}/tests/release_transition_check.php"
-run_step test-update-zip unzip -t "${UPDATE_DIR}/tomos-update-1.0.8-to-${VERSION}-TEST.zip"
+run_step release-transition env TOMOS_RELEASE_FROM_VERSION="${FROM_VERSION}" TOMOS_RELEASE_FROM_REF="${PUBLIC_BASELINE_REF}" TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR="${UPDATE_DIR}" php "${ROOT_DIR}/tests/release_transition_check.php"
+run_step test-update-zip unzip -t "${UPDATE_DIR}/tomos-update-${FROM_VERSION}-to-${VERSION}-TEST.zip"
 run_step test-update-checksums bash -c "cd \"${UPDATE_DIR}\" && sha256sum -c SHA256SUMS"
 
 if [[ "${MODE}" == "release" ]]; then
-  PRODUCTION_UPDATE_ZIP="${PRODUCTION_UPDATE_DIR}/tomos-update-1.0.8-to-${VERSION}.zip"
-  LEGACY_REQUIRED_LIST="${TMP_DIR}/required-installed-files-1.0.8.txt"
-  run_step production-update-legacy-required-list bash -c "git -C \"${ROOT_DIR}\" show refs/tomos-public/v1.0.8:core/required-installed-files.txt > \"${LEGACY_REQUIRED_LIST}\" && test -s \"${LEGACY_REQUIRED_LIST}\""
+  PRODUCTION_UPDATE_ZIP="${PRODUCTION_UPDATE_DIR}/tomos-update-${FROM_VERSION}-to-${VERSION}.zip"
+  LEGACY_REQUIRED_LIST="${TMP_DIR}/required-installed-files-${FROM_VERSION}.txt"
+  run_step production-update-legacy-required-list bash -c "git -C \"${ROOT_DIR}\" show ${PUBLIC_BASELINE_REF}:core/required-installed-files.txt > \"${LEGACY_REQUIRED_LIST}\" && test -s \"${LEGACY_REQUIRED_LIST}\""
   run_step production-update-package php "${ROOT_DIR}/tools/build-update-package.php" \
-    --from=1.0.8 \
+    --from="${FROM_VERSION}" \
     --version="${VERSION}" \
     --private-key="${PRIVATE_KEY}" \
     --output="${PRODUCTION_UPDATE_ZIP}" \
     --bootstrap-legacy-required-list="${LEGACY_REQUIRED_LIST}" \
-    --from-ref=refs/tomos-public/v1.0.8 \
+    --from-ref="${PUBLIC_BASELINE_REF}" \
     --to-ref=HEAD
   run_step production-update-zip unzip -t "${PRODUCTION_UPDATE_ZIP}"
-  run_step production-update-candidate-v108-acceptance env \
+  run_step production-update-candidate-acceptance env \
     TOMOS_CANDIDATE_UPDATE_PACKAGE="${PRODUCTION_UPDATE_ZIP}" \
-    TOMOS_CANDIDATE_FROM="1.0.8" \
+    TOMOS_CANDIDATE_FROM="${FROM_VERSION}" \
     TOMOS_CANDIDATE_TARGET="${VERSION}" \
     php "${ROOT_DIR}/tests/public_artifact_update_acceptance_check.php"
   run_step production-update-signature php -r '
