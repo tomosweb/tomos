@@ -89,6 +89,8 @@ if (strpos($normalizedCrlf, "\r\n") === false || preg_match('/(?<!\r)\n/', $norm
 
 $tmp = sys_get_temp_dir() . '/tomos-obsidian-tags-' . bin2hex(random_bytes(6));
 @mkdir($tmp, 0775, true);
+@mkdir($tmp . '/content', 0775, true);
+@mkdir($tmp . '/storage/inbox', 0775, true);
 $inbox = new PostInbox([], $tmp);
 $manual = $inbox->contentForManualPublish("---\ntitle: Draft\ndraft: true\n---\n\n本文 #京都 #自転車\n");
 assertContains("draft: false", $manual, 'Manual Inbox publish must still clear draft.');
