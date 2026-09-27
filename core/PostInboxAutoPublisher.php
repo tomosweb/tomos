@@ -63,7 +63,8 @@ final class PostInboxAutoPublisher
                 ]);
                 continue;
             }
-            if ($this->inbox->isDraft($read->content, $read->fileName)) {
+            $publishContent = $this->inbox->contentForExternalPublish($read->content);
+            if ($this->inbox->isDraft($publishContent, $read->fileName)) {
                 $this->saveStatus($requestId, [
                     'state' => 'draft',
                     'filename' => $item->fileName,
@@ -75,9 +76,9 @@ final class PostInboxAutoPublisher
             }
 
             $result = $this->upload()->handleContent(
-                $read->content,
+                $publishContent,
                 $read->fileName,
-                $this->inbox->folderFromMarkdown($read->content),
+                $this->inbox->folderFromMarkdown($publishContent),
                 '',
                 $sessionId,
                 [],
