@@ -8,8 +8,8 @@ final class HtmlCache
 {
     // Rendered HTML depends on MarkdownParser, ExternalUrlResolver, and their
     // markup/CSS contract. A new generation prevents old rendered blocks from
-    // surviving an output change such as Apple Music embed dimensions.
-    private const CACHE_VERSION = '11';
+    // surviving an output change such as heading anchors and page.toc.
+    private const CACHE_VERSION = '12';
 
     private string $htmlDir;
     private bool $enabled;
@@ -86,15 +86,33 @@ final class HtmlCache
 
     public function read(string $sourcePath, string $sourceFile): ?string
     {
+        $result = $this->readWithToc($sourcePath, $sourceFile);
+        return $result !== null ? $result['html'] : null;
+    }
+
+    /**
+     * @return array{html: string, toc: string}|null
+     */
+    public function readWithToc(string $sourcePath, string $sourceFile): ?array
+    {
         if (!$this->isFresh($sourcePath, $sourceFile)) {
             return null;
         }
 
         $html = @file_get_contents($this->getPath($sourcePath));
-        return is_string($html) ? $html : null;
+        $metaRaw = @file_get_contents($this->getMetaPath($sourcePath));
+        $meta = is_string($metaRaw) ? json_decode($metaRaw, true) : null;
+        if (!is_string($html) || !is_array($meta)) {
+            return null;
+        }
+
+        return [
+            'html' => $html,
+            'toc' => is_string($meta['toc_html'] ?? null) ? $meta['toc_html'] : '',
+        ];
     }
 
-    public function write(string $sourcePath, string $sourceFile, string $html): bool
+    public function write(string $sourcePath, string $sourceFile, string $html, string $toc = ''): bool
     {
         if (!$this->enabled || !is_file($sourceFile)) {
             return false;
@@ -131,6 +149,7 @@ final class HtmlCache
             'source_sha256' => $sourceHash,
             'cache_version' => self::CACHE_VERSION,
             'html_sha256' => hash('sha256', $html),
+            'toc_html' => $toc,
             'created_at' => date('c'),
         ];
         $metaJson = json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

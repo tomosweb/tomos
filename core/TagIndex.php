@@ -43,12 +43,29 @@ final class TagIndex
         }
 
         $html = '<section class="tag-index"><ul>';
-        foreach ($this->tags as $tag => $pages) {
-            $html .= '<li><a href="' . $this->escape($this->tagUrl($tag)) . '" class="tag-link">' . $this->escape($tag) . '</a> <span class="tag-count">' . count($pages) . '</span></li>';
+        foreach ($this->items() as $item) {
+            $html .= '<li><a href="' . $this->escape($item['url']) . '" class="tag-link">' . $this->escape($item['name']) . '</a> <span class="tag-count">' . $item['count'] . '</span></li>';
         }
         $html .= '</ul></section>';
 
         return $html;
+    }
+
+    /**
+     * @return array<int, array{name: string, url: string, count: int}>
+     */
+    public function items(): array
+    {
+        $items = [];
+        foreach ($this->tags as $tag => $pages) {
+            $items[] = [
+                'name' => (string) $tag,
+                'url' => $this->tagUrl((string) $tag),
+                'count' => count($pages),
+            ];
+        }
+
+        return $items;
     }
 
     public function tagPageHtml(string $tag): string

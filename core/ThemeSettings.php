@@ -184,7 +184,7 @@ final class ThemeSettings
         return ['mode' => $mode, 'items' => $items];
     }
 
-    private function navigationPath(mixed $value): string
+    private function navigationPath($value): string
     {
         if (!is_string($value)) {
             return '';

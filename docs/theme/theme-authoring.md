@@ -161,6 +161,7 @@ theme 側の責務は表示に限定します。
 
 - `page.content`
 - `page.meta_html`
+- `page.toc`
 - `page.body`
 - `page.tags_html`
 - `page.folder_pages_html`
@@ -199,8 +200,9 @@ AI にテーマを作らせる場合も、PHP、外部 script、未定義変数�
 - `page.title`, `page.description`, `page.date`, `page.updated`, `page.show_updated`
 - `page.url`, `page.absolute_url`
 - `page.language`
-- `page.body`, `page.content`, `page.meta_html`, `page.tags_html`
+- `page.body`, `page.content`, `page.meta_html`, `page.toc`, `page.tags_html`
 - `page.folder_pages_html`
+- `page.related_items`（本文から明示的にリンクされた公開内部ページの`title`、`url`）
 
 `page.body`や`page.content`などのHTMLは、coreが生成・検査した値だけを三重波括弧で出力できます。
 
@@ -211,7 +213,15 @@ NavigationBuilderが生成する値です。HTML値はcoreが生成するため�
 - `nav.tree`, `nav.mobile_tree`, `nav.sections`
 - `nav.primary_links`, `nav.breadcrumbs`
 - `nav.home_url`, `nav.about_url`
+- `nav.all_url`
 - `nav.primary_items`（各itemは`label`、`url`、`type`）
+
+### `tag.*`
+
+- `tag.list`（タグ一覧ページ用にCoreが生成するHTML）
+- `tag.items`（サイト全体のタグ情報。各itemは`name`、`url`、`count`）
+
+`tag.items`は通常の記事ページでも利用できます。Themeで件数順などの表示順を決める場合は、Coreが提供する`count`を利用してください。タグがないサイトでは空配列になります。
 
 ### `list.*`
 
@@ -247,6 +257,12 @@ Hero、logo、key color、News設定の入力契約は[theme-settings-v1.md](the
 三重波括弧で HTML として出力できる変数は、core のホワイトリストにあるものだけです。通常の `{{ variable }}` は必ず HTML エスケープされます。
 
 `page.meta_html` は、記事ページのタイトル下に表示する日付HTMLです。`date` がある場合は公開日を表示し、`updated` があり `date` と異なる場合だけ更新日を表示します。
+
+`page.toc` は、Markdown本文のH2〜H4見出しからCoreが生成する記事内目次HTMLです。見出しがないページでは空文字になります。見出しには同一ページ内で一意なHTML `id` が付与され、目次のリンク先になります。目次の表示位置や見た目はテーマ側で制御します。
+
+`page.related_items` は、本文中のMarkdown内部リンクから解決された公開ページの構造化データです。各itemは`title`と`url`を持ちます。外部URL、存在しないページ、自己リンク、重複リンク、コードブロック内のリンクは含まれません。これは推薦データではなく、記事から明示的にリンクされたページだけを表します。
+
+`nav.all_url` は、公開中の全ページ一覧 `/all/` へのURLです。`tag.items` はサイト全体のタグを構造化して提供し、`count`には公開ページだけが含まれます。これらの値が空の場合もあるため、Themeでは空状態を安全に扱ってください。
 
 `page.folder_pages_html` は、フォルダーの `index.md` または仮想フォルダーページで、直下の公開記事を新しい順に表示します。一覧は core 側で1ページ30件に分割され、`?page=2` のようなURLで続きを表示します。テーマは `.folder-page-summary`, `.folder-pagination`, `.folder-pagination-pages`, `.folder-pagination-prev`, `.folder-pagination-next` をCSSで装飾できます。テーマ側で全件処理やURL生成を実装しないでください。
 

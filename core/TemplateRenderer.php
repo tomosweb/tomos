@@ -36,6 +36,7 @@ final class TemplateRenderer
         'page.url' => true,
         'nav.home_url' => true,
         'nav.about_url' => true,
+        'nav.all_url' => true,
         'theme.asset_url' => true,
         'theme.favicon_url' => true,
         'theme.apple_touch_icon_url' => true,
@@ -198,6 +199,7 @@ final class TemplateRenderer
         $nav = [
             'home_url' => Security::publicUrl('/', $publicBasePath),
             'about_url' => Security::publicUrl('/about', $publicBasePath),
+            'all_url' => Security::publicUrl('/all/', $publicBasePath),
             'tree' => $page['nav']['tree'] ?? '',
             'mobile_tree' => $page['nav']['mobile_tree'] ?? '',
             'sections' => $page['nav']['sections'] ?? '',
@@ -236,11 +238,17 @@ final class TemplateRenderer
             $home = HomeNewsProvider::fromConfig($this->config, $this->themeSettings, $publicBasePath)->context();
         }
 
+        $tag = [
+            'list' => (string) ($page['tag']['list'] ?? ''),
+            'items' => is_array($page['tag']['items'] ?? null) ? $page['tag']['items'] : [],
+        ];
+
         return [
             'site' => $site,
             'page' => $page,
             'nav' => $nav,
             'list' => $list,
+            'tag' => $tag,
             'theme' => $theme,
             'home' => $home,
         ];
