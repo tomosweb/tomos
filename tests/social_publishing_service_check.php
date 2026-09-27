@@ -103,6 +103,33 @@ $simplified = $service->publishArticle(
 socialAssert($simplified->status === SocialPublishResult::SUCCESS, 'simplified multiline social_text must publish');
 socialAssert($provider->lastText === "first line\nsecond line", 'simplified multiline social_text must preserve line breaks');
 
+$quoted = $service->publishArticle(
+    'news/quoted-social-text.md',
+    'https://example.test/news/quoted-social-text',
+    "---\ntitle: Quoted\nsocial:\n  - bluesky\nsocial_text: \"Blueskyへの告知 #Tomos\"\n---\nBody\n"
+);
+socialAssert($quoted->status === SocialPublishResult::SUCCESS, 'quoted single-line social_text must publish');
+socialAssert($provider->lastText === 'Blueskyへの告知 #Tomos', 'quoted single-line social_text must not send YAML quotes to the provider');
+
+$singleQuoted = $service->publishArticle(
+    'news/single-quoted-social-text.md',
+    'https://example.test/news/single-quoted-social-text',
+    "---\ntitle: Single quoted\nsocial:\n  - bluesky\nsocial_text: '複数タグ #Tomos #Obsidian https://example.test/news'\n---\nBody\n"
+);
+socialAssert($singleQuoted->status === SocialPublishResult::SUCCESS, 'single-quoted social_text must publish');
+socialAssert(
+    $provider->lastText === '複数タグ #Tomos #Obsidian https://example.test/news',
+    'single-quoted social_text must preserve Japanese, multiple hashtags, and URLs without YAML quotes'
+);
+
+$empty = $service->publishArticle(
+    'news/empty-social-text.md',
+    'https://example.test/news/empty-social-text',
+    "---\ntitle: Empty social text\nsocial:\n  - bluesky\nsocial_text: \"\"\n---\n本文\n"
+);
+socialAssert($empty->status === SocialPublishResult::SUCCESS, 'empty social_text must preserve automatic posting behavior');
+socialAssert($provider->lastText === "Empty social text\n\n本文", 'empty social_text must fall back to automatic post text');
+
 $malformed = $service->publishArticle(
     'news/malformed-social-text.md',
     'https://example.test/news/malformed-social-text',
@@ -110,7 +137,7 @@ $malformed = $service->publishArticle(
 );
 socialAssert($malformed->status === SocialPublishResult::FAILED, 'missing social_text terminator must fail social publishing only');
 socialAssert($malformed->code === 'invalid_social_text', 'missing social_text terminator must return invalid_social_text');
-socialAssert($provider->calls === 2, 'malformed social_text must not call provider');
+socialAssert($provider->calls === 5, 'malformed social_text must not call provider');
 
 $automatic = $service->publishArticle(
     'news/b.md',

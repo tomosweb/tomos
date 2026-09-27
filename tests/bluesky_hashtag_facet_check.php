@@ -48,6 +48,14 @@ if (!is_array($facets) || count($facets) !== 2) {
 assertTagFacet($facets, 0, '#Tomos', 'Tomos', $source);
 assertTagFacet($facets, 1, '#個人サイト', '個人サイト', $source);
 
+$source = "Bluesky投稿 #Tomos　#Obsidian";
+$facets = $method->invoke($provider, $source);
+if (!is_array($facets) || count($facets) !== 2) {
+    throw new RuntimeException('full-width-separated hashtags must both produce facets');
+}
+assertTagFacet($facets, 0, '#Tomos', 'Tomos', $source);
+assertTagFacet($facets, 1, '#Obsidian', 'Obsidian', $source);
+
 $record = $recordMethod->invoke($provider, $source);
 if (!is_array($record) || !isset($record['facets']) || $record['facets'] !== $facets) {
     throw new RuntimeException('post record must include detected hashtag facets');

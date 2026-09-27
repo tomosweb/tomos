@@ -53,6 +53,14 @@ final class SocialPostIntent
         $text = str_replace(["\r\n", "\r"], "\n", (string) $value);
         $text = trim($text);
 
+        if (strlen($text) >= 2) {
+            $first = $text[0];
+            $last = $text[strlen($text) - 1];
+            if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+                $text = trim(substr($text, 1, -1));
+            }
+        }
+
         return $text === '' ? null : $text;
     }
 }
