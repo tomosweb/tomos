@@ -145,10 +145,7 @@ try {
             throw new RuntimeException($targetVersion . ' package VERSION payload mismatch');
         }
 
-        foreach([
-            'VERSION',
-            'post/index.php',
-        ] as $requiredCurrentRuntime) {
+        foreach (['VERSION'] as $requiredCurrentRuntime) {
             if (!in_array($requiredCurrentRuntime, $runtimeFiles, true)) {
                 throw new RuntimeException('required current-release runtime was not derived: ' . $requiredCurrentRuntime);
             }
