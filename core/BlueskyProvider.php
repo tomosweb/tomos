@@ -731,7 +731,7 @@ final class BlueskyProvider implements SocialProvider
     {
         $matches = [];
         $matched = preg_match_all(
-            '/(?<![\\p{L}\\p{N}_])#([\\p{L}\\p{N}\\p{M}_]+)/u',
+            '/(^|[\\s(])#([^\\d\\s]\\S*)/u',
             $text,
             $matches,
             PREG_OFFSET_CAPTURE
@@ -742,17 +742,20 @@ final class BlueskyProvider implements SocialProvider
 
         $facets = [];
         foreach ($matches[0] as $index => $match) {
-            $facetText = (string) ($match[0] ?? '');
-            $byteStart = (int) ($match[1] ?? -1);
-            $tag = isset($matches[1][$index][0]) ? (string) $matches[1][$index][0] : '';
+            $prefix = isset($matches[1][$index][0]) ? (string) $matches[1][$index][0] : '';
+            $rawTag = isset($matches[2][$index][0]) ? (string) $matches[2][$index][0] : '';
+            $matchOffset = (int) ($match[1] ?? -1);
+            $tag = preg_replace('/\\p{P}+$/u', '', $rawTag);
 
-            if ($facetText === '' || $byteStart < 0 || $tag === '') {
+            if (!is_string($tag) || $tag === '' || $matchOffset < 0) {
                 continue;
             }
             if (strlen($tag) > 640 || $this->graphemeLength($tag) > 64) {
                 continue;
             }
 
+            $byteStart = $matchOffset + strlen($prefix);
+            $facetText = '#' . $tag;
             $facets[] = [
                 'index' => [
                     'byteStart' => $byteStart,
