@@ -15,6 +15,7 @@ foreach ([
     'PostDrafts' => 'PostDrafts.php',
     'PostInboxImageStore' => 'PostInboxImageStore.php',
     'PublisherStatusStore' => 'PublisherStatusStore.php',
+    'ObsidianTagNormalizer' => 'ObsidianTagNormalizer.php',
 ] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
@@ -79,6 +80,7 @@ final class PostInbox
     private FrontMatterParser $frontMatterParser;
     private PostSubmissionPreparer $submissionPreparer;
     private PostInboxImageStore $imageStore;
+    private ObsidianTagNormalizer $obsidianTagNormalizer;
     private string $error = '';
 
     public function __construct(array $config, string $rootDir)
@@ -88,6 +90,7 @@ final class PostInbox
         $editableMarkdown = new PostEditableMarkdown($config, $rootDir);
         $this->submissionPreparer = new PostSubmissionPreparer($editableMarkdown);
         $this->imageStore = new PostInboxImageStore($this->inboxDir);
+        $this->obsidianTagNormalizer = new ObsidianTagNormalizer($this->frontMatterParser);
         $this->ensureDirectory();
     }
 
@@ -170,8 +173,14 @@ final class PostInbox
         return true;
     }
 
+    public function contentForExternalPublish(string $markdown): string
+    {
+        return $this->obsidianTagNormalizer->normalize($markdown);
+    }
+
     public function contentForManualPublish(string $markdown): string
     {
+        $markdown = $this->contentForExternalPublish($markdown);
         $parsed = $this->frontMatterParser->parse($markdown);
         if (empty($parsed['has_frontmatter']) || !is_array($parsed['metadata'] ?? null)) {
             return $markdown;
