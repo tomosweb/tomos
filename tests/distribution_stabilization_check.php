@@ -7,6 +7,8 @@ $distribution = $root . '/build/tomos';
 $version = trim((string) @file_get_contents($root . '/VERSION'));
 $passes = 0;
 
+require_once $root . '/core/BlueskyOAuthHtaccessDiagnostics.php';
+
 function checkDistribution(bool $condition, string $message): void
 {
     global $passes;
@@ -24,6 +26,24 @@ function hasRemovedDocsReference(string $contents): bool
 
 try {
     checkDistribution(is_dir($distribution), 'fresh Distribution folder exists');
+    checkDistribution(is_file($distribution . '/core/BlueskyOAuthHtaccessMigration.php'), 'Distribution contains Bluesky OAuth migration API');
+    checkDistribution(
+        hash_file('sha256', $root . '/core/BlueskyOAuthHtaccessMigration.php') === hash_file('sha256', $distribution . '/core/BlueskyOAuthHtaccessMigration.php'),
+        'Distribution Bluesky OAuth migration API matches source'
+    );
+    checkDistribution(is_file($distribution . '/core/BlueskyOAuthStaticBacking.php'), 'Distribution contains Bluesky OAuth static backing API');
+    checkDistribution(
+        hash_file('sha256', $root . '/core/BlueskyOAuthStaticBacking.php') === hash_file('sha256', $distribution . '/core/BlueskyOAuthStaticBacking.php'),
+        'Distribution Bluesky OAuth static backing API matches source'
+    );
+    checkDistribution(!is_file($distribution . '/oauth-client-metadata.static.json'), 'Distribution excludes generated OAuth Metadata backing');
+    checkDistribution(!is_file($distribution . '/tomos-bluesky-jwks.static.json'), 'Distribution excludes generated OAuth JWKS backing');
+    $sourceOAuthHtaccess = Tomos\BlueskyOAuthHtaccessDiagnostics::inspect($root);
+    checkDistribution(($sourceOAuthHtaccess['status'] ?? '') === 'managed', 'source .htaccess has a managed OAuth block');
+    checkDistribution(($sourceOAuthHtaccess['safe_for_managed_update'] ?? false) === true, 'source OAuth block is structurally safe');
+    $distributionOAuthHtaccess = Tomos\BlueskyOAuthHtaccessDiagnostics::inspect($distribution);
+    checkDistribution(($distributionOAuthHtaccess['status'] ?? '') === 'managed', 'Distribution .htaccess has a managed OAuth block');
+    checkDistribution(($distributionOAuthHtaccess['safe_for_managed_update'] ?? false) === true, 'Distribution OAuth block is structurally safe');
     $guardContents = "Order allow,deny\nDeny from all\nRequire all denied\n";
     foreach (['core/.htaccess', 'cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess', 'docs/theme/theme-rules.json'] as $required) {
         checkDistribution(is_file($distribution . '/' . $required), 'Distribution contains ' . $required);
@@ -108,6 +128,8 @@ try {
         foreach (['core/.htaccess', 'cache/.htaccess', 'storage/.htaccess', 'trash/.htaccess'] as $guard) {
             checkDistribution($zip->locateName($guard) !== false, 'Distribution ZIP contains ' . $guard);
         }
+        checkDistribution($zip->locateName('oauth-client-metadata.static.json') === false, 'Distribution ZIP excludes generated OAuth Metadata backing');
+        checkDistribution($zip->locateName('tomos-bluesky-jwks.static.json') === false, 'Distribution ZIP excludes generated OAuth JWKS backing');
         $zip->close();
     }
 } catch (Throwable $exception) {

@@ -9,6 +9,8 @@
 !/storage/
 /storage/*
 !/storage/.htaccess
+/oauth-client-metadata.static.json
+/tomos-bluesky-jwks.static.json
 /trash/
 !/trash/
 /trash/*
