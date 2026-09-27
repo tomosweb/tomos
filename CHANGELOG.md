@@ -1,5 +1,27 @@
 # 更新履歴
 
+## v1.1.1 - 2026-09-27
+
+Bluesky投稿、Obsidianからの公開、PHP 7.4互換性を改善し、Bluesky OAuth公開情報を静的JSONで安全に応答できるようにしました。
+
+### Added / Improved
+
+- Bluesky投稿文の `#Tomos` や `#個人サイト` などをAT Protocolのtag facetとして送信します。UTF-8 byte offsetを使い、tag値に `#` や末尾句読点を含めません
+- Obsidian本文内のinline tagを外部公開用に正規化し、Inbox経由の公開・自動公開でも同じ内容を使用します
+- Bluesky OAuth MetadataとJWKSについて、既存の `.json.php` URLを維持したまま、明示生成した静的JSONをApache内部rewriteで応答できるようにしました
+- 既存サイト向けに、backup・atomic write・rollbackを備えたmanaged block限定の`.htaccess` migrationを提供します
+
+### Fixed
+
+- 数字開始タグ、単独の `#`、本文中の単なる `#` をBluesky tag facetとして誤検出しません
+- PHP 7.4で`mixed`実型宣言が名前空間内の型として解釈される問題を修正し、Inbox自動公開を含む対象経路の互換性を維持します
+
+### Compatibility / Update
+
+- static backingは明示的に生成した場合だけ使用し、存在しない場合は従来のPHP endpointへfallbackします
+- static JWKSには公開鍵だけを書き出し、秘密鍵・token・session情報を含めません
+- v1.0.8からv1.1.1へのBrowser Updateでは、設定、記事、画像、追加Themeなどの運用データを保護します
+
 ## v1.1.0 - 2026-09-27
 
 Wiki・百科事典型Themeから利用できる、記事内移動とサイト全体探索のためのCore APIを追加しました。
