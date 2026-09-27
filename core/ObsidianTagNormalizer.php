@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . '/PublishedMetadata.php';
 require_once __DIR__ . '/FrontMatterParser.php';
 
 final class ObsidianTagNormalizer
