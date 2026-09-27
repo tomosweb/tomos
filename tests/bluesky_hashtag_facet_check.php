@@ -11,8 +11,10 @@ use Tomos\BlueskyProvider;
 $reflection = new ReflectionClass(BlueskyProvider::class);
 $provider = $reflection->newInstanceWithoutConstructor();
 $method = $reflection->getMethod('hashtagFacets');
+$recordMethod = $reflection->getMethod('postRecord');
 if (PHP_VERSION_ID < 80100) {
     $method->setAccessible(true);
+    $recordMethod->setAccessible(true);
 }
 
 /** @param array<int,array<string,mixed>> $facets */
@@ -46,6 +48,11 @@ if (!is_array($facets) || count($facets) !== 2) {
 assertTagFacet($facets, 0, '#Tomos', 'Tomos', $source);
 assertTagFacet($facets, 1, '#個人サイト', '個人サイト', $source);
 
+$record = $recordMethod->invoke($provider, $source);
+if (!is_array($record) || !isset($record['facets']) || $record['facets'] !== $facets) {
+    throw new RuntimeException('post record must include detected hashtag facets');
+}
+
 $source = "日本語の前置き\n#更新情報。";
 $facets = $method->invoke($provider, $source);
 if (!is_array($facets) || count($facets) !== 1) {
@@ -59,5 +66,11 @@ if (!is_array($facets) || count($facets) !== 1) {
     throw new RuntimeException('parenthesized tags should work while numeric-leading and inline hashes stay plain text');
 }
 assertTagFacet($facets, 0, '#Tomos', 'Tomos', $source);
+
+$source = "本文中の記号 # と #２bad と文中#inline";
+$facets = $method->invoke($provider, $source);
+if (!is_array($facets) || $facets !== []) {
+    throw new RuntimeException('plain hashes and numeric-leading hashtags must stay plain text');
+}
 
 echo "bluesky_hashtag_facet_check: passed\n";

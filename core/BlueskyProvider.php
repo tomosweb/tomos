@@ -43,11 +43,7 @@ final class BlueskyProvider implements SocialProvider
             return SocialPublishResult::failed('bluesky', 'authentication_failed', 'Blueskyの接続情報を確認できません。');
         }
 
-        $record = [
-            '$type' => 'app.bsky.feed.post',
-            'text' => $text,
-            'createdAt' => gmdate('Y-m-d\TH:i:s\Z'),
-        ];
+        $record = $this->postRecord($text);
 
         if ($articleUrl !== '') {
             $pageMetadata = is_array($context['page_metadata'] ?? null)
@@ -722,6 +718,24 @@ final class BlueskyProvider implements SocialProvider
         }
 
         return '';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function postRecord(string $text): array
+    {
+        $record = [
+            '$type' => 'app.bsky.feed.post',
+            'text' => $text,
+            'createdAt' => gmdate('Y-m-d\TH:i:s\Z'),
+        ];
+        $facets = $this->hashtagFacets($text);
+        if ($facets !== []) {
+            $record['facets'] = $facets;
+        }
+
+        return $record;
     }
 
     /**
