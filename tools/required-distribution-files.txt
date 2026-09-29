@@ -58,6 +58,8 @@ core/SocialPostStore.php
 core/SocialPublishingService.php
 core/BlueskyOAuthKeyStore.php
 core/BlueskyOAuthStaticBacking.php
+core/BlueskyOAuthPublicEndpointPreparationException.php
+core/BlueskyOAuthPublicEndpointPreparation.php
 core/BlueskyOAuthMetadata.php
 core/Es256Jwt.php
 core/BlueskyDpop.php

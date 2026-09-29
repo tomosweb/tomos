@@ -70,9 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'connect') {
             try {
                 $identifier = trim((string) ($_POST['identifier'] ?? ''));
+                Tomos\BlueskyOAuthPublicEndpointPreparation::prepare($rootDir, $config);
                 $result = (new Tomos\BlueskyOAuthFlow($config, $rootDir))->start($identifier);
                 header('Location: ' . $result->authorizationUrl);
                 exit;
+            } catch (Tomos\BlueskyOAuthPublicEndpointPreparationException $exception) {
+                $errors[] = 'Blueskyとの接続準備を完了できませんでした。';
+                $errors[] = '診断: ' . $exception->diagnosticCode();
             } catch (Throwable $exception) {
                 $detail = trim($exception->getMessage());
                 if ($detail === '') {
