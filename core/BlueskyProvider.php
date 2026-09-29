@@ -150,7 +150,7 @@ final class BlueskyProvider implements SocialProvider
                 $source = 'local';
                 $mimeType = $this->mimeTypeFromFile($explicitImagePath);
                 $fileSize = @filesize($explicitImagePath);
-                $imageInfo = @getimagesize($explicitImagePath);
+                $imageInfo = $this->thumbnailFileDimensions($explicitImagePath);
                 $this->thumbnailDiagnostic('image_input', [
                     'source' => 'local',
                     'bytes' => is_int($fileSize) ? $fileSize : null,
@@ -299,8 +299,14 @@ final class BlueskyProvider implements SocialProvider
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
         if (is_string($line)) {
-            @error_log('Tomos Bluesky thumbnail diagnostic=' . $line);
+            error_log('Tomos Bluesky thumbnail diagnostic=' . $line);
         }
+    }
+
+    /** @return array<int,mixed>|false */
+    private function thumbnailFileDimensions(string $path)
+    {
+        return function_exists('getimagesize') ? @getimagesize($path) : false;
     }
 
     /** @return array{width:int,height:int}|null */
