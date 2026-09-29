@@ -567,6 +567,49 @@ final class PostUpload
         }
     }
 
+    public function publishSocialForEquivalentContent(string $contentPath, string $markdown): ?SocialPublishResult
+    {
+        $parsed = $this->frontMatterParser->parse($markdown);
+        $metadata = is_array($parsed['metadata'] ?? null) ? $parsed['metadata'] : [];
+        $intent = SocialPostIntent::fromMetadata($metadata);
+        if (!$intent->blueskyEnabled) {
+            return null;
+        }
+
+        if (!Security::isSafeRelativePath($contentPath) || !Security::hasAllowedExtension($contentPath, ['md'])) {
+            return SocialPublishResult::failed('bluesky', 'invalid_article', '公開済み記事を確認できませんでした。');
+        }
+
+        $contentBase = realpath($this->contentDir);
+        $candidate = rtrim($this->contentDir, DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $contentPath);
+        $real = realpath($candidate);
+        if ($contentBase === false || $real === false || !is_file($real) || !Security::isPathInside($real, $contentBase)) {
+            return SocialPublishResult::failed('bluesky', 'invalid_article', '公開済み記事を確認できませんでした。');
+        }
+
+        try {
+            $socialImage = $this->explicitSocialImage($markdown, $contentPath);
+            $internalUrl = $this->urlFromContentPath($contentPath);
+            return $this->socialPublishing->publishArticle(
+                $contentPath,
+                $this->absolutePublicUrl($internalUrl),
+                $markdown,
+                [
+                    'social_image_url' => $socialImage['url'],
+                    'social_image_path' => $socialImage['path'],
+                ]
+            );
+        } catch (\Throwable $exception) {
+            return SocialPublishResult::failed(
+                'bluesky',
+                'provider_error',
+                '記事は公開済みですが、Bluesky投稿処理を完了できませんでした。'
+            );
+        }
+    }
+
     public function isPublishedContentEquivalent(string $contentPath, string $markdown): bool
     {
         if (!Security::isSafeRelativePath($contentPath) || !Security::hasAllowedExtension($contentPath, ['md'])) {
