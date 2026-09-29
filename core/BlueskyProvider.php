@@ -721,12 +721,23 @@ final class BlueskyProvider implements SocialProvider
 
         $estimatedBytes = (int) ceil($peakBytes * 1.8);
         $memoryLimit = $this->memoryLimitBytes((string) ini_get('memory_limit'));
-        if ($memoryLimit <= 0) {
-            return true;
-        }
-
+        $memoryUsage = memory_get_usage(true);
         $reserveBytes = 16 * 1024 * 1024;
-        return memory_get_usage(true) + $estimatedBytes + $reserveBytes < $memoryLimit;
+        $allowed = $memoryLimit <= 0
+            || $memoryUsage + $estimatedBytes + $reserveBytes < $memoryLimit;
+
+        $this->thumbnailDiagnostic('memory_guard', [
+            'width' => $width,
+            'height' => $height,
+            'orientation_required' => $needsOrientation,
+            'estimated_bytes' => $estimatedBytes,
+            'memory_usage_bytes' => $memoryUsage,
+            'memory_limit_bytes' => $memoryLimit,
+            'reserve_bytes' => $reserveBytes,
+            'allowed' => $allowed,
+        ]);
+
+        return $allowed;
     }
 
     private function memoryLimitBytes(string $value): int
