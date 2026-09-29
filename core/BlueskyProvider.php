@@ -282,7 +282,7 @@ final class BlueskyProvider implements SocialProvider
             }
 
             return is_array($blob) ? $blob : null;
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             $this->thumbnailDiagnostic('thumbnail_exception', [
                 'stage' => $stage,
                 'exception' => get_class($exception),
