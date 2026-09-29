@@ -1,5 +1,17 @@
 # 更新履歴
 
+## v1.1.3 - 2026-09-29
+
+### Fixed / Improved
+
+- Bluesky接続開始前にOAuth Metadata/JWKSのstatic backingを自動生成します
+- 既存サイトでは必要時のみ安全な`.htaccess` migrationを実行します
+- static endpoint準備に失敗した場合はOAuth開始前に停止します
+
+### Compatibility / Update
+
+- `client_id` / `jwks_uri` / `scope` / Bluesky posting仕様は変更しません
+
 ## v1.1.2 - 2026-09-27
 
 Bluesky投稿とObsidian Publisher連携を含むv1.1.1の改善に加え、Bluesky投稿文をより自然に扱えるようにしました。
