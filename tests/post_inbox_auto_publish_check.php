@@ -58,6 +58,44 @@ if (!$manual->ok || !$inbox->delete('draft.md') || is_file($draftPath)) {
     throw new RuntimeException('draft true file must remain manually publishable');
 }
 
+$equivalentSocialSource = "---\ntitle: Equivalent social\n---\n# Equivalent social\n\nSame body.\n";
+$equivalentCreated = $upload->handleContent(
+    $equivalentSocialSource,
+    'equivalent-social.md',
+    '',
+    '',
+    'social-create-session',
+    [],
+    [],
+    false,
+    str_repeat('d', 64)
+);
+if (!$equivalentCreated->ok) {
+    throw new RuntimeException('equivalent social fixture could not be published');
+}
+
+$equivalentSocialRequest = "---\ntitle: Equivalent social\nsocial:\n  - bluesky\nsocial_text: \"Workspace social retry #Tomos\"\n---\n# Equivalent social\n\nSame body.\n";
+$equivalentInboxPath = $inboxPath . DIRECTORY_SEPARATOR . 'equivalent-social.md';
+file_put_contents($equivalentInboxPath, $equivalentSocialRequest);
+$requestId = 'workspace-social-equivalent-0001';
+if (!$inbox->rememberPublisherRequestId('equivalent-social.md', $requestId)) {
+    throw new RuntimeException('equivalent social request id could not be stored');
+}
+$equivalentResult = $processor->process('social-resubmit-session', str_repeat('e', 64));
+$statusStore = new \Tomos\PublisherStatusStore($config, $root);
+$equivalentStatus = $statusStore->load($requestId);
+if (
+    is_file($equivalentInboxPath)
+    || count($equivalentResult['messages']) !== 1
+    || !is_array($equivalentStatus)
+    || ($equivalentStatus['state'] ?? '') !== 'already_published'
+    || !is_array($equivalentStatus['social'] ?? null)
+    || ($equivalentStatus['social']['status'] ?? '') !== \Tomos\SocialPublishResult::FAILED
+    || ($equivalentStatus['social']['code'] ?? '') !== 'not_connected'
+) {
+    throw new RuntimeException('equivalent Inbox content did not reach requested social publishing');
+}
+
 $lockPath = $inbox->autoPublishLockPath();
 $lockHandle = fopen($lockPath, 'c');
 if ($lockHandle === false || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
