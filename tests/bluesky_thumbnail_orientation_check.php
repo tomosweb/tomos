@@ -248,6 +248,25 @@ try {
     @unlink($localPath);
 }
 
+$tempPlainPath = tempnam(sys_get_temp_dir(), 'tomos-bluesky-plain-');
+if (!is_string($tempPlainPath) || $tempPlainPath === '') {
+    throw new RuntimeException('Could not create local plain thumbnail fixture.');
+}
+$plainPath = $tempPlainPath . '.jpg';
+@unlink($tempPlainPath);
+if (@file_put_contents($plainPath, $base) === false) {
+    throw new RuntimeException('Could not write local plain thumbnail fixture.');
+}
+try {
+    [$plainPrepared, $plainMime] = invokeLocalPrepare($localMethod, $provider, $plainPath, 'image/jpeg');
+    if ($plainPrepared !== $base || $plainMime !== 'image/jpeg') {
+        throw new RuntimeException('Small local JPEG without EXIF should preserve its original bytes.');
+    }
+    assertDimensions($plainPrepared, 40, 20, 'Local small JPEG without EXIF');
+} finally {
+    @unlink($plainPath);
+}
+
 $pngImage = imagecreatetruecolor(20, 10);
 if ($pngImage === false) {
     throw new RuntimeException('PNG fixture image could not be created.');

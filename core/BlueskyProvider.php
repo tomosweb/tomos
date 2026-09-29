@@ -64,6 +64,9 @@ final class BlueskyProvider implements SocialProvider
             if ($thumb !== null) {
                 $external['thumb'] = $thumb;
             }
+            $this->thumbnailDiagnostic('record_thumbnail_decision', [
+                'thumb_attached' => $thumb !== null,
+            ]);
 
             $record['embed'] = [
                 '$type' => 'app.bsky.embed.external',
@@ -133,73 +136,211 @@ final class BlueskyProvider implements SocialProvider
         string $explicitImagePath = ''
     ): ?array {
         if (!$this->hasBlobPermission($account)) {
+            $this->thumbnailDiagnostic('thumbnail_skipped', ['reason' => 'blob_permission_missing']);
             return null;
         }
 
+        $stage = 'resolve_image';
         try {
             $imageBody = '';
             $mimeType = '';
+            $source = 'none';
 
             if ($explicitImagePath !== '' && is_file($explicitImagePath)) {
+                $source = 'local';
                 $mimeType = $this->mimeTypeFromFile($explicitImagePath);
+                $fileSize = @filesize($explicitImagePath);
+                $imageInfo = $this->thumbnailFileDimensions($explicitImagePath);
+                $this->thumbnailDiagnostic('image_input', [
+                    'source' => 'local',
+                    'bytes' => is_int($fileSize) ? $fileSize : null,
+                    'mime' => $mimeType !== '' ? $mimeType : null,
+                    'width' => is_array($imageInfo) ? (int) ($imageInfo[0] ?? 0) : null,
+                    'height' => is_array($imageInfo) ? (int) ($imageInfo[1] ?? 0) : null,
+                    'orientation' => $mimeType === 'image/jpeg' ? $this->jpegOrientation($explicitImagePath) : 1,
+                ]);
                 if ($mimeType !== '') {
+                    $stage = 'prepare_local';
                     [$imageBody, $mimeType] = $this->prepareLocalThumbnailForBluesky(
                         $explicitImagePath,
                         $mimeType
                     );
+                    $this->thumbnailDiagnostic('image_prepared', [
+                        'source' => 'local',
+                        'bytes' => strlen($imageBody),
+                        'mime' => $mimeType !== '' ? $mimeType : null,
+                        'dimensions' => $imageBody !== '' ? $this->thumbnailDimensions($imageBody) : null,
+                    ]);
+                } else {
+                    $this->thumbnailDiagnostic('image_rejected', ['source' => 'local', 'reason' => 'unsupported_mime']);
                 }
+            } elseif ($explicitImagePath !== '') {
+                $this->thumbnailDiagnostic('local_image_unavailable', ['path_supplied' => true]);
             }
 
             if ($imageBody === '' || $mimeType === '') {
+                $source = 'remote';
+                $stage = 'resolve_remote_image';
                 $imageUrl = $this->validHttpsImageUrl($explicitImageUrl);
                 if ($imageUrl === '') {
                     $page = $this->session->getPublic($articleUrl, self::MAX_CARD_HTML_BYTES);
                     if ($page->status < 200 || $page->status >= 300 || $page->body === '') {
+                        $this->thumbnailDiagnostic('image_rejected', [
+                            'source' => 'article_page',
+                            'reason' => 'http_response_unusable',
+                            'http_status' => $page->status,
+                            'response_bytes' => strlen($page->body),
+                        ]);
                         return null;
                     }
 
                     $imageUrl = $this->ogImageUrl($page->body);
                     if ($imageUrl === '') {
+                        $this->thumbnailDiagnostic('image_rejected', [
+                            'source' => 'article_page',
+                            'reason' => 'og_image_missing',
+                        ]);
                         return null;
                     }
                 }
 
+                $stage = 'download_remote_image';
                 $image = $this->session->getPublic($imageUrl, self::MAX_THUMB_BYTES);
                 if ($image->status < 200 || $image->status >= 300 || $image->body === '') {
+                    $this->thumbnailDiagnostic('image_rejected', [
+                        'source' => 'remote',
+                        'reason' => 'http_response_unusable',
+                        'http_status' => $image->status,
+                        'response_bytes' => strlen($image->body),
+                    ]);
                     return null;
                 }
 
                 $imageBody = $image->body;
                 $mimeType = $this->imageMimeType($image);
+                $this->thumbnailDiagnostic('image_input', [
+                    'source' => 'remote',
+                    'bytes' => strlen($imageBody),
+                    'mime' => $mimeType !== '' ? $mimeType : null,
+                    'dimensions' => $this->thumbnailDimensions($imageBody),
+                ]);
                 if ($imageBody === '' || $mimeType === '') {
+                    $this->thumbnailDiagnostic('image_rejected', ['source' => 'remote', 'reason' => 'unsupported_mime']);
                     return null;
                 }
 
+                $stage = 'prepare_remote';
                 [$imageBody, $mimeType] = $this->prepareThumbnailForBluesky($imageBody, $mimeType);
+                $this->thumbnailDiagnostic('image_prepared', [
+                    'source' => 'remote',
+                    'bytes' => strlen($imageBody),
+                    'mime' => $mimeType !== '' ? $mimeType : null,
+                    'dimensions' => $imageBody !== '' ? $this->thumbnailDimensions($imageBody) : null,
+                ]);
             }
 
             if ($imageBody === '' || $mimeType === '' || strlen($imageBody) > self::MAX_THUMB_BYTES) {
+                $this->thumbnailDiagnostic('image_rejected', [
+                    'source' => $source,
+                    'reason' => 'prepared_image_unusable',
+                    'bytes' => strlen($imageBody),
+                    'mime' => $mimeType !== '' ? $mimeType : null,
+                    'max_bytes' => self::MAX_THUMB_BYTES,
+                ]);
                 return null;
             }
 
+            $stage = 'upload_blob';
+            $this->thumbnailDiagnostic('upload_started', [
+                'bytes' => strlen($imageBody),
+                'mime' => $mimeType,
+            ]);
             $upload = $this->session->postBinary(
                 '/xrpc/com.atproto.repo.uploadBlob',
                 $imageBody,
                 $mimeType
             );
-            if ($upload->status < 200 || $upload->status >= 300) {
-                return null;
-            }
 
             $decoded = json_decode($upload->body, true);
             $blob = is_array($decoded) && is_array($decoded['blob'] ?? null)
                 ? $decoded['blob']
                 : null;
+            $responseError = is_array($decoded) && is_string($decoded['error'] ?? null)
+                ? preg_replace('/[^A-Za-z0-9_.-]/', '', substr($decoded['error'], 0, 64))
+                : null;
+            $this->thumbnailDiagnostic('upload_response', [
+                'http_status' => $upload->status,
+                'response_bytes' => strlen($upload->body),
+                'json_valid' => is_array($decoded),
+                'blob_present' => is_array($blob),
+                'blob_mime' => is_array($blob) ? (string) ($blob['mimeType'] ?? '') : null,
+                'blob_bytes' => is_array($blob) && is_numeric($blob['size'] ?? null) ? (int) $blob['size'] : null,
+                'error_code' => $responseError !== '' ? $responseError : null,
+            ]);
+            if ($upload->status < 200 || $upload->status >= 300) {
+                return null;
+            }
 
             return is_array($blob) ? $blob : null;
         } catch (\Throwable $exception) {
+            $this->thumbnailDiagnostic('thumbnail_exception', [
+                'stage' => $stage,
+                'exception' => get_class($exception),
+            ]);
             return null;
         }
+    }
+
+    /** @param array<string,mixed> $context */
+    private function thumbnailDiagnostic(string $event, array $context = []): void
+    {
+        $line = json_encode(
+            ['event' => $event, 'context' => $context],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        if (!is_string($line)) {
+            return;
+        }
+
+        $message = 'Tomos Bluesky thumbnail diagnostic=' . $line;
+        error_log($message);
+
+        $storageDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage';
+        if (!is_dir($storageDir) || is_link($storageDir) || !is_writable($storageDir)) {
+            return;
+        }
+
+        $logPath = $storageDir . DIRECTORY_SEPARATOR . 'bluesky-thumbnail-diagnostics.log';
+        if (is_link($logPath)) {
+            return;
+        }
+        $logSize = is_file($logPath) ? @filesize($logPath) : 0;
+        if (is_int($logSize) && $logSize > 262144) {
+            @file_put_contents($logPath, '', LOCK_EX);
+        }
+        @file_put_contents($logPath, $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+    }
+
+    /** @return array<int,mixed>|false */
+    private function thumbnailFileDimensions(string $path)
+    {
+        return function_exists('getimagesize') ? @getimagesize($path) : false;
+    }
+
+    /** @return array{width:int,height:int}|null */
+    private function thumbnailDimensions(string $body): ?array
+    {
+        if (!function_exists('getimagesizefromstring')) {
+            return null;
+        }
+        $info = @getimagesizefromstring($body);
+        if (!is_array($info)) {
+            return null;
+        }
+        return [
+            'width' => (int) ($info[0] ?? 0),
+            'height' => (int) ($info[1] ?? 0),
+        ];
     }
 
     private function mimeTypeFromFile(string $path): string
@@ -598,12 +739,23 @@ final class BlueskyProvider implements SocialProvider
 
         $estimatedBytes = (int) ceil($peakBytes * 1.8);
         $memoryLimit = $this->memoryLimitBytes((string) ini_get('memory_limit'));
-        if ($memoryLimit <= 0) {
-            return true;
-        }
-
+        $memoryUsage = memory_get_usage(true);
         $reserveBytes = 16 * 1024 * 1024;
-        return memory_get_usage(true) + $estimatedBytes + $reserveBytes < $memoryLimit;
+        $allowed = $memoryLimit <= 0
+            || $memoryUsage + $estimatedBytes + $reserveBytes < $memoryLimit;
+
+        $this->thumbnailDiagnostic('memory_guard', [
+            'width' => $width,
+            'height' => $height,
+            'orientation_required' => $needsOrientation,
+            'estimated_bytes' => $estimatedBytes,
+            'memory_usage_bytes' => $memoryUsage,
+            'memory_limit_bytes' => $memoryLimit,
+            'reserve_bytes' => $reserveBytes,
+            'allowed' => $allowed,
+        ]);
+
+        return $allowed;
     }
 
     private function memoryLimitBytes(string $value): int
