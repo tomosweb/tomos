@@ -298,9 +298,27 @@ final class BlueskyProvider implements SocialProvider
             ['event' => $event, 'context' => $context],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
-        if (is_string($line)) {
-            error_log('Tomos Bluesky thumbnail diagnostic=' . $line);
+        if (!is_string($line)) {
+            return;
         }
+
+        $message = 'Tomos Bluesky thumbnail diagnostic=' . $line;
+        error_log($message);
+
+        $storageDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage';
+        if (!is_dir($storageDir) || is_link($storageDir) || !is_writable($storageDir)) {
+            return;
+        }
+
+        $logPath = $storageDir . DIRECTORY_SEPARATOR . 'bluesky-thumbnail-diagnostics.log';
+        if (is_link($logPath)) {
+            return;
+        }
+        $logSize = is_file($logPath) ? @filesize($logPath) : 0;
+        if (is_int($logSize) && $logSize > 262144) {
+            @file_put_contents($logPath, '', LOCK_EX);
+        }
+        @file_put_contents($logPath, $message . PHP_EOL, FILE_APPEND | LOCK_EX);
     }
 
     /** @return array<int,mixed>|false */
