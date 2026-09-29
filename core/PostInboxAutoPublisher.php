@@ -110,13 +110,19 @@ final class PostInboxAutoPublisher
             if ($result->conflict && $result->tempId !== '') {
                 $temp = $this->upload()->loadTemp($result->tempId, $sessionId);
                 if ($temp !== null && $this->upload()->isPublishedContentEquivalent($result->contentPath, $temp->markdown)) {
+                    $socialResult = $this->upload()->publishSocialForEquivalentContent(
+                        $result->contentPath,
+                        $temp->markdown
+                    );
                     $this->upload()->cancelTemp($result->tempId, $sessionId);
                     $this->saveStatus($requestId, [
                         'state' => 'already_published',
                         'filename' => $item->fileName,
                         'message' => '同じ内容の記事はすでに公開済みです。',
                         'article_url' => $result->absoluteUrl,
-                        'social' => null,
+                        'social' => $socialResult instanceof SocialPublishResult
+                            ? $socialResult->toArray()
+                            : null,
                     ]);
                     if ($this->inbox->delete($read->path)) {
                         $messages[] = '「' . $item->fileName . '」はすでに公開済みのため、重複原稿を整理しました。';
