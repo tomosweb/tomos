@@ -161,9 +161,7 @@ final class PostImageUploadSessionStore
                 @unlink($partial);
                 unset($record['image_chunks'][$imageName]);
                 $this->write($id, $record);
-                return ['ok' => false, 'message' => '画像のハッシュ照合に失敗しました [IMG-HASH-R3 expected='
-                    . $expectedHash . ' actual=' . (is_string($hash) ? substr($hash, 0, 16) : 'unavailable')
-                    . ' bytes=' . $totalSize . ']'];
+                return ['ok' => false, 'message' => '画像データの照合に失敗しました。画像を選び直して再投稿してください。'];
             }
             ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'staged_hash_verified', [
                 'image_name' => $imageName,

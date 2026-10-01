@@ -1733,7 +1733,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<div class="actions"><button id="post-upload-submit" type="submit">公開する</button></div>';
     echo '</form>';
     renderBasicPagesSection($token, $config);
-    echo '<script src="assets/tomos-post-image-preprocessor.js?v=image-pipeline-test-20260930-r3"></script>';
+    echo '<script src="assets/tomos-post-image-preprocessor.js?v=1.1.4"></script>';
     echo <<<'HTML'
 <script>
 (() => {
@@ -2519,7 +2519,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         : resizeFallback > 0
         ? `大きな画像${resized}点を縮小しました。${resizeFallback}点はブラウザで縮小できず、元画像のまま送信します。`
         : resized > 0
-        ? `画像の照合が完了しました。大きな画像${resized}点を端末側で縮小しました。[IMG-R3]`
+        ? `画像の照合が完了しました。大きな画像${resized}点を端末側で縮小しました。`
         : addedFiles.length > 0 && !window.TomosPostImagePreprocessor
         ? "画像の照合が完了しました。ブラウザ画像縮小機能を読み込めなかったため、大きな画像はサーバー側で加工できない場合があります。"
         : "画像の照合が完了しました。";
