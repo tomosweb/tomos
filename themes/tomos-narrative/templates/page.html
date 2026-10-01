@@ -1,0 +1,12 @@
+<article class="narrative-article">
+  {{{ nav.breadcrumbs }}}
+  <header class="page-header">
+    {{# page.title }}<h1 class="page-title">{{ page.title }}</h1>{{/ page.title }}
+    {{{ page.meta_html }}}
+  </header>
+
+  <div class="page-content">{{{ page.content }}}</div>
+  {{{ page.folder_pages_html }}}
+  {{{ page.tags_html }}}
+  <p class="narrative-back"><a href="{{ site.home_url }}">← すべての記事</a></p>
+</article>
