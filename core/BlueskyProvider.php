@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ImageProcessingSupport.php';
+
 final class BlueskyProvider implements SocialProvider
 {
     private const MAX_CARD_HTML_BYTES = 262144;
     private const MAX_THUMB_BYTES = 2000000;
+    private const MAX_REMOTE_SOURCE_BYTES = 10485760;
     private const THUMB_TARGET_BYTES = 1800000;
     private const THUMB_MAX_EDGE = 1600;
 
     private BlueskyOAuthSessionClient $session;
+    private string $diagnosticLogPath = '';
 
-    public function __construct(BlueskyOAuthSessionClient $session)
+    public function __construct(BlueskyOAuthSessionClient $session, string $diagnosticLogPath = '')
     {
         $this->session = $session;
+        $this->diagnosticLogPath = $diagnosticLogPath;
     }
 
     public function name(): string
@@ -61,6 +66,7 @@ final class BlueskyProvider implements SocialProvider
                 trim((string) ($context['social_image_url'] ?? '')),
                 trim((string) ($context['social_image_path'] ?? ''))
             );
+            $this->thumbnailLog('record_decision', ['thumb_attached' => $thumb !== null]);
             if ($thumb !== null) {
                 $external['thumb'] = $thumb;
             }
@@ -133,6 +139,7 @@ final class BlueskyProvider implements SocialProvider
         string $explicitImagePath = ''
     ): ?array {
         if (!$this->hasBlobPermission($account)) {
+            $this->thumbnailLog('skipped', ['reason' => 'missing_blob_scope']);
             return null;
         }
 
@@ -143,10 +150,17 @@ final class BlueskyProvider implements SocialProvider
             if ($explicitImagePath !== '' && is_file($explicitImagePath)) {
                 $mimeType = $this->mimeTypeFromFile($explicitImagePath);
                 if ($mimeType !== '') {
+                    $source = ImageProcessingSupport::inspect($explicitImagePath);
+                    $this->thumbnailLog('source_local', [
+                        'bytes' => $source['bytes'], 'mime' => $source['mime'],
+                        'width' => $source['width'], 'height' => $source['height'],
+                        'orientation' => $source['orientation'],
+                    ]);
                     [$imageBody, $mimeType] = $this->prepareLocalThumbnailForBluesky(
                         $explicitImagePath,
                         $mimeType
                     );
+                    $this->logPreparedThumbnail($imageBody, $mimeType, 'local');
                 }
             }
 
@@ -164,30 +178,54 @@ final class BlueskyProvider implements SocialProvider
                     }
                 }
 
-                $image = $this->session->getPublic($imageUrl, self::MAX_THUMB_BYTES);
+                $this->thumbnailLog('source_remote_fetch', ['max_source_bytes' => self::MAX_REMOTE_SOURCE_BYTES]);
+                $image = $this->session->getPublic($imageUrl, self::MAX_REMOTE_SOURCE_BYTES);
                 if ($image->status < 200 || $image->status >= 300 || $image->body === '') {
+                    $this->thumbnailLog('source_remote_failed', [
+                        'http_status' => $image->status,
+                        'response_bytes' => strlen($image->body),
+                        'reason' => $image->body === '' ? 'empty_or_over_limit' : 'http_status',
+                    ]);
                     return null;
                 }
 
                 $imageBody = $image->body;
                 $mimeType = $this->imageMimeType($image);
+                $sourceInfo = function_exists('getimagesizefromstring') ? @getimagesizefromstring($imageBody) : false;
+                $this->thumbnailLog('source_remote', [
+                    'bytes' => strlen($imageBody), 'mime' => $mimeType,
+                    'width' => is_array($sourceInfo) ? (int) ($sourceInfo[0] ?? 0) : 0,
+                    'height' => is_array($sourceInfo) ? (int) ($sourceInfo[1] ?? 0) : 0,
+                    'orientation' => $mimeType === 'image/jpeg' ? $this->jpegOrientationFromBytes($imageBody) : 1,
+                ]);
                 if ($imageBody === '' || $mimeType === '') {
                     return null;
                 }
 
                 [$imageBody, $mimeType] = $this->prepareThumbnailForBluesky($imageBody, $mimeType);
+                $this->logPreparedThumbnail($imageBody, $mimeType, 'remote');
             }
 
             if ($imageBody === '' || $mimeType === '' || strlen($imageBody) > self::MAX_THUMB_BYTES) {
+                $this->thumbnailLog('thumbnail_rejected', [
+                    'bytes' => strlen($imageBody), 'mime' => $mimeType,
+                    'reason' => $imageBody === '' ? 'preparation_failed' : 'output_over_2mb_or_missing_mime',
+                ]);
                 return null;
             }
 
+            $this->thumbnailLog('upload_started', ['bytes' => strlen($imageBody), 'mime' => $mimeType]);
             $upload = $this->session->postBinary(
                 '/xrpc/com.atproto.repo.uploadBlob',
                 $imageBody,
                 $mimeType
             );
             if ($upload->status < 200 || $upload->status >= 300) {
+                $this->thumbnailLog('upload_failed', [
+                    'http_status' => $upload->status,
+                    'response_bytes' => strlen($upload->body),
+                    'bytes' => strlen($imageBody), 'mime' => $mimeType,
+                ]);
                 return null;
             }
 
@@ -196,10 +234,38 @@ final class BlueskyProvider implements SocialProvider
                 ? $decoded['blob']
                 : null;
 
+            $this->thumbnailLog('upload_response', [
+                'http_status' => $upload->status,
+                'response_bytes' => strlen($upload->body),
+                'blob_present' => is_array($blob),
+                'blob_mime_type' => is_array($blob) ? (string) ($blob['mimeType'] ?? '') : '',
+                'blob_size' => is_array($blob) ? (int) ($blob['size'] ?? 0) : 0,
+                'blob_ref_present' => is_array($blob['ref'] ?? null) && isset($blob['ref']['$link']),
+            ]);
             return is_array($blob) ? $blob : null;
         } catch (\Throwable $exception) {
+            $this->thumbnailLog('exception', ['class' => get_class($exception)]);
             return null;
         }
+    }
+
+    /** @param array<string,int|string|bool> $details */
+    private function thumbnailLog(string $event, array $details = []): void
+    {
+        ImageProcessingSupport::log($this->diagnosticLogPath, 'bluesky-thumbnail', $event, $details);
+    }
+
+    private function logPreparedThumbnail(string $body, string $mimeType, string $source): void
+    {
+        $info = $body !== '' && function_exists('getimagesizefromstring')
+            ? @getimagesizefromstring($body)
+            : false;
+        $this->thumbnailLog('prepared', [
+            'source' => $source,
+            'bytes' => strlen($body), 'mime' => $mimeType,
+            'width' => is_array($info) ? (int) ($info[0] ?? 0) : 0,
+            'height' => is_array($info) ? (int) ($info[1] ?? 0) : 0,
+        ]);
     }
 
     private function mimeTypeFromFile(string $path): string
@@ -234,9 +300,15 @@ final class BlueskyProvider implements SocialProvider
     {
         $orientation = $mimeType === 'image/jpeg' ? $this->jpegOrientation($path) : 1;
         $size = @filesize($path);
+        $info = @getimagesize($path);
+        $width = is_array($info) ? (int) ($info[0] ?? 0) : 0;
+        $height = is_array($info) ? (int) ($info[1] ?? 0) : 0;
         $needsOrientation = $orientation >= 2 && $orientation <= 8;
 
-        if (is_int($size) && $size > 0 && $size <= self::THUMB_TARGET_BYTES && !$needsOrientation) {
+        if (
+            is_int($size) && $size > 0 && $size <= self::THUMB_TARGET_BYTES && !$needsOrientation
+            && max($width, $height) <= self::THUMB_MAX_EDGE
+        ) {
             $body = @file_get_contents($path);
             return is_string($body) && $body !== '' ? [$body, $mimeType] : ['', ''];
         }
@@ -440,9 +512,15 @@ final class BlueskyProvider implements SocialProvider
     {
         $isJpeg = strtolower($mimeType) === 'image/jpeg';
         $orientation = $isJpeg ? $this->jpegOrientationFromBytes($body) : 1;
+        $info = function_exists('getimagesizefromstring') ? @getimagesizefromstring($body) : false;
+        $width = is_array($info) ? (int) ($info[0] ?? 0) : 0;
+        $height = is_array($info) ? (int) ($info[1] ?? 0) : 0;
         $needsOrientation = $orientation >= 2 && $orientation <= 8;
 
-        if (!$needsOrientation && strlen($body) <= self::THUMB_TARGET_BYTES) {
+        if (
+            !$needsOrientation && strlen($body) <= self::THUMB_TARGET_BYTES
+            && max($width, $height) <= self::THUMB_MAX_EDGE
+        ) {
             return [$body, $mimeType];
         }
 
@@ -582,52 +660,25 @@ final class BlueskyProvider implements SocialProvider
             return false;
         }
 
-        $longEdge = max($width, $height);
-        $scale = $longEdge > self::THUMB_MAX_EDGE
-            ? self::THUMB_MAX_EDGE / $longEdge
-            : 1.0;
-        $targetWidth = max(1, (int) round($width * $scale));
-        $targetHeight = max(1, (int) round($height * $scale));
-
-        $sourceBytes = $width * $height * 4;
-        $targetBytes = $targetWidth * $targetHeight * 4;
-        $peakBytes = $sourceBytes + $targetBytes;
-        if ($needsOrientation) {
-            $peakBytes += $targetBytes;
+        $estimatedBytes = ImageProcessingSupport::estimateGdPeakBytes(
+            $width,
+            $height,
+            self::THUMB_MAX_EDGE,
+            $needsOrientation
+        );
+        $assessment = ImageProcessingSupport::assessGdMemory($estimatedBytes);
+        if (!$assessment['allowed']) {
+            $this->thumbnailLog('memory_guard', [
+                'width' => $width, 'height' => $height,
+                'orientation_transform' => $needsOrientation,
+                'estimated_bytes' => $assessment['estimated_bytes'],
+                'memory_usage_bytes' => $assessment['usage_bytes'],
+                'memory_limit_bytes' => $assessment['limit_bytes'],
+                'reserve_bytes' => $assessment['reserve_bytes'],
+                'allowed' => false,
+            ]);
         }
-
-        $estimatedBytes = (int) ceil($peakBytes * 1.8);
-        $memoryLimit = $this->memoryLimitBytes((string) ini_get('memory_limit'));
-        if ($memoryLimit <= 0) {
-            return true;
-        }
-
-        $reserveBytes = 16 * 1024 * 1024;
-        return memory_get_usage(true) + $estimatedBytes + $reserveBytes < $memoryLimit;
-    }
-
-    private function memoryLimitBytes(string $value): int
-    {
-        $value = trim($value);
-        if ($value === '' || $value === '-1') {
-            return -1;
-        }
-
-        $unit = strtolower(substr($value, -1));
-        $number = (float) $value;
-        if ($unit === 'g') {
-            $number *= 1024;
-            $unit = 'm';
-        }
-        if ($unit === 'm') {
-            $number *= 1024;
-            $unit = 'k';
-        }
-        if ($unit === 'k') {
-            $number *= 1024;
-        }
-
-        return $number > 0 ? (int) $number : -1;
+        return $assessment['allowed'];
     }
 
     private function isGdImage($value): bool

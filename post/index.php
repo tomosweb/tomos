@@ -167,7 +167,10 @@ if ($postApi !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         jsonResponse(['ok' => false, 'message' => 'Tomosの更新ファイルが揃っていません。配布ファイルをすべてアップロードしてください。'], 503);
     }
     $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
-    $sessionStore = new Tomos\PostImageUploadSessionStore($cacheDir);
+    $sessionStore = new Tomos\PostImageUploadSessionStore(
+        $cacheDir,
+        $rootDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'image-processing-diagnostics.log'
+    );
     if ($postApi === 'start') {
         $authWarnings = [];
         $authError = authenticatePostRequest($authRemember, $config, $rootDir, $postPasswordHash, $authWarnings);
@@ -453,12 +456,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } elseif ($action === 'finalize_staged_upload') {
                 $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
-                $sessionStore = new Tomos\PostImageUploadSessionStore($cacheDir);
+                $sessionStore = new Tomos\PostImageUploadSessionStore(
+                    $cacheDir,
+                    $rootDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'image-processing-diagnostics.log'
+                );
                 $uploadSessionId = (string) ($_POST['upload_session_id'] ?? '');
                 $stagedPaths = $sessionStore->readyImages($uploadSessionId, session_id(), $submissionId);
                 if ($stagedPaths === null) {
                     $errors[] = '必要な画像の送信が完了していません。もう一度投稿してください。';
                 } else {
+                    recordBrowserImageDiagnostics(
+                        $rootDir,
+                        (string) ($_POST['tomos_image_diagnostics'] ?? ''),
+                        array_keys($stagedPaths)
+                    );
                     $stagedFiles = stagedImageFiles($stagedPaths);
                     $upload = new Tomos\PostUpload($config, $rootDir);
                     $omittedImages = is_array($_POST['omit_images'] ?? null) ? $_POST['omit_images'] : [];
@@ -920,6 +931,61 @@ function stagedImageFiles(array $paths): array
         $files['size'][] = is_file($path) ? (int) filesize($path) : 0;
     }
     return $files;
+}
+
+/** @param string[] $uploadedNames */
+function recordBrowserImageDiagnostics(string $rootDir, string $json, array $uploadedNames): void
+{
+    if ($json === '' || strlen($json) > 32768) {
+        return;
+    }
+    $entries = json_decode($json, true);
+    if (!is_array($entries)) {
+        return;
+    }
+    require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . 'ImageProcessingSupport.php';
+    foreach ($entries as $name => $details) {
+        $name = strtolower((string) $name);
+        if (
+            preg_match('/\Atms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp)\z/', $name) !== 1
+            || !in_array($name, $uploadedNames, true)
+            || !is_array($details)
+        ) {
+            continue;
+        }
+        $mime = strtolower((string) ($details['source_mime'] ?? ''));
+        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
+            $mime = '';
+        }
+        $reason = (string) ($details['reason'] ?? 'unknown');
+        if (preg_match('/\A[a-z0-9_-]{1,64}\z/', $reason) !== 1) {
+            $reason = 'unknown';
+        }
+        $sourceManagedName = strtolower((string) ($details['source_managed_name'] ?? ''));
+        if (preg_match('/\Atms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp)\z/', $sourceManagedName) !== 1) {
+            $sourceManagedName = '';
+        }
+        $toInt = static function ($value, int $maximum): int {
+            $number = is_numeric($value) ? (int) $value : 0;
+            return max(0, min($maximum, $number));
+        };
+        $logPath = rtrim($rootDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+            . 'storage' . DIRECTORY_SEPARATOR . 'image-processing-diagnostics.log';
+        Tomos\ImageProcessingSupport::log($logPath, 'article-image', 'browser_preprocess', [
+            'image_name' => $name,
+            'source_managed_name' => $sourceManagedName,
+            'source_bytes' => $toInt($details['source_bytes'] ?? 0, 10485760),
+            'source_mime' => $mime,
+            'source_width' => $toInt($details['source_width'] ?? 0, 50000),
+            'source_height' => $toInt($details['source_height'] ?? 0, 50000),
+            'source_orientation' => $toInt($details['source_orientation'] ?? 1, 8),
+            'upload_bytes' => $toInt($details['upload_bytes'] ?? 0, 10485760),
+            'upload_width' => $toInt($details['upload_width'] ?? 0, 50000),
+            'upload_height' => $toInt($details['upload_height'] ?? 0, 50000),
+            'resized' => !empty($details['resized']),
+            'reason' => $reason,
+        ]);
+    }
 }
 
 function hasPostedImages(array $files): bool
@@ -1654,7 +1720,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<p id="page-type-notice" class="hint" role="status" aria-live="polite">ファイルを選択すると投稿対象を表示します。</p>';
     echo '<label for="image_files">画像を選ぶ</label>';
     echo '<input id="image_files" type="file" name="image_files[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif" multiple>';
-    echo '<p class="hint">Markdownに画像がある場合は、Tomos Writeで使った元画像を選んでください。画像内容から自動で照合します。</p>';
+    echo '<p class="hint">Markdownに画像がある場合は、Tomos Writeで使った元画像を選んでください。画像内容から自動で照合し、長辺2,048pxを超えるJPEG・PNG・WebPは端末側で縮小してから送信します。</p>';
     echo '<div id="image-frontmatter-notice" class="hint" hidden></div>';
     echo '<div id="image-match-status" class="result" hidden></div>';
     echo '<div id="ogp-image-status" class="result" hidden></div>';
@@ -1667,6 +1733,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<div class="actions"><button id="post-upload-submit" type="submit">公開する</button></div>';
     echo '</form>';
     renderBasicPagesSection($token, $config);
+    echo '<script src="assets/tomos-post-image-preprocessor.js?v=1.1.4"></script>';
     echo <<<'HTML'
 <script>
 (() => {
@@ -1693,6 +1760,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   let loadedMarkdown = "";
   let loadedMarkdownFilename = "";
   const selectedImages = new Map();
+  const managedImageRenames = new Map();
   const supportsFileTransfer = (() => {
     if (typeof DataTransfer === "undefined") return false;
     try {
@@ -1704,6 +1772,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   let unmatchedImageCount = 0;
   let oversizedImageCount = 0;
   let formatMismatchImageCount = 0;
+  let imageDiagnostics = new Map();
   let editableReupload = false;
   let draftState = false;
   let editableSourcePath = "";
@@ -1912,7 +1981,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     while ((match = managedPattern.exec(markdown)) !== null) {
       const fileName = match[2].toLowerCase();
       if (!images.some((image) => image.kind === "managed" && image.fileName === fileName)) {
-        images.push({ label: match[1] || "画像", fileName, kind: "managed" });
+        images.push({ label: match[1] || "画像", fileName, sourceFileName: fileName, kind: "managed" });
       }
     }
 
@@ -2102,6 +2171,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     requiredImages = [];
     frontMatterImage = null;
     selectedImages.clear();
+    managedImageRenames.clear();
     unmatchedImageCount = 0;
     oversizedImageCount = 0;
     formatMismatchImageCount = 0;
@@ -2192,6 +2262,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     requiredImages = [];
     frontMatterImage = null;
     selectedImages.clear();
+    managedImageRenames.clear();
     unmatchedImageCount = 0;
     oversizedImageCount = 0;
     formatMismatchImageCount = 0;
@@ -2283,16 +2354,30 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   };
 
   const managedNameForFile = async (file) => {
-    const extension = extensionForFile(file);
-    if (!["jpg", "png", "webp", "gif"].includes(extension)) return "";
-    const prefix = await sha256Prefix(file);
-    if (prefix === "") return "";
-    const candidate = `tms-${prefix}.${extension}`;
+    const preprocessor = window.TomosPostImagePreprocessor;
+    let candidate = preprocessor && typeof preprocessor.managedName === "function"
+      ? await preprocessor.managedName(file)
+      : "";
+    if (candidate === "" && (!preprocessor || typeof preprocessor.managedName !== "function")) {
+      const extension = extensionForFile(file);
+      if (["jpg", "png", "webp", "gif"].includes(extension)) {
+        const prefix = await sha256Prefix(file);
+        if (prefix !== "") candidate = `tms-${prefix}.${extension}`;
+      }
+    }
+    if (candidate === "") return "";
     const expected = requiredImages.find((image) => {
-      const normalized = image.fileName.toLowerCase().replace(/\.jpeg$/, ".jpg");
+      const normalized = String(image.sourceFileName || image.fileName).toLowerCase().replace(/\.jpeg$/, ".jpg");
       return normalized === candidate;
     });
-    return expected ? expected.fileName.toLowerCase() : candidate;
+    return expected ? String(expected.sourceFileName || expected.fileName).toLowerCase() : candidate;
+  };
+
+  const rewriteManagedArticleImages = (markdown) => {
+    const preprocessor = window.TomosPostImagePreprocessor;
+    return preprocessor && typeof preprocessor.rewriteManagedReferences === "function"
+      ? preprocessor.rewriteManagedReferences(markdown, managedImageRenames)
+      : markdown;
   };
 
   const syncSelectedInput = () => {
@@ -2312,8 +2397,12 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       let unmatched = 0;
       let oversized = 0;
       let formatMismatch = 0;
+      let resized = 0;
+      let resizeFallback = 0;
+      const diagnosticEntries = new Map();
       if (!supportsFileTransfer) {
         selectedImages.clear();
+        managedImageRenames.clear();
         unmatchedImageCount = 0;
       }
       for (const file of addedFiles) {
@@ -2326,21 +2415,89 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
           continue;
         }
         try {
-          const managedName = await managedNameForFile(file);
-          const managedMatch = managedName !== "" && requiredImages.some(
-            (image) => image.kind === "managed" && image.fileName === managedName
+          const sourceManagedName = await managedNameForFile(file);
+          let managedName = sourceManagedName;
+          const managedMatch = sourceManagedName !== "" && requiredImages.some(
+            (image) => image.kind === "managed"
+              && String(image.sourceFileName || image.fileName).toLowerCase().replace(/\.jpeg$/, ".jpg")
+                === sourceManagedName.toLowerCase().replace(/\.jpeg$/, ".jpg")
           );
-          const localMatches = managedName === "" ? [] : requiredImages.filter(
+          const localMatches = sourceManagedName === "" ? [] : requiredImages.filter(
             (image) => image.kind === "local"
               && String(image.sourceName || "").toLowerCase() === file.name.toLowerCase()
           );
-          const ogpMatch = managedName !== ""
+          const ogpMatch = sourceManagedName !== ""
             && frontMatterImage
             && String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase();
           if (managedMatch || localMatches.length > 0 || ogpMatch) {
+            let uploadFile = file;
+            const preprocessor = window.TomosPostImagePreprocessor;
+            let preprocessReason = "preprocessor_script_unavailable";
+            let sourceWidth = 0;
+            let sourceHeight = 0;
+            let sourceOrientation = 1;
+            let uploadWidth = 0;
+            let uploadHeight = 0;
+            if (preprocessor && typeof preprocessor.prepare === "function") {
+              const prepared = await preprocessor.prepare(file, effectiveImageMaxBytes);
+              if (prepared && prepared.file instanceof File) {
+                uploadFile = prepared.file;
+                preprocessReason = String(prepared.reason || "unknown");
+                sourceWidth = Number(prepared.sourceWidth || 0);
+                sourceHeight = Number(prepared.sourceHeight || 0);
+                sourceOrientation = Number(prepared.orientation || 1);
+                uploadWidth = Number(prepared.width || 0);
+                uploadHeight = Number(prepared.height || 0);
+                if (prepared.resized) resized += 1;
+                else if (prepared.reason && prepared.reason !== "within_server_resize_limit" && prepared.reason !== "format_not_processed") resizeFallback += 1;
+              }
+            }
+            if (uploadFile !== file) {
+              const uploadManagedName = preprocessor && typeof preprocessor.managedName === "function"
+                ? await preprocessor.managedName(uploadFile)
+                : "";
+              if (uploadManagedName === "") {
+                uploadFile = file;
+                preprocessReason = "processed_image_hash_unavailable_original_used";
+                uploadWidth = 0;
+                uploadHeight = 0;
+                resized = Math.max(0, resized - 1);
+                resizeFallback += 1;
+              } else {
+                managedName = uploadManagedName;
+              }
+            }
+            diagnosticEntries.set(managedName, {
+              source_managed_name: sourceManagedName,
+              source_bytes: file.size,
+              source_mime: String(file.type || ""),
+              source_width: sourceWidth,
+              source_height: sourceHeight,
+              source_orientation: sourceOrientation,
+              upload_bytes: uploadFile.size,
+              upload_width: uploadWidth,
+              upload_height: uploadHeight,
+              resized: uploadFile !== file,
+              reason: preprocessReason,
+            });
+            if (managedMatch && sourceManagedName !== managedName) {
+              const previousOutputName = managedImageRenames.get(sourceManagedName);
+              if (previousOutputName) selectedImages.delete(previousOutputName);
+              managedImageRenames.set(sourceManagedName, managedName);
+              requiredImages.filter((image) => image.kind === "managed"
+                && String(image.sourceFileName || image.fileName).toLowerCase() === sourceManagedName
+              ).forEach((image) => { image.fileName = managedName; });
+            } else if (managedMatch) {
+              const previousOutputName = managedImageRenames.get(sourceManagedName);
+              if (previousOutputName) selectedImages.delete(previousOutputName);
+              managedImageRenames.delete(sourceManagedName);
+              requiredImages.filter((image) => image.kind === "managed"
+                && String(image.sourceFileName || image.fileName).toLowerCase() === sourceManagedName
+              ).forEach((image) => { image.fileName = sourceManagedName; });
+            }
             localMatches.forEach((image) => { image.fileName = managedName; });
             if (ogpMatch) frontMatterImage.fileName = managedName;
-            selectedImages.set(managedName, file);
+            selectedImages.set(managedName, uploadFile);
           } else {
             unmatched += 1;
           }
@@ -2351,6 +2508,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       unmatchedImageCount = unmatched;
       oversizedImageCount = oversized;
       formatMismatchImageCount = formatMismatch;
+      imageDiagnostics = diagnosticEntries;
       syncSelectedInput();
       renderImageMatches();
       renderOgpImage();
@@ -2358,8 +2516,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         ? `拡張子と画像データの形式が一致しない画像が${formatMismatch}点あります。元画像を確認してください。`
         : oversized > 0
         ? `現在の公開先で扱える容量を超える画像が${oversized}点あります。別の画像を選んでください。`
+        : resizeFallback > 0
+        ? `大きな画像${resized}点を縮小しました。${resizeFallback}点はブラウザで縮小できず、元画像のまま送信します。`
+        : resized > 0
+        ? `画像の照合が完了しました。大きな画像${resized}点を端末側で縮小しました。`
+        : addedFiles.length > 0 && !window.TomosPostImagePreprocessor
+        ? "画像の照合が完了しました。ブラウザ画像縮小機能を読み込めなかったため、大きな画像はサーバー側で加工できない場合があります。"
         : "画像の照合が完了しました。";
-      processingStatus.style.color = oversized > 0 || formatMismatch > 0 ? "var(--tomos-danger-text)" : "";
+      processingStatus.style.color = oversized > 0 || formatMismatch > 0 || resizeFallback > 0 ? "var(--tomos-danger-text)" : "";
     })();
   });
 
@@ -2421,7 +2585,8 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       return;
     }
 
-    const articleRewrittenMarkdown = rewriteLocalArticleImages(loadedMarkdown);
+    const managedRewrittenMarkdown = rewriteManagedArticleImages(loadedMarkdown);
+    const articleRewrittenMarkdown = rewriteLocalArticleImages(managedRewrittenMarkdown);
     const rewrittenMarkdown = rewriteFrontMatterLocalImage(articleRewrittenMarkdown);
     if (rewrittenMarkdown !== loadedMarkdown) {
       handoffMarkdownInput.value = rewrittenMarkdown;
@@ -2507,6 +2672,11 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       sessionInput.name = "upload_session_id";
       sessionInput.value = uploadSessionId;
       form.appendChild(sessionInput);
+      const imageDiagnosticsInput = document.createElement("input");
+      imageDiagnosticsInput.type = "hidden";
+      imageDiagnosticsInput.name = "tomos_image_diagnostics";
+      imageDiagnosticsInput.value = JSON.stringify(Object.fromEntries(imageDiagnostics));
+      form.appendChild(imageDiagnosticsInput);
       processingStatus.textContent = "公開しています。";
       finalizingUpload = true;
       form.submit();
