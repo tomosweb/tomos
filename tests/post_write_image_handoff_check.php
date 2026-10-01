@@ -52,8 +52,12 @@ function checkFrontMatterLocalOgpImageHandoff(): void
     assertContains($source, 'kind: "local"', 'local article images must be distinguished from already-managed images');
     assertContains($source, 'String(image.sourceName || "").toLowerCase() === file.name.toLowerCase()', 'Tomos Post must match selected local article image sources');
     assertContains($source, 'String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase()', 'Tomos Post must match the selected OGP source independently');
-    assertContains($source, 'const articleRewrittenMarkdown = rewriteLocalArticleImages(loadedMarkdown);', 'Tomos Post must rewrite local article images before submit');
-    assertContains($source, 'const rewrittenMarkdown = rewriteFrontMatterLocalImage(articleRewrittenMarkdown);', 'Tomos Post must rewrite local OGP Front Matter after article image rewriting');
+    assertOrder($source, [
+        'const managedRewrittenMarkdown = rewriteManagedArticleImages(loadedMarkdown);',
+        'const articleRewrittenMarkdown = rewriteLocalArticleImages(managedRewrittenMarkdown);',
+        'const rewrittenMarkdown = rewriteFrontMatterLocalImage(articleRewrittenMarkdown);',
+        'handoffMarkdownInput.value = rewrittenMarkdown;',
+    ], 'Tomos Post must rewrite managed, local article, and local OGP image references before submit');
     assertContains($source, 'handoffMarkdownInput.value = rewrittenMarkdown;', 'rewritten OGP Front Matter must be submitted instead of the original local path');
     assertContains($source, 'frontMatterImage.fileName === "" || !selectedImages.has(frontMatterImage.fileName)', 'local OGP image must be required independently before publication');
     assertTrue(strpos($source, 'Front Matter指定:') === false, 'OGP image UI must not show the redundant Front Matter path label');
