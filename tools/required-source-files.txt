@@ -60,6 +60,7 @@ core/BlueskyOAuthFlow.php
 core/BlueskyOAuthSessionClient.php
 core/BlueskyProvider.php
 core/ImageProcessingSupport.php
+core/SiteBrandingAssets.php
 core/ImageProcessor.php
 core/PostPublisher.php
 post/social/bluesky/index.php
