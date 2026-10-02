@@ -31,7 +31,7 @@ If both scopes use the same external font, load its source only once. If the ext
 - Themes should use relative sizing for headings and interface hierarchies so base-size changes preserve their visual relationships.
 - Adapt and verify all bundled themes before release.
 - Third-party themes may opt into the contract. A theme that does not opt in must continue rendering with its own typography and must not break.
-- Declare theme typography support in theme metadata so Tomos Post can indicate when the active theme may not apply the selected settings. Use the existing metadata conventions where possible; settle the exact field name during implementation.
+- Declare theme typography support in theme metadata so Tomos Post can indicate when the active theme may not apply the selected settings. Follow the existing `supports` convention as descriptive metadata only; do not use it to disable themes or change runtime behavior. Settle the exact field name during implementation.
 - After implementation and bundled-theme verification, publish the external-theme integration instructions at https://tomoswords.org/developers/themes/. Include the CSS variables, their scope, theme-default behavior, metadata declaration, and a working example.
 
 ### Completion conditions
