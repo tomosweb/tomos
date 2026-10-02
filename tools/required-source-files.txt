@@ -44,6 +44,8 @@ core/SocialPostStore.php
 core/SocialPublishingService.php
 core/BlueskyOAuthKeyStore.php
 core/BlueskyOAuthStaticBacking.php
+core/BlueskyOAuthPublicEndpointPreparationException.php
+core/BlueskyOAuthPublicEndpointPreparation.php
 core/BlueskyOAuthMetadata.php
 core/Es256Jwt.php
 core/BlueskyDpop.php
@@ -57,6 +59,9 @@ core/BlueskyAccountStore.php
 core/BlueskyOAuthFlow.php
 core/BlueskyOAuthSessionClient.php
 core/BlueskyProvider.php
+core/ImageProcessingSupport.php
+core/ImageProcessor.php
+core/PostPublisher.php
 post/social/bluesky/index.php
 post/social/bluesky/callback/index.php
 oauth-client-metadata.json.php
@@ -94,6 +99,7 @@ post/theme/add/index.php
 post/theme/add/confirm/index.php
 post/reset/index.php
 post/assets/tomos-post-security.css
+post/assets/tomos-post-image-preprocessor.js
 post/security/index.php
 post/passkey/login/index.php
 post/passkey/manage/index.php

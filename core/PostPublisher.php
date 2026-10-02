@@ -32,6 +32,7 @@ final class PostPublisher
     private bool $htmlCacheEnabled;
     private bool $includeDrafts;
     private array $site;
+    private string $imageDiagnosticLogPath;
     private ?array $freshImageReferenceIndex = null;
 
     public function __construct(
@@ -40,7 +41,8 @@ final class PostPublisher
         FrontMatterParser $frontMatterParser,
         bool $htmlCacheEnabled,
         bool $includeDrafts,
-        array $site
+        array $site,
+        string $imageDiagnosticLogPath = ''
     ) {
         $this->contentDir = $contentDir;
         $this->cacheDir = $cacheDir;
@@ -48,6 +50,7 @@ final class PostPublisher
         $this->htmlCacheEnabled = $htmlCacheEnabled;
         $this->includeDrafts = $includeDrafts;
         $this->site = $site;
+        $this->imageDiagnosticLogPath = $imageDiagnosticLogPath;
     }
 
     /**
@@ -177,7 +180,7 @@ final class PostPublisher
         $created = [];
         $replaced = [];
         $warnings = [];
-        $processor = new ImageProcessor();
+        $processor = new ImageProcessor(false, $this->imageDiagnosticLogPath);
         foreach ($images as $fileName => $sourcePath) {
             $fileName = strtolower((string) $fileName);
             if (preg_match('/\Atms-[a-f0-9]{16}\.(jpg|jpeg|png|gif|webp)\z/', $fileName) !== 1 || !is_file($sourcePath)) {

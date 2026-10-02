@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ImageProcessingSupport.php';
+
 final class PostImageUploadSessionStore
 {
     private const TTL_SECONDS = 86400;
     private string $dir;
+    private string $diagnosticLogPath;
 
-    public function __construct(string $cacheDir)
+    public function __construct(string $cacheDir, string $diagnosticLogPath = '')
     {
         $this->dir = rtrim($cacheDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'post-upload-sessions';
+        $this->diagnosticLogPath = $diagnosticLogPath;
     }
 
     /** @param string[] $expectedImages */
@@ -148,11 +152,22 @@ final class PostImageUploadSessionStore
             $hash = hash_file('sha256', $partial);
             $expectedHash = substr($imageName, 4, 16);
             if (!is_string($hash) || !hash_equals($expectedHash, substr($hash, 0, 16))) {
+                ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'staged_hash_mismatch', [
+                    'image_name' => $imageName,
+                    'expected_hash_prefix' => $expectedHash,
+                    'actual_hash_prefix' => is_string($hash) ? substr($hash, 0, 16) : '',
+                    'bytes' => $totalSize,
+                ]);
                 @unlink($partial);
                 unset($record['image_chunks'][$imageName]);
                 $this->write($id, $record);
-                return ['ok' => false, 'message' => 'Markdownと一致する画像を確認できませんでした。'];
+                return ['ok' => false, 'message' => '画像データの照合に失敗しました。画像を選び直して再投稿してください。'];
             }
+            ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'staged_hash_verified', [
+                'image_name' => $imageName,
+                'hash_prefix' => substr($hash, 0, 16),
+                'bytes' => $totalSize,
+            ]);
             if (!@rename($partial, $target)) {
                 return ['ok' => false, 'message' => '画像を一時保存できませんでした。'];
             }

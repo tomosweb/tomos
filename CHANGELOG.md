@@ -1,5 +1,26 @@
 # 更新履歴
 
+## v1.1.4 - 2026-10-01
+
+### Improved
+
+- Tomos Postで長辺2,048pxを超えるJPEG・PNG・WebPを端末側で縮小してから送信し、共有ホスティングのPHPメモリ上限に対する画像加工失敗を減らします
+- 画像の縮小で画像データが変わった場合も、保存画像名とMarkdown内の参照を一致させます
+- 記事画像とBlueskyサムネイルのGDメモリ推定を共通化し、画像寸法・判定・処理結果を保護ログへ記録します
+- Bluesky用画像の取得上限を元画像10MB、添付サムネイル2MB以下に分離します
+
+## v1.1.3 - 2026-09-29
+
+### Fixed / Improved
+
+- Bluesky接続開始前にOAuth Metadata/JWKSのstatic backingを自動生成します
+- 既存サイトでは必要時のみ安全な`.htaccess` migrationを実行します
+- static endpoint準備に失敗した場合はOAuth開始前に停止します
+
+### Compatibility / Update
+
+- `client_id` / `jwks_uri` / `scope` / Bluesky posting仕様は変更しません
+
 ## v1.1.2 - 2026-09-27
 
 Bluesky投稿とObsidian Publisher連携を含むv1.1.1の改善に加え、Bluesky投稿文をより自然に扱えるようにしました。

@@ -14,6 +14,8 @@ permissions:
 jobs:
   test-update-artifact:
     runs-on: ubuntu-latest
+    env:
+      TOMOS_RELEASE_FROM_VERSION: '1.1.3'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,19 +30,21 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Fetch released public v1.0.4 baseline
-        run: git fetch --no-tags https://github.com/tomosweb/tomos.git e022a6396b86d00e80181c44611f45ce85a443ab
+      - name: Fetch released public v1.1.3 baseline
+        run: git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.1.3:refs/tomos-public/v1.1.3
 
       - name: Prepare distribution dependencies
         run: bash tools/prepare-distribution-dependencies.sh
 
       - name: Build and verify test Update ZIP
         env:
+          TOMOS_RELEASE_FROM_REF: refs/tomos-public/v1.1.3
           TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR: build/test-update
         run: |
           set -euo pipefail
           php tests/release_transition_check.php
-          unzip -t build/test-update/tomos-update-1.0.4-to-1.0.5-TEST.zip
+          target_version="$(tr -d '[:space:]' < VERSION)"
+          unzip -t "build/test-update/tomos-update-${TOMOS_RELEASE_FROM_VERSION}-to-${target_version}-TEST.zip"
           test -s build/test-update/test-public-key.pem
           test -s build/test-update/SHA256SUMS
           test -s build/test-update/TEST-ONLY.txt
@@ -49,6 +53,6 @@ jobs:
       - name: Upload test Update ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tomos-update-1.0.4-to-1.0.5-TEST-${{ github.sha }}
+          name: tomos-update-1.1.3-to-1.1.4-TEST-${{ github.sha }}
           path: build/test-update/
           if-no-files-found: error

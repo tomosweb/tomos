@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'ImageProcessingSupport.php';
+
 final class ImageProcessResult
 {
     public bool $ok;
@@ -32,14 +34,18 @@ final class ImageProcessor
     private const PNG_COMPRESSION = 6;
 
     private bool $forceOriginal;
+    private string $diagnosticLogPath;
+    private string $lastSourcePath = '';
 
-    public function __construct(bool $forceOriginal = false)
+    public function __construct(bool $forceOriginal = false, string $diagnosticLogPath = '')
     {
         $this->forceOriginal = $forceOriginal;
+        $this->diagnosticLogPath = $diagnosticLogPath;
     }
 
     public function process(string $sourcePath, string $extension, string $tempDir): ImageProcessResult
     {
+        $this->lastSourcePath = $sourcePath;
         $extension = $this->normalizeExtension($extension);
         if ($extension === '') {
             return new ImageProcessResult(false, '', '画像形式を確認できませんでした。');
@@ -59,6 +65,13 @@ final class ImageProcessor
             );
         }
 
+        $sourceFacts = ImageProcessingSupport::inspect($sourcePath);
+        ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'input', [
+            'bytes' => $sourceFacts['bytes'], 'mime' => $sourceFacts['mime'],
+            'width' => $sourceFacts['width'], 'height' => $sourceFacts['height'],
+            'orientation' => $sourceFacts['orientation'],
+        ]);
+
         $orientationWarnings = [];
         if ($extension === 'jpg' && !$this->canReadExif()) {
             $this->logExif('EXIF extension or exif_read_data is unavailable; orientation correction cannot run.');
@@ -71,6 +84,7 @@ final class ImageProcessor
         }
 
         if ($extension === 'gif') {
+            ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'stored_original', ['reason' => 'animated_gif_preserved']);
             return $this->copyOriginal($sourcePath, $tempPath);
         }
 
@@ -95,7 +109,19 @@ final class ImageProcessor
         }
 
         try {
-            return $this->processWithGd($sourcePath, $tempPath, $extension, $info);
+            $result = $this->processWithGd($sourcePath, $tempPath, $extension, $info);
+            if ($result->ok) {
+                $source = ImageProcessingSupport::inspect($sourcePath);
+                $output = ImageProcessingSupport::inspect($result->path);
+                ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'processed', [
+                    'source_bytes' => $source['bytes'], 'source_mime' => $source['mime'],
+                    'source_width' => $source['width'], 'source_height' => $source['height'],
+                    'orientation' => $source['orientation'], 'output_bytes' => $output['bytes'],
+                    'output_mime' => $output['mime'], 'output_width' => $output['width'],
+                    'output_height' => $output['height'],
+                ]);
+            }
+            return $result;
         } catch (\Throwable $exception) {
             @unlink($tempPath);
             $this->logProcessingFallback('GD image processing failed; original image was preserved.');
@@ -116,7 +142,9 @@ final class ImageProcessor
         }
 
         if ($extension === 'jpg') {
-            $source = $this->applyJpegOrientation($source, $sourcePath, $warnings);
+            if (!$this->canReadExif()) {
+                $warnings[] = '画像の向きを自動調整できなかったため、元の向きで保存しました。';
+            }
         }
 
         $width = imagesx($source);
@@ -146,6 +174,20 @@ final class ImageProcessor
             $this->releaseGdImage($source);
             $this->releaseGdImage($canvas);
             return new ImageProcessResult(false, '', '画像を加工できませんでした。');
+        }
+
+        // Resize before applying EXIF orientation so a large source image is never
+        // duplicated just to rotate/flip the full-resolution GD bitmap.
+        if ($extension === 'jpg') {
+            $orientation = ImageProcessingSupport::jpegOrientation($sourcePath);
+            if ($orientation >= 2 && $orientation <= 8) {
+                $oriented = $this->transformOrientation($canvas, $orientation);
+                if ($this->isGdImage($oriented)) {
+                    $canvas = $oriented;
+                } else {
+                    $warnings[] = '画像の向きを自動調整できなかったため、元の向きで保存しました。';
+                }
+            }
         }
 
         $saved = $this->saveImage($canvas, $targetPath, $extension);
@@ -188,46 +230,6 @@ final class ImageProcessor
         }
 
         return false;
-    }
-
-    private function applyJpegOrientation($image, string $sourcePath, array &$warnings)
-    {
-        if (!$this->canReadExif()) {
-            $warnings[] = '画像の向きを自動調整できなかったため、元の向きで保存しました。';
-            return $image;
-        }
-
-        $exif = @exif_read_data($sourcePath);
-        if (!is_array($exif)) {
-            $this->logExif('EXIF data could not be read; no orientation correction was applied.');
-            return $image;
-        }
-
-        $orientation = $this->orientationFromExif($exif);
-        if ($orientation === null || $orientation === 1) {
-            return $image;
-        }
-        $this->logExif('EXIF orientation detected: ' . $orientation);
-
-        $adjusted = $this->transformOrientation($image, $orientation);
-        if ($this->isGdImage($adjusted)) {
-            return $adjusted;
-        }
-
-        $this->logExif('EXIF orientation correction failed for value: ' . $orientation);
-        $warnings[] = '画像の向きを自動調整できなかったため、元の向きで保存しました。';
-        return $image;
-    }
-
-    private function orientationFromExif(array $exif): ?int
-    {
-        if (isset($exif['Orientation'])) {
-            return (int) $exif['Orientation'];
-        }
-        if (isset($exif['IFD0']) && is_array($exif['IFD0']) && isset($exif['IFD0']['Orientation'])) {
-            return (int) $exif['IFD0']['Orientation'];
-        }
-        return null;
     }
 
     private function transformOrientation($image, int $orientation)
@@ -286,7 +288,15 @@ final class ImageProcessor
 
     private function logProcessingFallback(string $message): void
     {
-        error_log('[Tomos ImageProcessor] ' . $message);
+        $source = $this->lastSourcePath !== '' && is_file($this->lastSourcePath)
+            ? ImageProcessingSupport::inspect($this->lastSourcePath)
+            : ['bytes' => 0, 'mime' => '', 'width' => 0, 'height' => 0, 'orientation' => 1];
+        ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'fallback', [
+            'reason' => $message,
+            'source_bytes' => $source['bytes'], 'source_mime' => $source['mime'],
+            'source_width' => $source['width'], 'source_height' => $source['height'],
+            'orientation' => $source['orientation'],
+        ]);
     }
 
     /**
@@ -369,66 +379,27 @@ final class ImageProcessor
             return false;
         }
 
-        [$targetWidth, $targetHeight] = $this->targetSize($width, $height);
-        $sourceBytes = $width * $height * 4;
-        $targetBytes = $targetWidth * $targetHeight * 4;
-        $peakBytes = $sourceBytes + $targetBytes;
-
-        if ($extension === 'jpg' && $this->jpegNeedsOrientationTransform($sourcePath)) {
-            // transformOrientation() can temporarily keep the original, working copy,
-            // and rotated image alive at the same time. Account for that peak before
-            // entering GD so low-memory environments fall back instead of fatally exiting.
-            $peakBytes = max($peakBytes, $sourceBytes * 3);
+        $orientation = $extension === 'jpg' ? ImageProcessingSupport::jpegOrientation($sourcePath) : 1;
+        $estimate = ImageProcessingSupport::estimateGdPeakBytes(
+            $width,
+            $height,
+            self::MAX_LONG_EDGE,
+            $orientation >= 2 && $orientation <= 8
+        );
+        $assessment = ImageProcessingSupport::assessGdMemory($estimate);
+        if (!$assessment['allowed']) {
+            ImageProcessingSupport::log($this->diagnosticLogPath, 'article-image', 'memory_guard', [
+                'source_bytes' => max(0, (int) (@filesize($sourcePath) ?: 0)),
+                'mime' => strtolower((string) ($info['mime'] ?? '')),
+                'width' => $width, 'height' => $height, 'orientation' => $orientation,
+                'estimated_bytes' => $assessment['estimated_bytes'],
+                'memory_usage_bytes' => $assessment['usage_bytes'],
+                'memory_limit_bytes' => $assessment['limit_bytes'],
+                'reserve_bytes' => $assessment['reserve_bytes'],
+                'allowed' => false,
+            ]);
         }
-
-        $estimatedBytes = (int) ceil($peakBytes * 1.8);
-
-        $memoryLimit = $this->memoryLimitBytes((string) ini_get('memory_limit'));
-        if ($memoryLimit <= 0) {
-            return true;
-        }
-
-        $reserveBytes = 16 * 1024 * 1024;
-        return memory_get_usage(true) + $estimatedBytes + $reserveBytes < $memoryLimit;
-    }
-
-    private function jpegNeedsOrientationTransform(string $sourcePath): bool
-    {
-        if (!$this->canReadExif()) {
-            return false;
-        }
-
-        $exif = @exif_read_data($sourcePath);
-        if (!is_array($exif)) {
-            return false;
-        }
-
-        $orientation = $this->orientationFromExif($exif);
-        return $orientation !== null && $orientation >= 2 && $orientation <= 8;
-    }
-
-    private function memoryLimitBytes(string $value): int
-    {
-        $value = trim($value);
-        if ($value === '' || $value === '-1') {
-            return -1;
-        }
-
-        $unit = strtolower(substr($value, -1));
-        $number = (float) $value;
-        if ($unit === 'g') {
-            $number *= 1024;
-            $unit = 'm';
-        }
-        if ($unit === 'm') {
-            $number *= 1024;
-            $unit = 'k';
-        }
-        if ($unit === 'k') {
-            $number *= 1024;
-        }
-
-        return $number > 0 ? (int) $number : -1;
+        return $assessment['allowed'];
     }
 
     private function isGdImage($value): bool
