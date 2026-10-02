@@ -78,7 +78,7 @@ function writeTheme(string $root, string $name, string $version, bool $customFav
     mkdir($theme . '/templates', 0700, true);
     mkdir($theme . '/assets', 0700, true);
     file_put_contents($theme . '/theme.json', manifest($name, $version), LOCK_EX);
-    file_put_contents($theme . '/templates/layout.html', '<!doctype html><html><head><link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}"><link rel="stylesheet" href="{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}"></head><body>{{{ page.body }}}</body></html>', LOCK_EX);
+    file_put_contents($theme . '/templates/layout.html', '<!doctype html><html><head>{{{ page.seo_head_html }}}<link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}"><link rel="stylesheet" href="{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}"></head><body>{{{ page.body }}}</body></html>', LOCK_EX);
     file_put_contents($theme . '/templates/home.html', '<main>home</main>', LOCK_EX);
     file_put_contents($theme . '/templates/page.html', '<main>page</main>', LOCK_EX);
     file_put_contents($theme . '/templates/list.html', '<main>list</main>', LOCK_EX);
