@@ -47,6 +47,7 @@ Tomos Postには、合言葉の連続失敗をIP単位で一時停止する軽�
 - `features/rss-sitemap.md`: RSS / sitemap
 - `features/seo-foundation.md`: SEO Foundation 1.0
 - `features/cache.md`: HTMLキャッシュ
+- `features/typography-and-color-scheme-plan.md`: Webフォント・文字サイズ設定とライト／ダーク表示の開発計画
 
 ## テーマを扱うとき
 
