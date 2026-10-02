@@ -302,14 +302,15 @@ function runTests(string $testRoot, int &$passes, array &$failures): void
             [$root, $installer] = environment($testRoot, 'hidden-validation');
             $zip = $root . '/valid.zip';
             $entries = validEntries();
-            // Keep the hidden staging tree in the transaction long enough for
-            // the watcher to mutate it before staging validation completes.
-            for ($i = 0; $i < 150; $i++) {
+            // Copy every entry first, then pause the installer as soon as the hidden
+            // staging tree is complete so mutation happens before validation.
+            for ($i = 0; $i < 190; $i++) {
                 $entries['tomos-test/assets/extra-' . $i . '.css'] = '.x' . $i . '{}';
             }
             makeZip($zip, $entries);
             [$id] = inspectZip($installer, $zip, 'owner-a');
-            withWatcher(function () use ($root, $entries): bool {
+            $parentPid = getmypid();
+            withWatcher(function () use ($root, $entries, $parentPid): bool {
                 $matches = glob($root . '/themes/.tomos-theme-staging-*/tomos-test/theme.json') ?: [];
                 if ($matches === []) {
                     return false;
@@ -322,7 +323,17 @@ function runTests(string $testRoot, int &$passes, array &$failures): void
                         return false;
                     }
                 }
-                return file_put_contents($matches[0], '{invalid') !== false;
+                if (!function_exists('posix_kill') || !defined('SIGSTOP') || !defined('SIGCONT')) {
+                    return false;
+                }
+                if (!posix_kill($parentPid, SIGSTOP)) {
+                    return false;
+                }
+                try {
+                    return file_put_contents($matches[0], '{invalid') !== false;
+                } finally {
+                    posix_kill($parentPid, SIGCONT);
+                }
             }, function () use ($installer, $id): void {
                 try {
                     $installer->apply($id, 'owner-a');
@@ -372,20 +383,30 @@ function runTests(string $testRoot, int &$passes, array &$failures): void
             [$root, $installer] = environment($testRoot, 'post-validation');
             $zip = $root . '/valid.zip';
             $entries = validEntries();
-            // Keep the target present long enough for the watcher to inject the
-            // post-placement mutation before final validation completes.
-            for ($i = 0; $i < 150; $i++) {
+            // Approach the package entry limit so the watcher can observe placement,
+            // pause this process, and inject the mutation before final validation.
+            for ($i = 0; $i < 190; $i++) {
                 $entries['tomos-test/assets/extra-' . $i . '.css'] = '.x' . $i . '{}';
             }
             makeZip($zip, $entries);
             [$id] = inspectZip($installer, $zip, 'owner-a');
-            withWatcher(function () use ($root): bool {
+            $parentPid = getmypid();
+            withWatcher(function () use ($root, $parentPid): bool {
                 $path = $root . '/themes/tomos-test/theme.json';
                 if (!is_file($path)) {
                     return false;
                 }
-                unlink($path);
-                return true;
+                if (!function_exists('posix_kill') || !defined('SIGSTOP') || !defined('SIGCONT')) {
+                    return false;
+                }
+                if (!posix_kill($parentPid, SIGSTOP)) {
+                    return false;
+                }
+                try {
+                    return unlink($path);
+                } finally {
+                    posix_kill($parentPid, SIGCONT);
+                }
             }, function () use ($installer, $id): void {
                 expectExceptionStage(function () use ($installer, $id): void {
                     $installer->apply($id, 'owner-a');

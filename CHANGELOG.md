@@ -1,5 +1,17 @@
 # 更新履歴
 
+## v1.1.5 - 2026-10-02
+
+### Fixed
+
+- Tomos Workspace本番OriginからInbox APIへ接続できるよう、CORS preflightを許可します
+- 既存サイトで古いCORS許可リストが設定されている場合も、公式Workspace Originを利用できます
+
+### Compatibility / Update
+
+- v1.1.4からv1.1.5へのBrowser Updateで反映します
+- Tomos Publisher token認証と、既存のTomosサイト設定・記事・画像・Themeを維持します
+
 ## v1.1.4 - 2026-10-01
 
 ### Improved
