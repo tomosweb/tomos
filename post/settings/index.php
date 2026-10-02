@@ -43,6 +43,7 @@ $themeSettingsPath = $rootDir . '/theme-settings.php';
 $themeSettings = (new Tomos\ThemeSettings($rootDir))->settings();
 $navigationSettings = is_array($themeSettings['navigation'] ?? null) ? $themeSettings['navigation'] : ['mode' => 'auto', 'items' => []];
 $navigationAutoItems = navigationAutoItems($config, $rootDir);
+$siteBrandingAssets = new Tomos\SiteBrandingAssets($rootDir);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string) ($_POST['_token'] ?? '');
@@ -50,6 +51,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Tomosの更新中です。完了してからもう一度操作してください。';
     } elseif ($token === '' || !hash_equals((string) $_SESSION['tomos_post_settings_token'], $token)) {
         $errors[] = 'フォームの有効期限が切れました。もう一度送信してください。';
+    } elseif (($_POST['settings_section'] ?? '') === 'branding') {
+        $brandingAction = is_string($_POST['branding_action'] ?? null) ? $_POST['branding_action'] : '';
+        $brandingKind = is_string($_POST['branding_kind'] ?? null) ? $_POST['branding_kind'] : '';
+        if ($brandingAction === 'remove') {
+            if (!$siteBrandingAssets->remove($brandingKind)) {
+                $errors[] = 'サイト画像を元に戻せませんでした。theme-assets の書き込み権限を確認してください。';
+            } else {
+                $messages[] = $brandingKind === 'favicon' ? 'FaviconをThemeの画像に戻しました。' : '共通OGP画像をThemeの画像に戻しました。';
+                $_SESSION['tomos_post_settings_token'] = bin2hex(random_bytes(32));
+            }
+        } elseif ($brandingAction === 'upload') {
+            $fileKey = $brandingKind === 'favicon' ? 'favicon_file' : 'ogp_file';
+            $result = $siteBrandingAssets->saveUploaded($brandingKind, is_array($_FILES[$fileKey] ?? null) ? $_FILES[$fileKey] : []);
+            if (empty($result['ok'])) {
+                $errors[] = (string) ($result['message'] ?? 'サイト画像を保存できませんでした。');
+            } else {
+                $messages[] = (string) $result['message'];
+                $_SESSION['tomos_post_settings_token'] = bin2hex(random_bytes(32));
+            }
+        } else {
+            $errors[] = 'サイト画像の操作が正しくありません。';
+        }
     } elseif (($_POST['settings_section'] ?? '') === 'navigation') {
         [$currentThemeSettings, $loadErrors] = Tomos\ThemeSettingsConfigWriter::load($themeSettingsPath);
         if ($loadErrors !== []) {
@@ -127,6 +150,7 @@ function renderSettingsPage(array $config, array $form, array $errors, array $me
     $analyticsUrl = Tomos\Security::publicUrl('/post/?section=settings#analytics-settings', $publicBasePath);
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
     $siteUrl = Tomos\Security::publicUrl('/', $publicBasePath);
+    $brandingAssets = new Tomos\SiteBrandingAssets(dirname(__DIR__, 2));
 
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
@@ -140,7 +164,7 @@ html,body{width:100%;overflow-x:hidden}
 body{background:var(--tomos-bg);box-sizing:border-box;color:var(--tomos-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}
 .wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:860px;padding:28px}
 h1{font-size:1.8rem;margin:0 0 0.5rem}h2{border-top:1px solid var(--tomos-border-soft);font-size:1.2rem;margin:2rem 0 1rem;padding-top:1.5rem}
-label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],select{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;box-sizing:border-box;color:var(--tomos-text);font:inherit;font-size:16px;padding:0.65rem;width:100%}input[type=text]:focus,select:focus{border-color:var(--tomos-accent);box-shadow:0 0 0 3px rgba(164,74,29,0.12);outline:none}
+label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],input[type=file],select{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;box-sizing:border-box;color:var(--tomos-text);font:inherit;font-size:16px;padding:0.65rem;width:100%}input[type=text]:focus,input[type=file]:focus,select:focus{border-color:var(--tomos-accent);box-shadow:0 0 0 3px rgba(164,74,29,0.12);outline:none}
 .checkbox{align-items:center;display:flex;font-weight:700;gap:0.55rem;margin:0.75rem 0}.checkbox input{accent-color:var(--tomos-accent);margin:0}.hint{color:var(--tomos-muted);font-size:0.95rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;padding:1rem}
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);border-color:var(--tomos-border);color:var(--tomos-text)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}
 .navigation-item{border:1px solid var(--tomos-border-soft);border-radius:8px;margin:0.8rem 0;padding:1rem}.navigation-item-header{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.navigation-item-header strong{font-size:1rem}.navigation-item-controls{display:flex;gap:0.35rem}.navigation-item-controls button{background:var(--tomos-input);border-color:var(--tomos-border);color:var(--tomos-text);font-size:0.9rem;padding:0.35rem 0.55rem}.navigation-item-controls button:hover{background:var(--tomos-button-hover)}
@@ -164,6 +188,7 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],selec
         echo '</ul><p><a href="' . e($siteUrl) . '">公開サイトを確認する</a></p></div>';
     }
 
+    renderBrandingSettingsSection($token, $brandingAssets, $publicBasePath);
     renderNavigationSettingsSection($token, $navigationSettings, $navigationAutoItems);
     echo '<form method="post" action="">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
@@ -206,6 +231,46 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],selec
     echo '</div></div>';
 
     echo '</main></body></html>';
+}
+
+function renderBrandingSettingsSection(string $token, Tomos\SiteBrandingAssets $assets, string $publicBasePath): void
+{
+    echo '<h2 id="branding-settings">サイト画像</h2>';
+    echo '<p class="hint">サイト固有のFaviconと共通OGP画像を設定できます。ここで設定した画像はThemeを変更・更新しても維持されます。</p>';
+
+    foreach ([
+        'favicon' => ['label' => 'Favicon', 'input' => 'favicon_file', 'hint' => 'ブラウザのタブなどに表示されるサイトアイコンです。PNG、JPEG、WebPに対応します。'],
+        'ogp' => ['label' => '共通OGP画像', 'input' => 'ogp_file', 'hint' => '記事に個別のOGP画像がない場合に使用します。PNG、JPEG、WebPに対応します。'],
+    ] as $kind => $meta) {
+        $current = $assets->asset($kind);
+        echo '<div class="result">';
+        echo '<strong>' . e($meta['label']) . '</strong>';
+        if ($current !== null) {
+            $url = $assets->publicUrl($kind, $publicBasePath);
+            echo '<p class="hint">現在はサイト固有画像を使用中です。</p>';
+            echo '<p><img src="' . e($url) . '" alt="" style="max-width:320px;max-height:180px;height:auto;width:auto;border:1px solid var(--tomos-border);border-radius:6px;background:#fff"></p>';
+        } else {
+            echo '<p class="hint">現在はThemeの画像を使用しています。</p>';
+        }
+        echo '<form method="post" action="#branding-settings" enctype="multipart/form-data">';
+        echo '<input type="hidden" name="settings_section" value="branding">';
+        echo '<input type="hidden" name="branding_action" value="upload">';
+        echo '<input type="hidden" name="branding_kind" value="' . e($kind) . '">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<label for="' . e($meta['input']) . '">' . e($meta['label']) . 'を変更</label>';
+        echo '<input id="' . e($meta['input']) . '" type="file" name="' . e($meta['input']) . '" accept="image/png,image/jpeg,image/webp" required>';
+        echo '<p class="hint">' . e($meta['hint']) . ' 1ファイル10MBまでです。</p>';
+        echo '<div class="actions"><button type="submit">画像を変更する</button></div></form>';
+        if ($current !== null) {
+            echo '<form method="post" action="#branding-settings">';
+            echo '<input type="hidden" name="settings_section" value="branding">';
+            echo '<input type="hidden" name="branding_action" value="remove">';
+            echo '<input type="hidden" name="branding_kind" value="' . e($kind) . '">';
+            echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+            echo '<div class="actions"><button type="submit" class="button secondary">Themeの画像に戻す</button></div></form>';
+        }
+        echo '</div>';
+    }
 }
 
 function renderNavigationSettingsSection(string $token, array $settings, array $autoItems): void
