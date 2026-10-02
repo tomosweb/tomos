@@ -11,8 +11,9 @@ final class InboxApiCors
     {
         $configured = $config['security']['inbox_api_allowed_origins'] ?? null;
         $origins = is_array($configured)
-            ? $configured
+            ? array_merge(['https://tomoswords.org'], $configured)
             : [
+                'https://tomoswords.org',
                 'https://tomos-workspace.al-8720554p.workers.dev',
                 'http://localhost:5173',
                 'http://127.0.0.1:5173',
