@@ -9,6 +9,7 @@ final class TemplateRenderer
     private array $config;
     private string $themePath;
     private ThemeSettings $themeSettings;
+    private SiteBrandingAssets $siteBrandingAssets;
     private array $allowedHtmlVariables = [
         'page.body' => true,
         'page.content' => true,
@@ -64,6 +65,7 @@ final class TemplateRenderer
         $this->themePath = $themesDir . DIRECTORY_SEPARATOR . $this->effectiveThemeName;
         $this->rootDir = rtrim($rootDir ?? dirname($themesDir), DIRECTORY_SEPARATOR);
         $this->themeSettings = new ThemeSettings($this->rootDir);
+        $this->siteBrandingAssets = new SiteBrandingAssets($this->rootDir);
         $this->assertThemeDoesNotContainPhp();
     }
 
@@ -174,14 +176,21 @@ final class TemplateRenderer
         $site['analytics_html'] = $canRenderAnalytics && (!array_key_exists('track_page', $page) || !empty($page['track_page']))
             ? Ga4::headHtml($this->config, $this->analyticsNonce)
             : '';
+        $brandingOgpUrl = $this->siteBrandingAssets->absoluteUrl(
+            'ogp',
+            (string) ($site['url'] ?? ''),
+            $publicBasePath
+        );
         $ogpAsset = $this->themeAsset('ogp.png');
-        $defaultSocialImageUrl = is_file($ogpAsset['path'])
-            ? Security::absolutePublicUrl(
-                (string) ($site['url'] ?? ''),
-                '/themes/' . rawurlencode($ogpAsset['theme']) . '/assets/' . rawurlencode($ogpAsset['file']),
-                $publicBasePath
-            )
-            : null;
+        $defaultSocialImageUrl = $brandingOgpUrl !== ''
+            ? $brandingOgpUrl
+            : (is_file($ogpAsset['path'])
+                ? Security::absolutePublicUrl(
+                    (string) ($site['url'] ?? ''),
+                    '/themes/' . rawurlencode($ogpAsset['theme']) . '/assets/' . rawurlencode($ogpAsset['file']),
+                    $publicBasePath
+                )
+                : null);
         $site['ogp_url'] = $defaultSocialImageUrl ?? '';
         $seo = SeoMetadata::build(
             $page,
@@ -216,14 +225,18 @@ final class TemplateRenderer
             'latest_pages' => $page['list']['latest_pages'] ?? '',
         ];
         $faviconAsset = $this->faviconAsset();
+        $brandingFavicon = $this->siteBrandingAssets->asset('favicon');
+        $brandingFaviconUrl = $this->siteBrandingAssets->publicUrl('favicon', $publicBasePath);
         $appleTouchIconAsset = $this->themeAsset('apple-touch-icon.png');
         $themeVersion = $this->themeVersion();
         $theme = array_merge([
             'asset_url' => Security::publicUrl('/themes/' . rawurlencode($this->effectiveThemeName) . '/assets', $publicBasePath),
             'asset_version' => $themeVersion,
             'version' => $themeVersion,
-            'favicon_url' => $this->faviconUrl($faviconAsset, $publicBasePath),
-            'favicon_type' => $faviconAsset['file'] === 'favicon.svg' ? 'image/svg+xml' : 'image/png',
+            'favicon_url' => $brandingFaviconUrl !== '' ? $brandingFaviconUrl : $this->faviconUrl($faviconAsset, $publicBasePath),
+            'favicon_type' => $brandingFavicon !== null
+                ? (string) $brandingFavicon['mime']
+                : ($faviconAsset['file'] === 'favicon.svg' ? 'image/svg+xml' : 'image/png'),
             'apple_touch_icon_url' => Security::publicUrl(
                 '/themes/' . rawurlencode($appleTouchIconAsset['theme']) . '/assets/' . rawurlencode($appleTouchIconAsset['file']),
                 $publicBasePath

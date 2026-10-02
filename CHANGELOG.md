@@ -1,5 +1,14 @@
 # 更新履歴
 
+## Unreleased
+
+### Added / Improved
+
+- Tomos Postの「サイト設定」から、サイト固有のFaviconと共通OGP画像を変更できるようにしました
+- サイト固有画像は `theme-assets/` に保存し、Theme変更・更新後も維持します
+- サイト固有画像を解除して、現在のThemeのFavicon・OGP画像へ戻せます
+- 記事ごとのFront Matter `image:` は従来どおりサイト共通OGPより優先します
+
 ## v1.1.5 - 2026-10-02
 
 ### Fixed

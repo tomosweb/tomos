@@ -40,7 +40,18 @@ try {
     assertContains($custom, '/themes/tomos-custom-favicon/assets/favicon.png?v=' . $customHash, 'custom favicon must remain selected and fingerprinted');
     assertNotContains($custom, '/assets/tomos-default-favicon.png?', 'custom favicon must not be replaced by the Core default');
 
-    echo "theme_asset_contract_check: OK (versioned stylesheet URLs, Core canonical favicon, custom favicon preservation)\n";
+    mkdir($root . '/theme-assets', 0700, true);
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+    file_put_contents($root . '/theme-assets/favicon.png', $png, LOCK_EX);
+    file_put_contents($root . '/theme-assets/ogp.png', $png, LOCK_EX);
+    $siteSpecific = render(config($root, 'tomos-custom-favicon'));
+    $brandingFaviconHash = hash_file('sha256', $root . '/theme-assets/favicon.png');
+    $brandingOgpHash = hash_file('sha256', $root . '/theme-assets/ogp.png');
+    assertContains($siteSpecific, '/theme-assets/favicon.png?v=' . $brandingFaviconHash, 'site-specific favicon must override Theme favicon');
+    assertContains($siteSpecific, 'https://example.test/theme-assets/ogp.png?v=' . $brandingOgpHash, 'site-specific OGP must override Theme OGP');
+    assertNotContains($siteSpecific, '/themes/tomos-custom-favicon/assets/favicon.png?v=' . $customHash, 'Theme favicon must be hidden by site-specific favicon');
+
+    echo "theme_asset_contract_check: OK (versioned stylesheet URLs, Core canonical favicon, Theme favicon preservation, site-specific branding priority)\n";
 } finally {
     removeTree($root);
 }
@@ -67,7 +78,7 @@ function writeTheme(string $root, string $name, string $version, bool $customFav
     mkdir($theme . '/templates', 0700, true);
     mkdir($theme . '/assets', 0700, true);
     file_put_contents($theme . '/theme.json', manifest($name, $version), LOCK_EX);
-    file_put_contents($theme . '/templates/layout.html', '<!doctype html><html><head><link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}"><link rel="stylesheet" href="{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}"></head><body>{{{ page.body }}}</body></html>', LOCK_EX);
+    file_put_contents($theme . '/templates/layout.html', '<!doctype html><html><head>{{{ page.seo_head_html }}}<link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}"><link rel="stylesheet" href="{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}"></head><body>{{{ page.body }}}</body></html>', LOCK_EX);
     file_put_contents($theme . '/templates/home.html', '<main>home</main>', LOCK_EX);
     file_put_contents($theme . '/templates/page.html', '<main>page</main>', LOCK_EX);
     file_put_contents($theme . '/templates/list.html', '<main>list</main>', LOCK_EX);

@@ -56,8 +56,12 @@ Tomos Postへログインし、「サイト設定」（`/post/settings/`、互�
 - RSSの有効・無効
 - RSS対象パス
 - Sitemapの有効・無効
+- サイト固有のFavicon
+- サイト共通OGP画像
 
 RSS対象パスを空欄にすると、下書きを除くすべての公開ページがRSSの対象になります。設定を保存すると、次の公開画面表示から反映されます。
+
+Faviconと共通OGP画像はサイト固有の `theme-assets/` に保存します。Theme内の画像より優先され、Themeを変更・更新しても維持されます。「Themeの画像に戻す」を選ぶとサイト固有画像を解除し、現在のTheme画像へ戻ります。記事にFront Matterの `image:` がある場合、その記事では記事ごとのOGP画像が優先されます。
 
 サイト設定画面には、[Google Analytics 4の設定](analytics.md)と[テーマ変更](themes.md)の各専用画面へのリンクもあります。GA4測定IDと使用テーマは、それぞれの専用画面で変更します。
 

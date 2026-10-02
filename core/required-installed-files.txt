@@ -64,6 +64,7 @@ core/BlueskyOAuthFlow.php
 core/BlueskyOAuthSessionClient.php
 core/BlueskyProvider.php
 core/ImageProcessingSupport.php
+core/SiteBrandingAssets.php
 post/social/bluesky/index.php
 post/social/bluesky/callback/index.php
 oauth-client-metadata.json.php
