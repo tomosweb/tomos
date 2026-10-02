@@ -1,6 +1,6 @@
 # 更新履歴
 
-## Unreleased
+## v1.1.6 - 2026-10-02
 
 ### Added / Improved
 
@@ -8,6 +8,7 @@
 - サイト固有画像は `theme-assets/` に保存し、Theme変更・更新後も維持します
 - サイト固有画像を解除して、現在のThemeのFavicon・OGP画像へ戻せます
 - 記事ごとのFront Matter `image:` は従来どおりサイト共通OGPより優先します
+- PNG / JPEG / WebPに対応し、1ファイル10MBまで登録できます
 
 ## v1.1.5 - 2026-10-02
 
