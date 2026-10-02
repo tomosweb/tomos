@@ -147,18 +147,29 @@ function runTests(string $testRoot, int &$passes, array &$failures): void
 
             $deployment = new ThemePackageDeployment($root, $root . '/themes', 'owner-a');
             $new = themeEntries('1.1.0', 'body{color:#222;}');
-            for ($i = 0; $i < 150; $i++) {
+            // Approach the package entry limit to give the watcher a reliable target.
+            for ($i = 0; $i < 190; $i++) {
                 $new['tomos-test/assets/extra-' . $i . '.css'] = '.x' . $i . '{}';
             }
             [$id] = inspectPackage($deployment, $root, 'owner-a', $new);
-            withWatcher(function () use ($root): bool {
+            $parentPid = getmypid();
+            withWatcher(function () use ($root, $parentPid): bool {
                 $backups = glob($root . '/themes/.tomos-theme-backup-*') ?: [];
                 $path = $root . '/themes/tomos-test/theme.json';
                 if ($backups === [] || !is_file($path)) {
                     return false;
                 }
-                unlink($path);
-                return true;
+                if (!function_exists('posix_kill') || !defined('SIGSTOP') || !defined('SIGCONT')) {
+                    return false;
+                }
+                if (!posix_kill($parentPid, SIGSTOP)) {
+                    return false;
+                }
+                try {
+                    return unlink($path);
+                } finally {
+                    posix_kill($parentPid, SIGCONT);
+                }
             }, function () use ($deployment, $id): void {
                 try {
                     $deployment->apply($id, 'owner-a');
