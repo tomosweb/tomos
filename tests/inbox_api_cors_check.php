@@ -17,8 +17,13 @@ $config = ['security' => []];
 
 assertSameValue(
     true,
+    InboxApiCors::isAllowed('https://tomoswords.org', $config),
+    'official production Workspace origin should be allowed by default'
+);
+assertSameValue(
+    true,
     InboxApiCors::isAllowed('https://tomos-workspace.al-8720554p.workers.dev', $config),
-    'official Workspace origin should be allowed by default'
+    'official development Workspace origin should be allowed by default'
 );
 assertSameValue(
     true,
@@ -55,9 +60,14 @@ assertSameValue(
     'configured origin should normalize trailing slash'
 );
 assertSameValue(
+    true,
+    InboxApiCors::isAllowed('https://tomoswords.org', $custom),
+    'official production Workspace origin should remain allowed with an existing custom allowlist'
+);
+assertSameValue(
     false,
     InboxApiCors::isAllowed('https://tomos-workspace.al-8720554p.workers.dev', $custom),
-    'configured allowlist should override defaults'
+    'configured allowlist should continue to control non-production default origins'
 );
 assertSameValue(
     [],

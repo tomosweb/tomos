@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   php-regression:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -69,6 +69,10 @@ jobs:
           for test in tests/*_check.php; do
             if [ "$test" = "tests/installer_phase5_check.php" ]; then
               echo "Skipping $test (requires signed release-candidate fixture; covered by installer release workflow)"
+              continue
+            fi
+            if [ "$test" = "tests/release_transition_check.php" ]; then
+              echo "Skipping $test (requires an explicit released from-version; covered by release candidate workflows)"
               continue
             fi
             if [ "$test" = "tests/public_artifact_update_acceptance_check.php" ]; then

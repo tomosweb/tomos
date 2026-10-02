@@ -64,9 +64,10 @@ return [
         'content_security_policy' => true,
         'post_password_hash' => '',
         'inbox_api_token_hash' => '',
-        // Browser-based Publisher origins. Existing installs without this key
-        // allow the official Tomos Workspace origin and local Vite development.
+        // Trusted browser-based Publisher origins. The official Tomos Workspace
+        // origin is also allowed when an existing config has an older allowlist.
         'inbox_api_allowed_origins' => [
+            'https://tomoswords.org',
             'https://tomos-workspace.al-8720554p.workers.dev',
             'http://localhost:5173',
             'http://127.0.0.1:5173',
