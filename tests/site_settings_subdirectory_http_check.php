@@ -183,6 +183,10 @@ try {
     assertSame(200, $site['status'], 'Site Settings status');
     assertSame($baseUrl . '/post/site-settings.php', $site['url'], 'Site Settings final URL');
     assertContains('サイト設定', $site['body'], 'Site Settings response marker');
+    assertContains('id="branding-settings"', $site['body'], 'Branding Settings section');
+    assertContains('name="favicon_file"', $site['body'], 'Favicon upload control');
+    assertContains('name="ogp_file"', $site['body'], 'OGP upload control');
+    assertContains('Themeを変更・更新しても維持されます。', $site['body'], 'Branding persistence guidance');
     assertContains('id="navigation-settings"', $site['body'], 'Navigation Settings section');
     assertContains('name="navigation_mode"', $site['body'], 'Navigation mode controls');
     assertNotContains('Fatal error', $site['body'], 'Site Settings fatal error');
