@@ -160,13 +160,17 @@ final class PostUpload
             $this->frontMatterParser,
             $this->htmlCacheEnabled,
             $this->includeDrafts,
-            $this->site
+            $this->site,
+            rtrim($rootDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'image-processing-diagnostics.log'
         );
         if ($socialProvider === null) {
             try {
                 $blueskySession = new BlueskyOAuthSessionClient($config, $rootDir);
                 if ($blueskySession->isConnected()) {
-                    $socialProvider = new BlueskyProvider($blueskySession);
+                    $socialProvider = new BlueskyProvider(
+                        $blueskySession,
+                        rtrim($rootDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'bluesky-thumbnail-diagnostics.log'
+                    );
                 }
             } catch (\Throwable $exception) {
                 $socialProvider = null;
@@ -913,7 +917,8 @@ final class PostUpload
                 preg_match('/\Atms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp)\z/', $uploadName) === 1
                 && in_array($uploadName, $references, true)
             ) {
-                // Browser-side resizing keeps the original content hash in this managed name.
+                // The staged name is the content hash of the browser-prepared image and is
+                // rewritten into the submitted Markdown before this upload is finalized.
                 $fileName = $uploadName;
             } else {
                 $hash = hash_file('sha256', $tmpPath);
