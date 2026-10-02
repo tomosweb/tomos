@@ -71,6 +71,10 @@ jobs:
               echo "Skipping $test (requires signed release-candidate fixture; covered by installer release workflow)"
               continue
             fi
+            if [ "$test" = "tests/release_transition_check.php" ]; then
+              echo "Skipping $test (requires an explicit released from-version; covered by release candidate workflows)"
+              continue
+            fi
             if [ "$test" = "tests/public_artifact_update_acceptance_check.php" ]; then
               echo "Skipping $test (live public artifact gate; run public-artifact-release-gate workflow explicitly)"
               continue
