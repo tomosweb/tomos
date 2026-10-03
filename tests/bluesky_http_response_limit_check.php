@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/core/BlueskyOAuthHttpClient.php';
 
-use Tomos\\BlueskyOAuthHttpClient;
+use Tomos\BlueskyOAuthHttpClient;
 
 $client = new BlueskyOAuthHttpClient();
+$tenMiBPassedLimitGuard = false;
 
 try {
     // A 10 MiB source limit must pass the byte-limit guard. The loopback URL
@@ -20,6 +21,11 @@ try {
             $exception
         );
     }
+    $tenMiBPassedLimitGuard = true;
+}
+
+if (!$tenMiBPassedLimitGuard) {
+    throw new RuntimeException('10 MiB response limit did not reach public-target validation.');
 }
 
 try {
@@ -31,4 +37,4 @@ try {
     }
 }
 
-echo "bluesky_http_response_limit_check: passed\\n";
+echo 'bluesky_http_response_limit_check: passed' . PHP_EOL;
