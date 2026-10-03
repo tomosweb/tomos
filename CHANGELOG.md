@@ -1,3 +1,14 @@
+## v1.1.7 - 2026-10-03
+
+### Fixed
+
+- Bluesky external cardでOGP画像を取得するとき、元画像の取得上限10MBとBlueskyへ添付する画像の上限2MB以下を正しく分けて扱います。元画像取得時に添付画像用の上限を誤って適用し、OGP画像がカードへ添付されない問題を修正しました。
+
+### Compatibility / Update
+
+- v1.1.6からv1.1.7へ、署名付きTomos Updateで更新します。
+- 更新時も`config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashの運用データを保持します。
+
 # 更新履歴
 
 ## v1.1.6 - 2026-10-02
