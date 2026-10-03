@@ -28,6 +28,7 @@ final class BlueskyOAuthHttpResponse
 final class BlueskyOAuthHttpClient
 {
     private const MAX_BYTES = 262144;
+    private const MAX_LIMIT_BYTES = 10485760;
     private const CONNECT_TIMEOUT = 5;
     private const TIMEOUT = 12;
 
@@ -38,7 +39,7 @@ final class BlueskyOAuthHttpClient
 
     public function getWithLimit(string $url, int $maxBytes, array $headers = []): BlueskyOAuthHttpResponse
     {
-        if ($maxBytes < 1 || $maxBytes > 2000000) {
+        if ($maxBytes < 1 || $maxBytes > self::MAX_LIMIT_BYTES) {
             throw new \InvalidArgumentException('HTTP response byte limit is invalid.');
         }
 
