@@ -23,4 +23,9 @@ check(PostAuthReturnTo::normalize('/post/../security/') === '/post/?section=sett
 check(PostAuthReturnTo::url('/post/theme/', '/theme-labo') === '/theme-labo/post/theme/', 'subdirectory Theme URL');
 check(PostAuthReturnTo::url('/post/site-settings.php', '/theme-labo') === '/theme-labo/post/site-settings.php', 'subdirectory Site Settings URL');
 
-echo "post_auth_return_to_check: safe allowlist, fallback, open redirect, and subdirectory URL checks passed\n";
+check(PostAuthReturnTo::normalize('/post/?write_import=1&session=0123456789abcdef0123456789abcdef') === '/post/?write_import=1&session=0123456789abcdef0123456789abcdef', 'new draft handoff route must survive authentication');
+check(PostAuthReturnTo::url('/post/?write_import=1&session=0123456789abcdef0123456789abcdef', '/theme-labo') === '/theme-labo/post/?write_import=1&session=0123456789abcdef0123456789abcdef', 'subdirectory handoff URL');
+check(PostAuthReturnTo::normalize('/post/?write_import=1&session=0123456789abcdef0123456789abcdef&next=https://example.com/') === '/post/?section=settings', 'handoff route must reject extra query parameters');
+check(PostAuthReturnTo::normalize('/post/?write_import=1&session=../security') === '/post/?section=settings', 'handoff route must reject unsafe session identifiers');
+
+echo "post_auth_return_to_check: safe allowlist, auth handoff preservation, fallback, open redirect, and subdirectory URL checks passed\n";
