@@ -1,3 +1,19 @@
+## v1.1.8 - 2026-10-04
+
+### Added / Improved
+
+- Tomos WriteからTomos Postへ、新規Markdown原稿を直接渡して投稿画面へ読み込めるようにしました。
+- Tomos WriteとTomos Postが別originでも、opener・origin・source・session・transactionを検証しながら安全にhandoffします。
+- 認証が必要な場合も、Tomos Postでログインしたあと同じhandoff sessionへ戻って原稿を受け取れます。
+- 新規投稿handoffと既存記事編集handoffを分離し、新規投稿では編集用の`tomos_source_*`情報を除去します。
+- Tomos Writeから受け取った原稿であることをTomos Postの投稿画面上部に表示します。
+- MarkdownはURLへ含めず、本文サイズは1MiBまでに制限します。最終公開はTomos Postで人間が実行します。
+
+### Compatibility / Update
+
+- v1.1.7からv1.1.8へ、署名付きTomos Updateで更新します。
+- 更新時も`config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashの運用データを保持します。
+
 ## v1.1.7 - 2026-10-03
 
 ### Fixed
