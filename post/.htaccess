@@ -1,5 +1,5 @@
 # Tomos Post cross-origin Write handoff compatibility.
-# Authentication routing is owned by post/index.php; this file only sets browser opener policy.
-<IfModule mod_headers.c>
-    Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
-</IfModule>
+# Post and Write use different origins, so Post intentionally leaves COOP unset.
+# The browser default (unsafe-none) preserves the popup opener relationship;
+# postMessage still validates origin, source window, protocol, and session in JS.
+# Authentication routing is owned by post/index.php.

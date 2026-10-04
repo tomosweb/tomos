@@ -44,7 +44,7 @@ On 2026-09-17, the currently published `https://tomoswords.org/` site was opened
 
 ## Existing security and deployment boundaries
 
-- `post/.htaccess` keeps `Cross-Origin-Opener-Policy: same-origin-allow-popups` for the cross-origin opener relationship.
+- `post/.htaccess` intentionally leaves `Cross-Origin-Opener-Policy` unset. Post and Write are different origins, so the browser default (`unsafe-none`) preserves `window.opener`; the handoff JavaScript continues to validate the exact origin, source window, protocol, and session.
 - Subdirectory Post URLs are generated through Tomos URL helpers; the return URL is validated before it is put in the handoff fragment.
 - No article body, CSRF token, password, or authentication data is written to external diagnostics.
 
