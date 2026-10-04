@@ -31,10 +31,16 @@ if ($authenticated) {
 
 $errors = [];
 $warnings = [];
-$hasReturnTo = array_key_exists('return_to', $_GET) || array_key_exists('return_to', $_POST);
-$returnTo = $hasReturnTo
-    ? Tomos\PostAuthReturnTo::normalize($_POST['return_to'] ?? $_GET['return_to'] ?? null)
-    : null;
+$writeImportSession = (string) ($_GET['session'] ?? '');
+$hasWriteImportReturn = $_SERVER['REQUEST_METHOD'] === 'GET'
+    && (string) ($_GET['write_import'] ?? '') === '1'
+    && preg_match('/^[a-f0-9-]{32,36}$/i', $writeImportSession);
+$hasReturnTo = array_key_exists('return_to', $_GET) || array_key_exists('return_to', $_POST) || $hasWriteImportReturn;
+$returnTo = $hasWriteImportReturn && !array_key_exists('return_to', $_GET)
+    ? Tomos\PostAuthReturnTo::normalize('/post/?write_import=1&session=' . strtolower($writeImportSession))
+    : ($hasReturnTo
+        ? Tomos\PostAuthReturnTo::normalize($_POST['return_to'] ?? $_GET['return_to'] ?? null)
+        : null);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
     $token = (string) ($_POST['_token'] ?? '');
