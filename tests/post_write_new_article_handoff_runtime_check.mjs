@@ -39,8 +39,8 @@ const windowObject = {
   clearTimeout,
   history: { replaceState() {} },
   alert() {},
-  TomosPostImportMarkdown: async (markdown, filename) => {
-    importCalls.push({ markdown, filename });
+  TomosPostImportMarkdown: async (markdown, filename, options) => {
+    importCalls.push({ markdown, filename, options });
     return true;
   },
 };
@@ -112,7 +112,12 @@ dispatch(writeSource, envelope({
   document: { markdown: "# accepted", filename: "accepted.md" },
 }));
 await new Promise((resolve) => setTimeout(resolve, 0));
-assert.deepEqual(importCalls, [{ markdown: "# accepted", filename: "accepted.md" }]);
+assert.equal(importCalls.length, 1);
+assert.equal(importCalls[0].markdown, "# accepted");
+assert.equal(importCalls[0].filename, "accepted.md");
+assert.equal(importCalls[0].options.mode, "new", "direct publish handoff must be imported as a new article");
+assert.equal(importCalls[0].options.transactionId, "transaction-1");
+assert.equal(importCalls[0].options.session, session);
 assert.equal(outbound[1].message.type, "tomos:publish-ack");
 assert.equal(outbound[1].message.transactionId, "transaction-1");
 assert.equal(outbound[1].targetOrigin, WRITE_ORIGIN);
