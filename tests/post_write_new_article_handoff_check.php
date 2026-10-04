@@ -26,8 +26,10 @@ checkNewArticleHandoff(strpos($handoff, '!transactionId') !== false, 'Post recei
 checkNewArticleHandoff(strpos($handoff, 'write:publish-document') !== false, 'Post receiver must handle a new article document');
 checkNewArticleHandoff(strpos($handoff, 'tomos:publish-ready') !== false && strpos($handoff, 'tomos:publish-ack') !== false, 'Post receiver must handshake and acknowledge an import');
 checkNewArticleHandoff(strpos($handoff, 'TomosPostImportMarkdown') !== false, 'Post receiver must use the existing markdown importer');
+checkNewArticleHandoff(strpos($handoff, 'mode: "new"') !== false, 'Direct Write publish handoff must mark the import as a new article');
+checkNewArticleHandoff(strpos($postIndex, 'stripTomosSourceMetadata') !== false, 'New Write handoff must strip editable-source metadata before publishing');
 checkNewArticleHandoff(strpos($postIndex, 'id="tomos-write-handoff-notice" class="success"') !== false, 'Post must expose a prominent Write handoff confirmation');
-checkNewArticleHandoff(strpos($postIndex, 'setHandoffNotice("Tomos Writeから編集済みMarkdownを受け取りました。内容を確認して投稿してください。")') !== false, 'Post must show the edited Markdown handoff confirmation prominently');
+checkNewArticleHandoff(strpos($postIndex, 'setHandoffNotice("Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。")') !== false, 'Post must show the new Markdown handoff confirmation prominently');
 checkNewArticleHandoff(strpos($postIndex, "PostAuthReturnTo::normalize('/post/?write_import=1&session=") !== false, 'Post must retain a validated import route for login');
 checkNewArticleHandoff(strpos($authGate, "write_import") !== false, 'Login page must carry the direct import route into its form');
 checkNewArticleHandoff(strpos($authReturnTo, "write_import=1&session=") !== false, 'Auth return route must allow only the new import marker and session');
