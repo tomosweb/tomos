@@ -84,7 +84,7 @@ try {
     $resumed = $resumeUpload->publishSocialFromSavedContent($saved->contentPath);
     assertSame(SocialPublishResult::SUCCESS, $resumed->status, 'saved content must resume social publishing');
     assertSame(1, $provider->calls, 'resumed social publishing must call the provider once');
-    assertSame(realpath($brandingOgpPath), $provider->lastContext['social_image_path'] ?? '', 'article without Front Matter image must use the site OGP file directly');
+    assertSame(realpath($brandingOgpPath), realpath((string) ($provider->lastContext['social_image_path'] ?? '')), 'article without Front Matter image must use the site OGP file directly');
     assertSame(
         'https://example.test/theme-assets/ogp.jpg?v=' . hash_file('sha256', $brandingOgpPath),
         $provider->lastContext['social_image_url'] ?? '',
@@ -105,7 +105,7 @@ try {
     assertSame(SocialPublishResult::SUCCESS, $ogpResult->status, 'Front Matter OGP article must publish');
     assertSame(2, $provider->calls, 'OGP article must publish once');
     assertSame('https://example.test/content/images/example.jpg', $provider->lastContext['social_image_url'] ?? '', 'Front Matter image URL must resolve correctly');
-    assertSame(realpath($ogpImagePath), $provider->lastContext['social_image_path'] ?? '', 'Front Matter image path must resolve correctly');
+    assertSame(realpath($ogpImagePath), realpath((string) ($provider->lastContext['social_image_path'] ?? '')), 'Front Matter image path must resolve correctly');
 
     // Case 5: a provider failure must not roll back the already-saved article.
     $provider->fail = true;
