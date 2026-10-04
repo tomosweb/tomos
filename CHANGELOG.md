@@ -3,6 +3,7 @@
 ### Fixed
 
 - Bluesky external cardでOGP画像を取得するとき、元画像の取得上限10MBとBlueskyへ添付する画像の上限2MB以下を正しく分けて扱います。元画像取得時に添付画像用の上限を誤って適用し、OGP画像がカードへ添付されない問題を修正しました。
+- 記事にFront Matter `image:` がない場合、サイト共通OGP画像をBlueskyカードに使用します。
 
 ### Compatibility / Update
 
