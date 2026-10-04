@@ -35,8 +35,12 @@ final class DeferredSocialFakeProvider implements SocialProvider
 $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tomos-deferred-social-' . bin2hex(random_bytes(6));
 $contentDir = $root . DIRECTORY_SEPARATOR . 'content';
 $cacheDir = $root . DIRECTORY_SEPARATOR . 'cache';
+$brandingDir = $root . DIRECTORY_SEPARATOR . 'theme-assets';
 mkdir($contentDir, 0775, true);
 mkdir($cacheDir, 0775, true);
+mkdir($brandingDir, 0775, true);
+$brandingOgpPath = $brandingDir . DIRECTORY_SEPARATOR . 'ogp.jpg';
+createJpeg($brandingOgpPath);
 
 $config = [
     'site' => [
@@ -80,6 +84,12 @@ try {
     $resumed = $resumeUpload->publishSocialFromSavedContent($saved->contentPath);
     assertSame(SocialPublishResult::SUCCESS, $resumed->status, 'saved content must resume social publishing');
     assertSame(1, $provider->calls, 'resumed social publishing must call the provider once');
+    assertSame(realpath($brandingOgpPath), realpath((string) ($provider->lastContext['social_image_path'] ?? '')), 'article without Front Matter image must use the site OGP file directly');
+    assertSame(
+        'https://example.test/theme-assets/ogp.jpg?v=' . hash_file('sha256', $brandingOgpPath),
+        $provider->lastContext['social_image_url'] ?? '',
+        'article without Front Matter image must use the site OGP URL'
+    );
     assertTrue(is_file($savedPath), 'successful social publishing must not delete the saved article');
 
     // Case 4: resolve Front Matter image: relative to the saved article.
@@ -95,7 +105,7 @@ try {
     assertSame(SocialPublishResult::SUCCESS, $ogpResult->status, 'Front Matter OGP article must publish');
     assertSame(2, $provider->calls, 'OGP article must publish once');
     assertSame('https://example.test/content/images/example.jpg', $provider->lastContext['social_image_url'] ?? '', 'Front Matter image URL must resolve correctly');
-    assertSame(realpath($ogpImagePath), $provider->lastContext['social_image_path'] ?? '', 'Front Matter image path must resolve correctly');
+    assertSame(realpath($ogpImagePath), realpath((string) ($provider->lastContext['social_image_path'] ?? '')), 'Front Matter image path must resolve correctly');
 
     // Case 5: a provider failure must not roll back the already-saved article.
     $provider->fail = true;

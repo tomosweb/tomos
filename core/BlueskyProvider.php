@@ -244,9 +244,29 @@ final class BlueskyProvider implements SocialProvider
             ]);
             return is_array($blob) ? $blob : null;
         } catch (\Throwable $exception) {
-            $this->thumbnailLog('exception', ['class' => get_class($exception)]);
+            $this->thumbnailLog('exception', [
+                'class' => get_class($exception),
+                'reason' => $this->thumbnailExceptionReason($exception),
+            ]);
             return null;
         }
+    }
+
+    private function thumbnailExceptionReason(\Throwable $exception): string
+    {
+        if (!$exception instanceof \InvalidArgumentException) {
+            return 'other_exception';
+        }
+
+        $reasons = [
+            'HTTP response byte limit is invalid.' => 'response_limit_invalid',
+            'OAuth URL must be a public HTTPS URL.' => 'url_not_public_https',
+            'OAuth URL host is not public.' => 'url_host_not_public',
+            'OAuth URL resolves to a non-public address.' => 'url_dns_not_public',
+            'Unsupported Bluesky blob content type.' => 'blob_content_type_unsupported',
+        ];
+
+        return $reasons[$exception->getMessage()] ?? 'invalid_argument_other';
     }
 
     /** @param array<string,int|string|bool> $details */

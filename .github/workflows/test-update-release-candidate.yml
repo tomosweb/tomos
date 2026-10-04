@@ -15,7 +15,7 @@ jobs:
   test-update-artifact:
     runs-on: ubuntu-latest
     env:
-      TOMOS_RELEASE_FROM_VERSION: '1.1.4'
+      TOMOS_RELEASE_FROM_VERSION: '1.1.6'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,15 +30,15 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Fetch released public v1.1.4 baseline
-        run: git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.1.4:refs/tomos-public/v1.1.4
+      - name: Fetch released public v1.1.6 baseline
+        run: git fetch --no-tags https://github.com/tomosweb/tomos.git refs/tags/v1.1.6:refs/tomos-public/v1.1.6
 
       - name: Prepare distribution dependencies
         run: bash tools/prepare-distribution-dependencies.sh
 
       - name: Build and verify test Update ZIP
         env:
-          TOMOS_RELEASE_FROM_REF: refs/tomos-public/v1.1.4
+          TOMOS_RELEASE_FROM_REF: refs/tomos-public/v1.1.6
           TOMOS_RELEASE_TRANSITION_ARTIFACT_DIR: build/test-update
         run: |
           set -euo pipefail
@@ -53,6 +53,6 @@ jobs:
       - name: Upload test Update ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tomos-update-1.1.4-to-1.1.5-TEST-${{ github.sha }}
+          name: tomos-update-1.1.6-to-1.1.7-TEST-${{ github.sha }}
           path: build/test-update/
           if-no-files-found: error
