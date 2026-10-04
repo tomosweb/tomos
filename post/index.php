@@ -1911,6 +1911,22 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     return false;
   };
 
+  const stripTomosSourceMetadata = (markdown) => {
+    const opening = markdown.match(/^---(\r\n|\n|\r)/);
+    if (!opening) return markdown;
+    const frontStart = opening[0].length;
+    const closingPattern = /(\r\n|\n|\r)---[ \t]*(?=(?:\r\n|\n|\r)|$)/g;
+    closingPattern.lastIndex = frontStart;
+    const closing = closingPattern.exec(markdown);
+    if (!closing) return markdown;
+    const frontMatter = markdown.slice(frontStart, closing.index);
+    const cleaned = frontMatter.replace(
+      /^(?:tomos_asset_base_url|tomos_source_path|tomos_source_hash|tomos_source_status)[ \t]*:[^\r\n]*(?:\r\n|\n|\r|$)/gm,
+      ""
+    );
+    return markdown.slice(0, frontStart) + cleaned + markdown.slice(closing.index);
+  };
+
   const extractSourceMetadata = (markdown) => {
     const keys = [
       "tomos_asset_base_url",
@@ -2287,8 +2303,10 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const MAX_MARKDOWN_BYTES = Number(document.body.dataset.tomosMarkdownMaxBytes || 0);
 
-  window.TomosPostImportMarkdown = (markdown, filename) => {
+  window.TomosPostImportMarkdown = (markdown, filename, options = {}) => {
     if (typeof markdown !== "string" || markdown === "" || !Number.isSafeInteger(MAX_MARKDOWN_BYTES) || MAX_MARKDOWN_BYTES <= 0 || new TextEncoder().encode(markdown).byteLength > MAX_MARKDOWN_BYTES) return false;
+    const newPostHandoff = Boolean(options && options.mode === "new");
+    if (newPostHandoff) markdown = stripTomosSourceMetadata(markdown);
     const safeFilename = typeof filename === "string" && /^[^/\\]+\.(?:md|markdown|txt)$/i.test(filename) ? filename : "article.md";
     resetImportedMarkdownState();
     importedFilename = safeFilename;
