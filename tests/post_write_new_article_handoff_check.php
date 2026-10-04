@@ -17,7 +17,12 @@ $authGate = file_get_contents($root . '/post/auth-gate.php');
 
 checkNewArticleHandoff(is_string($handoff) && strpos($handoff, 'write_import') !== false, 'Post receiver must require the new import route');
 checkNewArticleHandoff(strpos($handoff, 'event.origin !== WRITE_ORIGIN') !== false, 'Post receiver must validate the Tomos Write origin');
-checkNewArticleHandoff(strpos($handoff, 'event.source === writeImportSource') !== false, 'Post receiver must validate the opener window');
+checkNewArticleHandoff(strpos($handoff, 'event.source !== writeImportSource') !== false, 'Post receiver must validate the bound source window');
+checkNewArticleHandoff(strpos($handoff, 'let writeImportSource = null;') !== false, 'Post receiver must wait for a valid probe before binding the source');
+checkNewArticleHandoff(strpos($handoff, 'if (!writeImportSource) writeImportSource = event.source;') !== false, 'Post receiver must bind the first valid probe source');
+checkNewArticleHandoff(strpos($handoff, 'sendWriteImportReady(writeImportSource);') === false, 'Post receiver must not send ready before receiving a probe');
+checkNewArticleHandoff(strpos($handoff, 'event.source === window') !== false, 'Post receiver must reject self-originated message events');
+checkNewArticleHandoff(strpos($handoff, '!transactionId') !== false, 'Post receiver must require a transaction ID');
 checkNewArticleHandoff(strpos($handoff, 'write:publish-document') !== false, 'Post receiver must handle a new article document');
 checkNewArticleHandoff(strpos($handoff, 'tomos:publish-ready') !== false && strpos($handoff, 'tomos:publish-ack') !== false, 'Post receiver must handshake and acknowledge an import');
 checkNewArticleHandoff(strpos($handoff, 'TomosPostImportMarkdown') !== false, 'Post receiver must use the existing markdown importer');

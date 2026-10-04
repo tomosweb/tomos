@@ -273,25 +273,35 @@
     && /^[a-f0-9-]{32,36}$/i.test(writeImportParams.get("session") || "")
     ? writeImportParams.get("session")
     : "";
-  let writeImportSource = window.opener && !window.opener.closed ? window.opener : null;
+  let writeImportSource = null;
   const sendWriteImportReady = (source) => {
-    if (!source || !writeImportSession || !WRITE_ORIGIN) return;
-    source.postMessage({
-      protocol: PROTOCOL,
-      session: writeImportSession,
-      senderVersion: TOMOS_VERSION,
-      capabilities: CAPABILITIES,
-      type: "tomos:publish-ready",
-    }, WRITE_ORIGIN);
+    if (!source || !writeImportSession || !WRITE_ORIGIN) return false;
+    try {
+      source.postMessage({
+        protocol: PROTOCOL,
+        session: writeImportSession,
+        senderVersion: TOMOS_VERSION,
+        capabilities: CAPABILITIES,
+        type: "tomos:publish-ready",
+      }, WRITE_ORIGIN);
+      return true;
+    } catch {
+      recordDiagnostic("publish-ready failed");
+      return false;
+    }
   };
   const inflightWriteImportTransactions = new Set();
   const receiveWriteImport = async (message, source) => {
     const markdown = message.document && message.document.markdown;
     const filename = message.document && message.document.filename;
     const transactionId = typeof message.transactionId === "string" ? message.transactionId : "";
-    if (!source || typeof markdown !== "string" || !MAX_MARKDOWN_BYTES || byteLength(markdown) > MAX_MARKDOWN_BYTES) return;
+    if (!source || !transactionId || typeof markdown !== "string" || !MAX_MARKDOWN_BYTES || byteLength(markdown) > MAX_MARKDOWN_BYTES) return;
     if (transactionId && processedReturnTransactions.has(transactionId)) {
-      source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-ack", transactionId }), WRITE_ORIGIN);
+      try {
+        source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-ack", transactionId }), WRITE_ORIGIN);
+      } catch {
+        recordDiagnostic("publish ack failed");
+      }
       return;
     }
     if (transactionId && inflightWriteImportTransactions.has(transactionId)) return;
@@ -308,7 +318,12 @@
     }
     if (!accepted) return;
     if (transactionId) processedReturnTransactions.add(transactionId);
-    source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-ack", transactionId }), WRITE_ORIGIN);
+    try {
+      source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-ack", transactionId }), WRITE_ORIGIN);
+    } catch {
+      recordDiagnostic("publish ack failed");
+      return;
+    }
     recordDiagnostic("new draft import ack received");
     const cleanUrl = new URL(window.location.href);
     cleanUrl.searchParams.delete("write_import");
@@ -317,23 +332,24 @@
     document.getElementById("post-upload")?.scrollIntoView({ behavior: scrollBehavior, block: "start" });
   };
 
-  if (writeImportSession && document.getElementById("markdown_file") && WRITE_ORIGIN) {
-    sendWriteImportReady(writeImportSource);
-  }
-
   window.addEventListener("message", (event) => {
-    if (!WRITE_ORIGIN || event.origin !== WRITE_ORIGIN) return;
+    if (!WRITE_ORIGIN || event.origin !== WRITE_ORIGIN || !event.source || event.source === window) return;
     const message = event.data;
-    if (writeImportSession && message && typeof message === "object"
-      && message.protocol === PROTOCOL && message.session === writeImportSession
-      && event.source && event.source === writeImportSource) {
+    if (!message || typeof message !== "object") return;
+    if (writeImportSession && message.protocol === PROTOCOL && message.session === writeImportSession) {
+      if (message.type === "write:publish-probe") {
+        if (!writeImportSource) writeImportSource = event.source;
+        if (event.source !== writeImportSource) return;
+        if (typeof message.senderVersion === "string" && message.senderVersion !== "") writeVersion = message.senderVersion;
+        sendWriteImportReady(event.source);
+        return;
+      }
+      if (!writeImportSource || event.source !== writeImportSource) return;
       if (typeof message.senderVersion === "string" && message.senderVersion !== "") writeVersion = message.senderVersion;
-      if (message.type === "write:publish-probe") sendWriteImportReady(event.source);
       if (message.type === "write:publish-document") void receiveWriteImport(message, event.source);
       return;
     }
     if (!writeWindow || event.source !== writeWindow) return;
-    if (!message || typeof message !== "object") return;
     if (message.protocol !== PROTOCOL || message.session !== sessionId) return;
     if (typeof message.senderVersion === "string" && message.senderVersion !== "") writeVersion = message.senderVersion;
 
