@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -1086,10 +1088,18 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
 .nav a[aria-current="page"]{background:var(--tomos-accent);border-color:var(--tomos-accent);color:#fff;font-weight:700}.nav a[aria-current="page"]:hover{background:var(--tomos-accent);border-color:var(--tomos-accent)}.section{margin-top:1.5rem}.basic-page{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.basic-page h3{margin-top:0}.inline-form{margin:0}.inline-form input[type=password]{min-width:min(260px,100%)}.result-download{border-top:1px solid var(--tomos-border-soft);margin-top:1.5rem;padding-top:1.5rem}.result-download .inline-form{align-items:center;display:flex;flex-wrap:wrap;gap:0.6rem}.result-download input[type=password]{flex:1 1 260px;width:auto}.result-download button{flex:0 1 auto}.editable-results{display:grid;gap:1rem;margin-top:1rem}.editable-result{border:1px solid var(--tomos-border-soft);border-radius:6px;padding:1rem}.editable-result h3{margin:0.35rem 0}.editable-status{color:var(--tomos-accent);font-weight:700;margin:0}.pager{align-items:center;display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:space-between;margin-top:1rem}.pager p{margin:0}.tomos-message{color:var(--tomos-muted);font-size:.9rem;margin:0 0 1rem}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{align-items:center;display:flex;justify-content:center;min-height:44px;padding:0.45rem 0.6rem;text-align:center}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
 .result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}
-</style></head><body data-tomos-write-url="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" data-tomos-markdown-max-bytes="' . e((string) Tomos\PostUploadInput::maxBytes()) . '" data-tomos-version="' . e(trim((string) @file_get_contents(dirname(__DIR__) . '/VERSION'))) . '"><main class="wrap">';
+</style><link rel="stylesheet" href="' . e(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath)) . '"></head><body data-tomos-write-url="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" data-tomos-markdown-max-bytes="' . e((string) Tomos\PostUploadInput::maxBytes()) . '" data-tomos-version="' . e(trim((string) @file_get_contents(dirname(__DIR__) . '/VERSION'))) . '"><main class="wrap">';
 
     echo '<style>.advanced-tools{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.advanced-tools summary,.settings-details summary{cursor:pointer;font-weight:700;min-height:44px}.settings-links{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-top:1rem}.settings-link{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:6px;color:var(--tomos-text);display:flex;flex-direction:column;gap:.2rem;padding:1rem;text-decoration:none}.settings-link:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.settings-link span{color:var(--tomos-muted);font-size:.95rem}.settings-details{border-top:1px solid var(--tomos-border-soft);margin-top:2rem;padding-top:1rem}.settings-details h2{border-top:0;margin-top:0;padding-top:0}.tomos-message{align-items:center;background:#fffaf2;border:1px solid rgba(164,74,29,.1);border-radius:8px;box-shadow:0 2px 8px rgba(47,47,47,.05);box-sizing:border-box;display:flex;gap:1rem;justify-content:space-between;margin:1.25rem 0 1.5rem;padding:1rem 1.25rem}.tomos-message-text{color:#3b332e;flex:1 1 auto;font-family:"Klee One","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;font-size:clamp(1rem,1.35vw,1.125rem);font-weight:400;line-height:1.7;margin:0}.tomos-message-mark{display:block;flex:0 0 auto;height:2.5rem;width:auto}@media(max-width:560px){.tomos-message{gap:.5rem;padding:1rem}.tomos-message-mark{height:2rem;width:auto}}</style>';
-    echo '<h1>' . e($title) . '</h1>';
+    echo '<header class="post-header"><h1><a class="post-brand" href="' . e($continueUrl) . '">Tomos Post</a></h1>';
+    if (!empty($_SESSION['tomos_post_authenticated'])) {
+        echo '<form class="auth-actions" method="post" action="">';
+        echo '<input type="hidden" name="action" value="logout">';
+        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
+        echo '<button class="text-button" type="submit">' . tomosPostIcon('security') . '<span>認証を解除</span></button>';
+        echo '</form>';
+    }
+    echo '</header>';
     if ($showTomosDailyMessage) {
         renderTomosDailyMessage();
     }
@@ -1100,14 +1110,6 @@ code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-te
         echo '<p>更新の仕上げが残っています。</p>';
         echo '<p><a class="button" href="' . e($finalizeUrl) . '">更新を完了する</a></p></div>';
     }
-    if (!empty($_SESSION['tomos_post_authenticated'])) {
-        echo '<div class="auth-actions"><form method="post" action="">';
-        echo '<input type="hidden" name="action" value="logout">';
-        echo '<input type="hidden" name="_token" value="' . e($token) . '">';
-        echo '<button class="secondary" type="submit">このブラウザの認証を解除</button>';
-        echo '</form></div>';
-    }
-
     if ($disabled) {
         renderMessages($errors, $messages, $warnings);
         echo '</main></body></html>';
@@ -1179,7 +1181,8 @@ function renderSectionNav(string $activeSection, string $publicBasePath): void
     foreach ($items as $section => $label) {
         $url = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?' . http_build_query(['section' => $section], '', '&', PHP_QUERY_RFC3986);
         $current = $section === $activeSection ? ' aria-current="page"' : '';
-        echo '<a href="' . e($url) . '"' . $current . '>' . e($label) . '</a>';
+        $icon = ['upload' => 'upload', 'drafts' => 'draft', 'published' => 'globe', 'settings' => 'settings'][$section];
+        echo '<a href="' . e($url) . '"' . $current . '>' . tomosPostIcon($icon) . '<span>' . e($label) . '</span></a>';
     }
 echo '</nav>';
 }
@@ -1391,34 +1394,47 @@ function renderSettingsHomeSection(string $token, array $config, string $returnT
     $authenticated = !empty($_SESSION['tomos_post_authenticated']);
     $securityUrl = Tomos\Security::publicUrl('/post/security/', $publicBasePath);
     $siteSettingsUrl = Tomos\Security::publicUrl('/post/site-settings.php', $publicBasePath);
+    $navigationUrl = Tomos\Security::publicUrl('/post/navigation/', $publicBasePath);
+    $analyticsUrl = Tomos\Security::publicUrl('/post/analytics/', $publicBasePath);
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
     $socialUrl = Tomos\Security::publicUrl('/post/social/bluesky/', $publicBasePath);
     if (!$authenticated) {
         $siteSettingsUrl = $securityUrl . '?return_to=' . rawurlencode('/post/site-settings.php');
+        $navigationUrl = $securityUrl . '?return_to=' . rawurlencode('/post/navigation/');
+        $analyticsUrl = $securityUrl . '?return_to=' . rawurlencode('/post/analytics/');
         $themeUrl = $securityUrl . '?return_to=' . rawurlencode('/post/theme/');
         $socialUrl = $securityUrl . '?return_to=' . rawurlencode('/post/social/bluesky/');
     }
-    $links = [
-        [$siteSettingsUrl, 'サイト設定', 'サイト情報、RSS、Sitemapを管理します。'],
-        [$themeUrl, 'テーマ', '公開サイトの見た目を切り替えます。'],
-        [$socialUrl, 'Bluesky連携', '記事公開時のBluesky投稿と接続アカウントを管理します。'],
-        [$securityUrl, 'セキュリティ', '認証、パスキー、API関連の設定を管理します。'],
-        [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', '署名済みの更新を実行します。'],
-    ];
 
     echo '<h2 id="post-settings">設定</h2>';
-    echo '<p class="hint">Tomos Postの動作や公開サイトに関する設定です。投稿や記事管理とは分けて管理します。</p>';
+    echo '<p class="hint">公開サイト、外部連携、Tomos本体の設定をカテゴリ別に管理します。</p>';
     if ($returnTo !== Tomos\PostAuthReturnTo::defaultRoute() && empty($_SESSION['tomos_post_authenticated'])) {
         echo '<div class="notice"><strong>認証が必要です。</strong><p>管理用合言葉で認証すると、要求された管理画面へ移動します。</p></div>';
     }
-    echo '<div class="settings-links">';
-    foreach ($links as [$url, $label, $description]) {
-        echo '<a class="settings-link" href="' . e($url) . '"><strong>' . e($label) . '</strong><span>' . e($description) . '</span></a>';
+    $groups = [
+        ['サイト', [
+            [$siteSettingsUrl, 'サイト設定', 'サイト名、説明、言語、タイムゾーン、サイト画像、RSS、Sitemap'],
+            [$navigationUrl, 'ナビゲーション', 'サイトナビゲーションの構成、並べ替え、表示状態'],
+            [$themeUrl, 'テーマ', '公開サイトのデザイン'],
+        ]],
+        ['連携', [
+            [$socialUrl, 'Bluesky', 'Bluesky接続・投稿設定'],
+            [$analyticsUrl, 'Google Analytics', 'アクセス解析'],
+        ]],
+        ['Tomos', [
+            [$securityUrl, 'セキュリティ', '認証、パスキー、API関連'],
+            [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', 'Tomos本体の更新'],
+        ]],
+    ];
+    $groupIcons = ['サイト' => 'site', '連携' => 'bluesky', 'Tomos' => 'settings'];
+    $linkIcons = ['サイト設定' => 'site', 'ナビゲーション' => 'navigation', 'テーマ' => 'theme', 'Bluesky' => 'bluesky', 'Google Analytics' => 'analytics', 'セキュリティ' => 'security', 'Tomos Update' => 'update'];
+    foreach ($groups as [$groupLabel, $links]) {
+        echo '<section class="settings-group"><h3>' . tomosPostIcon($groupIcons[$groupLabel] ?? 'settings') . '<span>' . e($groupLabel) . '</span></h3>';
+        foreach ($links as [$url, $label, $description]) {
+            echo '<a class="settings-link" href="' . e($url) . '">' . tomosPostIcon($linkIcons[$label] ?? 'settings') . '<span class="settings-link-copy"><strong>' . e($label) . '</strong><small>' . e($description) . '</small></span>' . tomosPostIcon('chevron', 'ui-icon trailing-icon') . '</a>';
+        }
+        echo '</section>';
     }
-    echo '</div>';
-    echo '<details class="settings-details"><summary>アクセス解析</summary>';
-    renderAnalyticsSettingsSection($token, $config);
-    echo '</details>';
 }
 
 function renderMessages(array $errors, array $messages, array $warnings): void
@@ -1711,7 +1727,7 @@ function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, 
 
 function renderUploadForm(string $token, array $config, string $submissionId): void
 {
-    echo '<h2 id="post-upload">1. Markdownを投稿する</h2>';
+    echo '<h2 id="post-upload">原稿を投稿する</h2>';
     echo '<div id="tomos-write-handoff-notice" class="success" role="status" aria-live="polite" hidden></div>';
     echo '<p class="hint">通常記事、index.md、about.mdを同じフォームから投稿できます。</p>';
     echo '<p class="hint">新しい記事をTomos Writeで作成する場合は <a href="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" target="_blank" rel="noopener noreferrer">Tomos Writeを開く</a> を利用できます。</p>';
@@ -1721,10 +1737,18 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<input type="hidden" name="submission_id" value="' . e($submissionId) . '">';
     echo '<input id="tomos-handoff-markdown" type="hidden" name="tomos_handoff_markdown" value="">';
     echo '<input id="tomos-handoff-filename" type="hidden" name="tomos_handoff_filename" value="">';
-    renderAuthenticationFields('post_password');
+    echo '<section class="post-block"><h3>' . tomosPostIcon('draft') . '<span>原稿</span></h3>';
     echo '<label for="markdown_file">投稿するファイル</label>';
     echo '<input id="markdown_file" type="file" name="markdown_file" accept=".md,.markdown,.txt,text/markdown,text/plain">';
     echo '<p id="page-type-notice" class="hint" role="status" aria-live="polite">ファイルを選択すると投稿対象を表示します。</p>';
+    echo '</section>';
+    echo '<section class="post-block"><h3>' . tomosPostIcon('navigation') . '<span>公開先</span></h3>';
+    echo '<label for="folder">保存先フォルダ</label>';
+    echo '<input id="folder" type="text" name="folder" placeholder="例: diary">';
+    echo '<p class="hint">空欄の場合は <code>content/</code> 直下に保存します。存在しないフォルダは新しく作成します。Markdownに保存先情報がある場合は自動で反映します。</p>';
+    echo '<p id="folder-frontmatter-notice" class="hint" hidden></p>';
+    echo '</section>';
+    echo '<section class="post-block"><h3>' . tomosPostIcon('image') . '<span>画像</span></h3>';
     echo '<label for="image_files">画像を選ぶ</label>';
     echo '<input id="image_files" type="file" name="image_files[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif" multiple>';
     echo '<p class="hint">Markdownに画像がある場合は、Tomos Writeで使った元画像を選んでください。画像内容から自動で照合し、長辺2,048pxを超えるJPEG・PNG・WebPは端末側で縮小してから送信します。</p>';
@@ -1732,12 +1756,12 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<div id="image-match-status" class="result" hidden></div>';
     echo '<div id="ogp-image-status" class="result" hidden></div>';
     echo '<p id="image-processing-status" class="hint" role="status" aria-live="polite" hidden></p>';
-    echo '<label for="folder">保存先フォルダ</label>';
-    echo '<input id="folder" type="text" name="folder" placeholder="例: diary">';
-    echo '<p class="hint">空欄の場合は <code>content/</code> 直下に保存します。存在しないフォルダは新しく作成します。Markdownに保存先情報がある場合は自動で反映します。</p>';
-    echo '<p id="folder-frontmatter-notice" class="hint" hidden></p>';
+    echo '</section>';
+    echo '<section class="post-block post-publish"><h3>' . tomosPostIcon('globe') . '<span>公開</span></h3>';
+    renderAuthenticationFields('post_password');
     echo '<div class="notice"><p>投稿できるファイルは <code>.md</code> / <code>.markdown</code> / <code>.txt</code> です。同じ保存先にページがある場合は、更新するか、別のファイル名で新しいページとして投稿するかを選べます。</p></div>';
-    echo '<div class="actions"><button id="post-upload-submit" type="submit">公開する</button></div>';
+    echo '<div class="actions"><button id="post-upload-submit" type="submit">' . tomosPostIcon('upload') . '<span>公開する</span></button></div>';
+    echo '</section>';
     echo '</form>';
     renderBasicPagesSection($token, $config);
     echo '<script src="assets/tomos-post-image-preprocessor.js?v=1.1.4"></script>';
@@ -2749,16 +2773,16 @@ function renderBasicPagesSection(string $token, array $config): void
     $homeUrl = Tomos\Security::publicUrl(Tomos\PostBasicPage::internalUrl(Tomos\PostBasicPage::HOME), $publicBasePath);
     $aboutUrl = Tomos\Security::publicUrl(Tomos\PostBasicPage::internalUrl(Tomos\PostBasicPage::ABOUT), $publicBasePath);
 
-    echo '<h2 id="basic-pages">2. サイトの基本ページを更新する</h2>';
+    echo '<details class="basic-pages-panel" id="basic-pages"><summary>' . tomosPostIcon('home') . '<span>固定ページ</span></summary>';
     echo '<div class="notice"><p>トップページやAboutページを変更する場合は、現在のMarkdownをダウンロードして編集し、ファイル名を変更せずに上の投稿フォームから再投稿してください。</p><p>画像を追加または変更する場合は、Markdownと一緒に画像も選択してください。</p></div>';
     echo '<div class="grid">';
-    echo '<section class="basic-page"><h3>トップページ</h3>';
+    echo '<section class="basic-page"><h3>' . tomosPostIcon('home') . '<span>トップページ</span></h3>';
     renderBasicPageDownloadButton($token, Tomos\PostBasicPage::HOME, 'index.mdをダウンロード');
     echo '<p><a class="button secondary" href="' . e($homeUrl) . '" target="_blank" rel="noopener noreferrer">トップページを確認</a></p></section>';
-    echo '<section class="basic-page"><h3>Aboutページ</h3>';
+    echo '<section class="basic-page"><h3>' . tomosPostIcon('about') . '<span>About</span></h3>';
     renderBasicPageDownloadButton($token, Tomos\PostBasicPage::ABOUT, 'about.mdをダウンロード');
     echo '<p><a class="button secondary" href="' . e($aboutUrl) . '" target="_blank" rel="noopener noreferrer">Aboutページを確認</a></p></section>';
-    echo '</div>';
+    echo '</div></details>';
 }
 
 function renderBasicPageDownloadButton(string $token, string $type, string $label, bool $compact = false): void
@@ -2872,8 +2896,7 @@ function renderPublishedSection(
     string $editableQuery,
     ?array $editableSearchResult
 ): void {
-    echo '<h2 id="published-posts">公開済み投稿</h2>';
-    echo '<p class="hint">公開済みの記事を検索し、公開ページの確認、Markdownの取得、取り下げを行います。</p>';
+    echo '<h2 id="published-posts">公開済み</h2>';
 
     if (empty($_SESSION['tomos_post_authenticated'])) {
         echo '<form method="post" action="">';
@@ -2911,7 +2934,7 @@ function renderPublishedSection(
         echo '<option value="' . e($availableYear) . '"' . $selected . '>' . e($availableYear) . '</option>';
     }
     echo '</select>';
-    echo '<div class="actions"><button type="submit">検索する</button></div>';
+    echo '<div class="actions"><button class="secondary" type="submit">検索する</button></div>';
     echo '</form>';
 
     $items = is_array($result['items'] ?? null) ? $result['items'] : [];
@@ -2955,29 +2978,25 @@ function renderPublishedSection(
         $internalUrl = (string) ($item['url'] ?? '');
         $publicUrl = publishedPublicUrl($config, $internalUrl);
         $tags = is_array($item['tags'] ?? null) ? $item['tags'] : [];
-        echo '<article class="editable-result">';
-        echo '<p class="editable-status">公開中</p>';
-        echo '<h3>' . e($title) . '</h3>';
-        echo '<p><strong>公開日:</strong> ' . e((string) (($item['date'] ?? '') !== '' ? $item['date'] : '（未設定）')) . '</p>';
-        echo '<p><strong>更新日:</strong> ' . e((string) (($item['updated'] ?? '') !== '' ? $item['updated'] : '（未設定）')) . '</p>';
-        echo '<p><strong>タグ:</strong> ' . e($tags === [] ? '（なし）' : implode(', ', array_map('strval', $tags))) . '</p>';
-        echo '<p><strong>保存先:</strong><br><code>content/' . e((string) ($item['path'] ?? '')) . '</code></p>';
-        echo '<p><strong>公開ページ:</strong><br><a href="' . e(Tomos\Security::safeHref($publicUrl)) . '" target="_blank" rel="noopener noreferrer">' . e($publicUrl) . '</a></p>';
-        echo '<div class="actions">';
-        echo '<a class="button secondary" href="' . e(Tomos\Security::safeHref($publicUrl)) . '" target="_blank" rel="noopener noreferrer">公開ページを確認</a>';
+        echo '<article class="editable-result published-row">';
+        echo '<div class="published-title-line"><h3><a href="' . e(Tomos\Security::safeHref($publicUrl)) . '" target="_blank" rel="noopener noreferrer">' . e($title) . '</a></h3><a class="icon-button" aria-label="公開ページを開く" href="' . e(Tomos\Security::safeHref($publicUrl)) . '" target="_blank" rel="noopener noreferrer">' . tomosPostIcon('external') . '</a></div>';
+        echo '<p class="published-meta"><span>' . e((string) (($item['date'] ?? '') !== '' ? $item['date'] : '（未設定）')) . '</span><span>content/' . e((string) ($item['path'] ?? '')) . '</span></p>';
+        echo '<details class="secondary-actions row-more"><summary aria-label="記事のその他の操作">' . tomosPostIcon('more') . '<span>操作</span></summary><div class="row-more-menu">';
+        echo '<p class="hint">更新 ' . e((string) (($item['updated'] ?? '') !== '' ? $item['updated'] : '（未設定）')) . ' · タグ ' . e($tags === [] ? '（なし）' : implode(', ', array_map('strval', $tags))) . '</p>';
+        echo '<a class="icon-link" href="' . e(Tomos\Security::safeHref($publicUrl)) . '" target="_blank" rel="noopener noreferrer">' . tomosPostIcon('preview') . '<span>公開ページを確認</span></a>';
         echo '<form class="inline-form" method="post" action="">';
         echo '<input type="hidden" name="action" value="download_published_markdown">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
         echo '<input type="hidden" name="content_path" value="' . e((string) ($item['path'] ?? '')) . '">';
-        echo '<button class="secondary" type="submit">Markdownを取得</button>';
+        echo '<button class="text-button" type="submit">' . tomosPostIcon('download') . '<span>Markdownを取得</span></button>';
         echo '</form>';
         $handoffReturnUrl = Tomos\Security::publicUrl('/post/?section=upload', $publicBasePath);
-        echo '<button class="secondary tomos-write-edit" type="button" data-return-url="' . e($handoffReturnUrl) . '">Tomos Writeで編集</button>';
+        echo '<button class="text-button tomos-write-edit" type="button" data-return-url="' . e($handoffReturnUrl) . '">' . tomosPostIcon('edit') . '<span>Tomos Writeで編集</span></button>';
         if (empty($item['protected'])) {
             $withdrawUrl = publishedWithdrawUrl($publicBasePath, $query, $year, (int) ($result['page'] ?? 1), (string) ($item['path'] ?? ''));
-            echo '<a class="button danger secondary" href="' . e($withdrawUrl) . '">取り下げ</a>';
+            echo '<a class="text-button danger-text" href="' . e($withdrawUrl) . '">' . tomosPostIcon('withdraw') . '<span>取り下げ</span></a>';
         }
-        echo '</div>';
+        echo '</div></details>';
         echo '</article>';
         }
         echo '</div>';
@@ -3056,20 +3075,17 @@ function renderDraftSection(string $token, array $config, string $submissionId):
     echo '<div class="editable-results">';
     foreach ($items as $index => $item) {
         $timestamp = formatInboxTimestamp($item->modifiedAt, $config);
-        echo '<article class="editable-result">';
+        echo '<article class="editable-result draft-row">';
         echo '<p class="editable-status">' . e($item->source === 'inbox' ? '投稿元: 外部投稿' : '投稿元: Tomos Post') . '</p>';
         echo '<h3>' . e($item->title !== '' ? $item->title : $item->fileName) . '</h3>';
-        echo '<p><code>' . e($item->fileName) . '</code></p>';
-        echo '<p class="hint">更新：' . e($timestamp) . ' / サイズ：' . e(formatInboxBytes($item->size)) . '</p>';
+        echo '<p class="draft-meta"><span>' . e($timestamp) . '</span><span>' . e($item->fileName) . '</span><span>' . e(formatInboxBytes($item->size)) . '</span></p>';
         $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
         $queryKey = $item->source === 'inbox' ? 'preview_inbox' : 'preview_draft';
         $downloadKey = $item->source === 'inbox' ? 'download_inbox_markdown' : 'download_draft_markdown';
         $previewUrl = Tomos\Security::publicUrl('/post/?section=drafts&' . $queryKey . '=' . rawurlencode($item->path), $publicBasePath);
         $downloadUrl = Tomos\Security::publicUrl('/post/?section=drafts&' . $downloadKey . '=' . rawurlencode($item->path), $publicBasePath);
-        echo '<div class="actions inbox-actions">';
-        echo '<a class="button secondary" href="' . e($previewUrl) . '" target="_blank" rel="noopener noreferrer">プレビュー</a>';
-        echo '<a class="button secondary" href="' . e($downloadUrl) . '">Markdownをダウンロード</a>';
-        echo '</div>';
+        echo '<div class="draft-row-actions">';
+        echo '<a class="icon-link" href="' . e($previewUrl) . '" target="_blank" rel="noopener noreferrer">' . tomosPostIcon('preview') . '<span>プレビュー</span></a>';
         echo '<form class="inline-form" method="post" action="" data-submission-form>';
         echo '<input type="hidden" name="action" value="publish_draft">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
@@ -3080,8 +3096,10 @@ function renderDraftSection(string $token, array $config, string $submissionId):
         $hash = $read->ok ? hash('sha256', $read->content) : '';
         echo '<input type="hidden" name="draft_hash" value="' . e($hash) . '">';
         renderAuthenticationFields('inbox_password_' . $index);
-        echo '<div class="actions"><button type="submit">公開する</button></div>';
+        echo '<div class="actions"><button type="submit">' . tomosPostIcon('upload') . '<span>公開する</span></button></div>';
         echo '</form>';
+        echo '<details class="secondary-actions row-more"><summary aria-label="下書きのその他の操作">' . tomosPostIcon('more') . '</summary><div class="row-more-menu">';
+        echo '<a class="icon-link" href="' . e($downloadUrl) . '">' . tomosPostIcon('download') . '<span>Markdownをダウンロード</span></a>';
         echo '<form class="inline-form" method="post" action="" onsubmit="return confirm(\'この下書きを削除しますか？この操作は元に戻せません。\');">';
         echo '<input type="hidden" name="action" value="delete_draft">';
         echo '<input type="hidden" name="_token" value="' . e($token) . '">';
@@ -3089,8 +3107,10 @@ function renderDraftSection(string $token, array $config, string $submissionId):
         echo '<input type="hidden" name="draft_source" value="' . e($item->source) . '">';
         echo '<input type="hidden" name="draft_path" value="' . e($item->path) . '">';
         renderAuthenticationFields('delete_draft_password_' . $index);
-        echo '<div class="actions"><button class="danger secondary" type="submit">削除</button></div>';
+        echo '<div class="actions"><button class="danger secondary" type="submit">' . tomosPostIcon('trash') . '<span>削除</span></button></div>';
         echo '</form>';
+        echo '</details>';
+        echo '</div>';
         echo '</article>';
     }
     echo '</div>';

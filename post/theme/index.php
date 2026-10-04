@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -69,12 +71,12 @@ h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}h2{border-top:1px 
 .hint{color:var(--tomos-muted);font-size:0.95rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.result{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);padding:1rem}
 .theme{background:var(--tomos-input);border:1px solid var(--tomos-border);border-radius:8px;margin:0.75rem 0;padding:1rem}.theme.current{border-color:var(--tomos-accent);background:var(--tomos-button-hover)}.theme.invalid{background:#f7f7f4;color:var(--tomos-muted)}
 label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{accent-color:var(--tomos-accent);margin-right:0.45rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-size:16px;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,input[type=radio]:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}button.danger{background:#fff;color:#8a2e26;border-color:#d9a39e}button.danger:hover{background:#f8ecea;border-color:#c98e88}.theme-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.85rem}.actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}
-</style></head><body><main class="wrap">';
+</style><link rel="stylesheet" href="' . e(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath)) . '"></head><body><main class="wrap">';
 
-    echo '<h1>テーマを切り替える</h1>';
+    echo '<header class="page-heading"><h1>' . tomosPostIcon('theme') . '<span>テーマ</span></h1><p class="hint">公開サイトのデザインを選びます。</p></header>';
     echo '<p class="hint">登録済みのテーマから、サイトの見た目を選びます。</p>';
-    echo '<div class="result"><strong>現在のテーマ:</strong><br><code>' . e($currentLabel) . '</code></div>';
-    echo '<div class="actions"><a class="button secondary" href="' . e($addUrl) . '">テーマZIPを追加・更新</a></div>';
+    echo '<p class="current-theme"><span>現在のテーマ</span><strong>' . e($currentLabel) . '</strong></p>';
+    echo '<p><a class="icon-link" href="' . e($addUrl) . '">' . tomosPostIcon('upload') . '<span>テーマZIPを追加・更新</span></a></p>';
 
     echo '<h2>利用できるテーマ</h2>';
     echo '<form method="post" action="' . e($confirmUrl) . '">';
@@ -88,14 +90,16 @@ label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{ac
         }
         $id = (string) $directory;
         $label = themeLabel($theme, $id);
-        $classes = 'theme' . ($id === $currentTheme ? ' current' : '') . (!$valid ? ' invalid' : '');
+        $classes = 'theme theme-row' . ($id === $currentTheme ? ' current' : '') . (!$valid ? ' invalid' : '');
         echo '<div class="' . e($classes) . '">';
+        echo '<span class="theme-mark">' . tomosPostIcon('theme') . '</span><div class="theme-copy">';
         if ($valid) {
-            echo '<label><input type="radio" name="theme_name" value="' . e($id) . '"' . ($id === $currentTheme ? ' checked' : '') . '> ' . e($label) . '</label>';
+            echo '<label><input type="radio" name="theme_name" value="' . e($id) . '"' . ($id === $currentTheme ? ' checked' : '') . '> <span>' . e($label) . '</span></label>';
         } else {
             echo '<strong>' . e($label) . '</strong> <span class="hint">（選択できません）</span>';
         }
         echo '<p class="hint">ディレクトリ: <code>' . e($id) . '</code> / version ' . e((string) ($theme['version'] ?? '')) . '</p>';
+        echo '</div>';
         if ((string) ($theme['description'] ?? '') !== '') {
             echo '<p>' . e((string) $theme['description']) . '</p>';
         }
@@ -132,9 +136,10 @@ label{color:var(--tomos-text);display:block;font-weight:700}input[type=radio]{ac
     if (!$hasValid) {
         echo '<div class="notice">利用できるテーマがありません。themes/ フォルダに有効なテーマを配置してください。</div>';
     } else {
-        echo '<div class="actions"><button type="submit">確認へ進む</button><a class="button secondary" href="' . e($postUrl) . '">Tomos Postへ戻る</a></div>';
+        echo '<div class="actions"><button type="submit">確認へ進む</button></div>';
     }
     echo '</form>';
+    echo tomosPostReturnLink($postUrl);
     echo '</main></body></html>';
 }
 

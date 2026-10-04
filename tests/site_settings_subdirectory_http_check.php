@@ -64,6 +64,12 @@ try {
     $unauthenticatedTheme = request($baseUrl . '/post/theme/', $testRoot . '/unauthenticated-theme-cookies.txt');
     assertSame(302, $unauthenticatedTheme['status'], 'unauthenticated Theme status');
     assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Ftheme%2F'), strtolower($unauthenticatedTheme['headers']), 'unauthenticated Theme redirect');
+    $unauthenticatedNavigation = request($baseUrl . '/post/navigation/', $testRoot . '/unauthenticated-navigation-cookies.txt');
+    assertSame(302, $unauthenticatedNavigation['status'], 'unauthenticated Navigation status');
+    assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Fnavigation%2F'), strtolower($unauthenticatedNavigation['headers']), 'unauthenticated Navigation redirect');
+    $unauthenticatedAnalytics = request($baseUrl . '/post/analytics/', $testRoot . '/unauthenticated-analytics-cookies.txt');
+    assertSame(302, $unauthenticatedAnalytics['status'], 'unauthenticated Analytics status');
+    assertContains(strtolower('location: /theme-labo/post/?section=settings&return_to=%2Fpost%2Fanalytics%2F'), strtolower($unauthenticatedAnalytics['headers']), 'unauthenticated Analytics redirect');
 
     $unauthenticatedSettings = request($baseUrl . '/post/?section=settings', $testRoot . '/unauthenticated-settings-cookies.txt');
     assertSame(200, $unauthenticatedSettings['status'], 'unauthenticated settings status');
@@ -129,7 +135,31 @@ try {
     assertSame(200, $settingsHome['status'], 'settings card response');
     assertSettingsNavigationSemantics($settingsHome['body']);
     assertContains('href="/theme-labo/post/site-settings.php"', $settingsHome['body'], 'authenticated Site Settings href');
+    assertContains('href="/theme-labo/post/navigation/"', $settingsHome['body'], 'authenticated Navigation Settings href');
+    assertContains('href="/theme-labo/post/analytics/"', $settingsHome['body'], 'authenticated Analytics Settings href');
     assertContains('href="/theme-labo/post/theme/"', $settingsHome['body'], 'authenticated Theme href');
+
+    $analytics = request($baseUrl . '/post/analytics/', $cookie);
+    assertSame(200, $analytics['status'], 'Analytics Settings status');
+    assertSame($baseUrl . '/post/analytics/', $analytics['url'], 'Analytics Settings final URL');
+    assertContains('GA4測定ID（任意）', $analytics['body'], 'Analytics Settings form');
+    assertContains('name="ga4_measurement_id"', $analytics['body'], 'Analytics Settings input');
+    $analyticsSave = request($baseUrl . '/post/analytics/', $cookie, [
+        '_token' => hiddenValue($analytics['body'], '_token'),
+        'ga4_measurement_id' => 'G-ABCDEF1234',
+    ]);
+    assertSame(200, $analyticsSave['status'], 'Analytics Settings save status');
+    assertContains('Google Analytics 4の測定IDを更新しました。', $analyticsSave['body'], 'Analytics Settings save message');
+    $savedConfig = require $installRoot . '/config.php';
+    assertSame('G-ABCDEF1234', $savedConfig['analytics']['ga4_measurement_id'] ?? '', 'Analytics measurement ID save');
+    $analyticsClear = request($baseUrl . '/post/analytics/', $cookie, [
+        '_token' => hiddenValue($analyticsSave['body'], '_token'),
+        'ga4_measurement_id' => '',
+    ]);
+    assertSame(200, $analyticsClear['status'], 'Analytics Settings clear status');
+    assertContains('Google Analytics 4による計測を無効にしました。', $analyticsClear['body'], 'Analytics Settings clear message');
+    $clearedConfig = require $installRoot . '/config.php';
+    assertSame('', $clearedConfig['analytics']['ga4_measurement_id'] ?? '', 'Analytics measurement ID clear');
 
     $siteSecurityCookie = $testRoot . '/site-security-cookies.txt';
     $siteSecurityPage = request($baseUrl . '/post/security/?return_to=%2Fpost%2Fsite-settings.php', $siteSecurityCookie);
@@ -188,11 +218,18 @@ try {
     assertContains('name="ogp_file"', $site['body'], 'OGP upload control');
     assertContains('Themeを変更・更新しても維持されます。', $site['body'], 'Branding persistence guidance');
     assertContains('id="navigation-settings"', $site['body'], 'Navigation Settings section');
-    assertContains('name="navigation_mode"', $site['body'], 'Navigation mode controls');
+    assertContains('href="/theme-labo/post/navigation/"', $site['body'], 'Navigation Settings independent href');
+    assertNotContains('name="navigation_mode"', $site['body'], 'Navigation controls are separated from Site Settings');
     assertNotContains('Fatal error', $site['body'], 'Site Settings fatal error');
 
-    $navigationSave = request($baseUrl . '/post/site-settings.php', $cookie, [
-        'settings_section' => 'navigation',
+    $navigation = request($baseUrl . '/post/navigation/', $cookie);
+    assertSame(200, $navigation['status'], 'Navigation Settings status');
+    assertSame($baseUrl . '/post/navigation/', $navigation['url'], 'Navigation Settings final URL');
+    assertContains('name="navigation_mode"', $navigation['body'], 'Navigation mode controls');
+    assertContains('name="navigation_items', $navigation['body'], 'Navigation item controls');
+    assertNotContains('Fatal error', $navigation['body'], 'Navigation Settings fatal error');
+
+    $navigationSave = request($baseUrl . '/post/navigation/', $cookie, [
         '_token' => hiddenValue($site['body'], '_token'),
         'navigation_mode' => 'manual',
         'navigation_items' => [
@@ -211,8 +248,7 @@ try {
     assertSame(200, $directNavigationTarget['status'], 'hidden navigation target direct status');
 
     $beforeCsrfFailure = (string) file_get_contents($installRoot . '/theme-settings.php');
-    $navigationCsrfFailure = request($baseUrl . '/post/site-settings.php', $cookie, [
-        'settings_section' => 'navigation',
+    $navigationCsrfFailure = request($baseUrl . '/post/navigation/', $cookie, [
         '_token' => 'invalid-token',
         'navigation_mode' => 'auto',
         'navigation_items' => [],
@@ -223,8 +259,7 @@ try {
 
     file_put_contents($installRoot . '/storage/update.lock', "{\"started_at\":\"" . gmdate('c') . "\"}\n");
     $beforeUpdateLock = (string) file_get_contents($installRoot . '/theme-settings.php');
-    $navigationUpdateLock = request($baseUrl . '/post/site-settings.php', $cookie, [
-        'settings_section' => 'navigation',
+    $navigationUpdateLock = request($baseUrl . '/post/navigation/', $cookie, [
         '_token' => hiddenValue($navigationSave['body'], '_token'),
         'navigation_mode' => 'auto',
         'navigation_items' => [],

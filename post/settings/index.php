@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -20,9 +22,9 @@ spl_autoload_register(function (string $class): void {
 $rootDir = dirname(__DIR__, 2);
 $configPath = $rootDir . '/config.php';
 $config = [];
-if (is_file($configPath)) {
-    $loadedConfig = require $configPath;
-    $config = is_array($loadedConfig) ? $loadedConfig : [];
+    if (is_file($configPath)) {
+        $loadedConfig = require $configPath;
+        $config = is_array($loadedConfig) ? $loadedConfig : [];
 }
 
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
@@ -147,7 +149,8 @@ function renderSettingsPage(array $config, array $form, array $errors, array $me
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
     $postSettingsUrl = Tomos\Security::publicUrl('/post/?section=settings', $publicBasePath);
-    $analyticsUrl = Tomos\Security::publicUrl('/post/?section=settings#analytics-settings', $publicBasePath);
+    $analyticsUrl = Tomos\Security::publicUrl('/post/analytics/', $publicBasePath);
+    $navigationUrl = Tomos\Security::publicUrl('/post/navigation/', $publicBasePath);
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
     $siteUrl = Tomos\Security::publicUrl('/', $publicBasePath);
     $brandingAssets = new Tomos\SiteBrandingAssets(dirname(__DIR__, 2));
@@ -169,10 +172,8 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],input
 .actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);border-color:var(--tomos-border);color:var(--tomos-text)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}
 .navigation-item{border:1px solid var(--tomos-border-soft);border-radius:8px;margin:0.8rem 0;padding:1rem}.navigation-item-header{align-items:center;display:flex;gap:0.6rem;justify-content:space-between}.navigation-item-header strong{font-size:1rem}.navigation-item-controls{display:flex;gap:0.35rem}.navigation-item-controls button{background:var(--tomos-input);border-color:var(--tomos-border);color:var(--tomos-text);font-size:0.9rem;padding:0.35rem 0.55rem}.navigation-item-controls button:hover{background:var(--tomos-button-hover)}
 @media (max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}.actions button,.actions .button{box-sizing:border-box;min-height:44px;max-width:100%}}
-</style></head><body><main class="wrap">';
-
-    echo '<h1>サイト設定</h1>';
-    echo '<p class="hint">公開サイトの基本情報とRSS・Sitemapを変更します。</p>';
+</style><link rel="stylesheet" href="' . e(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath)) . '"></head><body><main class="wrap">';
+    echo '<header class="page-heading"><h1>サイト設定</h1><p class="hint">サイト名、言語、画像、RSSなど</p></header>';
 
     if ($errors !== []) {
         echo '<div class="errors"><strong>設定を保存できませんでした。</strong><ul>';
@@ -188,11 +189,11 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],input
         echo '</ul><p><a href="' . e($siteUrl) . '">公開サイトを確認する</a></p></div>';
     }
 
+    echo '<div class="site-settings-layout">';
     renderBrandingSettingsSection($token, $brandingAssets, $publicBasePath);
-    renderNavigationSettingsSection($token, $navigationSettings, $navigationAutoItems);
-    echo '<form method="post" action="">';
+    echo '<form class="site-settings-form" method="post" action="">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
-    echo '<h2>サイト情報</h2>';
+    echo '<section class="settings-section settings-basic"><h2>' . tomosPostIcon('site') . '<span>基本情報</span></h2>';
     echo '<label for="site_name">サイト名</label>';
     echo '<input id="site_name" type="text" name="site_name" value="' . e((string) $form['site_name']) . '" maxlength="100" required>';
     echo '<label for="site_description">サイト説明（任意）</label>';
@@ -212,30 +213,33 @@ label{display:block;font-weight:700;margin:1rem 0 0.35rem}input[type=text],input
     echo '<p class="hint">一覧にない言語はBCP 47形式で入力できます。入力した場合は選択欄より優先されます。</p>';
     echo '<label for="timezone">タイムゾーン</label>';
     echo '<input id="timezone" type="text" name="timezone" value="' . e((string) $form['timezone']) . '" placeholder="Asia/Tokyo" autocomplete="off" spellcheck="false">';
-    echo '<p class="hint">空欄で保存すると <code>Asia/Tokyo</code> を使用します。</p>';
+    echo '<p class="hint">空欄で保存すると <code>Asia/Tokyo</code> を使用します。</p></section>';
 
-    echo '<h2>RSS・Sitemap</h2>';
+    echo '<section class="settings-section settings-delivery"><h2>' . tomosPostIcon('sitemap') . '<span>配信</span></h2>';
     echo '<label class="checkbox"><input type="checkbox" name="feature_rss" value="1"' . (!empty($form['feature_rss']) ? ' checked' : '') . '>RSSを有効にする</label>';
     echo '<label for="rss_path_prefix">RSS対象パス（任意）</label>';
     echo '<input id="rss_path_prefix" type="text" name="rss_path_prefix" value="' . e((string) $form['rss_path_prefix']) . '" placeholder="/news" autocomplete="off" spellcheck="false">';
     echo '<p class="hint">空欄ではすべての公開ページを対象にします。<code>/news</code> のように指定すると、そのパスより下のページだけを含めます。</p>';
-    echo '<label class="checkbox"><input type="checkbox" name="feature_sitemap" value="1"' . (!empty($form['feature_sitemap']) ? ' checked' : '') . '>Sitemapを有効にする</label>';
+    echo '<label class="checkbox"><input type="checkbox" name="feature_sitemap" value="1"' . (!empty($form['feature_sitemap']) ? ' checked' : '') . '>' . tomosPostIcon('sitemap') . '<span>Sitemapを有効にする</span></label></section>';
 
-    echo '<div class="actions"><button type="submit">設定を保存する</button><a class="button secondary" href="' . e($postSettingsUrl) . '">Tomos Postへ戻る</a></div>';
+    echo '<div class="actions"><button type="submit">設定を保存する</button></div>';
     echo '</form>';
+    echo tomosPostReturnLink($postSettingsUrl);
+    echo '</div>';
 
-    echo '<h2>その他の設定</h2>';
-    echo '<div class="result"><div class="actions">';
-    echo '<a class="button secondary" href="' . e($analyticsUrl) . '">GA4設定を開く</a>';
-    echo '<a class="button secondary" href="' . e($themeUrl) . '">テーマ変更を開く</a>';
-    echo '</div></div>';
+    echo '<h2 class="settings-related-title">関連設定</h2>';
+    echo '<div class="settings-links">';
+    echo '<a class="settings-link" id="navigation-settings" href="' . e($navigationUrl) . '">' . tomosPostIcon('navigation') . '<span class="settings-link-copy"><strong>ナビゲーション</strong><small>サイトナビゲーションの構成</small></span>' . tomosPostIcon('chevron', 'ui-icon trailing-icon') . '</a>';
+    echo '<a class="settings-link" href="' . e($analyticsUrl) . '">' . tomosPostIcon('analytics') . '<span class="settings-link-copy"><strong>Google Analytics</strong><small>アクセス解析</small></span>' . tomosPostIcon('chevron', 'ui-icon trailing-icon') . '</a>';
+    echo '<a class="settings-link" href="' . e($themeUrl) . '">' . tomosPostIcon('theme') . '<span class="settings-link-copy"><strong>テーマ</strong><small>公開サイトのデザイン</small></span>' . tomosPostIcon('chevron', 'ui-icon trailing-icon') . '</a>';
+    echo '</div>';
 
     echo '</main></body></html>';
 }
 
 function renderBrandingSettingsSection(string $token, Tomos\SiteBrandingAssets $assets, string $publicBasePath): void
 {
-    echo '<h2 id="branding-settings">サイト画像</h2>';
+    echo '<section class="settings-section branding-section"><h2 id="branding-settings">' . tomosPostIcon('image') . '<span>サイト画像</span></h2>';
     echo '<p class="hint">サイト固有のFaviconと共通OGP画像を設定できます。ここで設定した画像はThemeを変更・更新しても維持されます。</p>';
 
     foreach ([
@@ -243,15 +247,15 @@ function renderBrandingSettingsSection(string $token, Tomos\SiteBrandingAssets $
         'ogp' => ['label' => '共通OGP画像', 'input' => 'ogp_file', 'hint' => '記事に個別のOGP画像がない場合に使用します。PNG、JPEG、WebPに対応します。'],
     ] as $kind => $meta) {
         $current = $assets->asset($kind);
-        echo '<div class="result">';
-        echo '<strong>' . e($meta['label']) . '</strong>';
+        echo '<div class="branding-row">';
+        echo '<div class="branding-label">' . tomosPostIcon($kind === 'favicon' ? 'site' : 'image') . '<strong>' . e($meta['label']) . '</strong></div>';
         if ($current !== null) {
             $url = $assets->publicUrl($kind, $publicBasePath);
-            echo '<p class="hint">現在はサイト固有画像を使用中です。</p>';
-            echo '<p><img src="' . e($url) . '" alt="" style="max-width:320px;max-height:180px;height:auto;width:auto;border:1px solid var(--tomos-border);border-radius:6px;background:#fff"></p>';
+            echo '<div class="branding-current"><img class="branding-current-image" src="' . e($url) . '" alt=""><span class="hint">現在のサイト固有画像</span></div>';
         } else {
-            echo '<p class="hint">現在はThemeの画像を使用しています。</p>';
+            echo '<div class="branding-current branding-fallback"><span class="image-placeholder">' . tomosPostIcon('image') . '</span><span class="hint">Themeの画像を使用中</span></div>';
         }
+        echo '<div class="branding-actions"><details class="branding-change"><summary>変更</summary>';
         echo '<form method="post" action="#branding-settings" enctype="multipart/form-data">';
         echo '<input type="hidden" name="settings_section" value="branding">';
         echo '<input type="hidden" name="branding_action" value="upload">';
@@ -260,17 +264,18 @@ function renderBrandingSettingsSection(string $token, Tomos\SiteBrandingAssets $
         echo '<label for="' . e($meta['input']) . '">' . e($meta['label']) . 'を変更</label>';
         echo '<input id="' . e($meta['input']) . '" type="file" name="' . e($meta['input']) . '" accept="image/png,image/jpeg,image/webp" required>';
         echo '<p class="hint">' . e($meta['hint']) . ' 1ファイル10MBまでです。</p>';
-        echo '<div class="actions"><button type="submit">画像を変更する</button></div></form>';
+        echo '<div class="actions"><button type="submit">画像を変更する</button></div></form></details>';
         if ($current !== null) {
             echo '<form method="post" action="#branding-settings">';
             echo '<input type="hidden" name="settings_section" value="branding">';
             echo '<input type="hidden" name="branding_action" value="remove">';
             echo '<input type="hidden" name="branding_kind" value="' . e($kind) . '">';
             echo '<input type="hidden" name="_token" value="' . e($token) . '">';
-            echo '<div class="actions"><button type="submit" class="button secondary">Themeの画像に戻す</button></div></form>';
+            echo '<button type="submit" class="text-button">Theme画像に戻す</button></form>';
         }
-        echo '</div>';
+        echo '</div></div>';
     }
+    echo '</section>';
 }
 
 function renderNavigationSettingsSection(string $token, array $settings, array $autoItems): void

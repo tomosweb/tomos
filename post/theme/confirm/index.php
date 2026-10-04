@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -107,7 +109,7 @@ body{background:var(--tomos-bg);color:var(--tomos-text);font-family:system-ui,-a
 .wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:760px;padding:28px}
 h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}.hint{color:var(--tomos-muted);font-size:0.95rem}.theme-change-summary{background:var(--tomos-info-bg);border:1px solid #e2e1dd;border-radius:6px;color:var(--tomos-text);display:grid;gap:0.85rem;padding:1rem}.theme-change-summary p{margin:0}.theme-change-summary strong{display:block;margin-bottom:0.2rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}
 button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-size:16px;font-weight:700;padding:0.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active,.button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible,.button:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.button.secondary{background:var(--tomos-input);color:var(--tomos-text);border-color:var(--tomos-border)}.button.secondary:hover{background:var(--tomos-button-hover);border-color:var(--tomos-border-hover)}.button.secondary:active{background:var(--tomos-button-active)}.actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.5rem}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}
-</style></head><body><main class="wrap">';
+</style><link rel="stylesheet" href="' . e(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath)) . '"></head><body class="post-standalone"><main class="wrap">';
 
     echo '<h1>テーマ変更確認</h1>';
 
@@ -117,7 +119,8 @@ button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-prim
             echo '<li>' . e((string) $error) . '</li>';
         }
         echo '</ul></div>';
-        echo '<p><a class="button secondary" href="' . e($themeUrl) . '">テーマ選択へ戻る</a></p>';
+        echo '<p><a class="text-button" href="' . e($themeUrl) . '">テーマ選択へ戻る</a></p>';
+        echo tomosPostReturnLink($postUrl, 'Tomos Postへ戻る');
         echo '</main></body></html>';
         return;
     }
@@ -136,7 +139,8 @@ button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-prim
             echo '</ul></div>';
         }
         echo themeChangeSummaryHtml($currentLabel, null);
-        echo '<div class="actions"><a class="button" href="' . e($siteUrl) . '">公開サイトを開く</a><a class="button secondary" href="' . e($postUrl) . '">Tomos Postへ戻る</a></div>';
+        echo '<div class="actions"><a class="button secondary" href="' . e($siteUrl) . '">公開サイトを開く</a></div>';
+        echo tomosPostReturnLink($postUrl, 'Tomos Postへ戻る');
         echo '</main></body></html>';
         return;
     }
@@ -147,8 +151,9 @@ button,.button{background:var(--tomos-primary);border:1px solid var(--tomos-prim
     echo '<input type="hidden" name="action" value="apply">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
     echo '<input type="hidden" name="theme_name" value="' . e($selectedTheme) . '">';
-    echo '<div class="actions"><button type="submit">変更する</button><a class="button secondary" href="' . e($themeUrl) . '">戻る</a></div>';
+    echo '<div class="actions"><button type="submit">変更する</button><a class="text-button" href="' . e($themeUrl) . '">戻る</a></div>';
     echo '</form>';
+    echo tomosPostReturnLink($postUrl, 'Tomos Postへ戻る');
     echo '</main></body></html>';
 }
 
