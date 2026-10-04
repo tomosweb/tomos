@@ -1712,6 +1712,7 @@ function renderWithdrawResult(array $errors, ?Tomos\PostWithdrawResult $result, 
 function renderUploadForm(string $token, array $config, string $submissionId): void
 {
     echo '<h2 id="post-upload">1. Markdownを投稿する</h2>';
+    echo '<div id="tomos-write-handoff-notice" class="success" role="status" aria-live="polite" hidden></div>';
     echo '<p class="hint">通常記事、index.md、about.mdを同じフォームから投稿できます。</p>';
     echo '<p class="hint">新しい記事をTomos Writeで作成する場合は <a href="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" target="_blank" rel="noopener noreferrer">Tomos Writeを開く</a> を利用できます。</p>';
     echo '<form id="post-upload-form" method="post" action="" enctype="multipart/form-data">';
@@ -1747,6 +1748,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   const fileInput = document.getElementById("markdown_file");
   const folderInput = document.getElementById("folder");
   const notice = document.getElementById("folder-frontmatter-notice");
+  const handoffNotice = document.getElementById("tomos-write-handoff-notice");
   const imageNotice = document.getElementById("image-frontmatter-notice");
   const imageMatchStatus = document.getElementById("image-match-status");
   const ogpImageStatus = document.getElementById("ogp-image-status");
@@ -1757,7 +1759,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   const submitButton = document.getElementById("post-upload-submit");
   const processingStatus = document.getElementById("image-processing-status");
   const pageTypeNotice = document.getElementById("page-type-notice");
-  if (!fileInput || !folderInput || !notice || !imageNotice || !imageMatchStatus || !ogpImageStatus || !imageInput || !form || !handoffMarkdownInput || !handoffFilenameInput || !submitButton || !processingStatus || !pageTypeNotice || typeof FileReader === "undefined") return;
+  if (!fileInput || !folderInput || !notice || !handoffNotice || !imageNotice || !imageMatchStatus || !ogpImageStatus || !imageInput || !form || !handoffMarkdownInput || !handoffFilenameInput || !submitButton || !processingStatus || !pageTypeNotice || typeof FileReader === "undefined") return;
 
   const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
   let effectiveImageMaxBytes = MAX_IMAGE_BYTES;
@@ -1813,6 +1815,11 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     notice.hidden = message === "";
     notice.textContent = message;
     notice.style.color = isWarning ? "var(--tomos-danger-text)" : "";
+  };
+
+  const setHandoffNotice = (message) => {
+    handoffNotice.hidden = message === "";
+    handoffNotice.textContent = message;
   };
 
   const selectedPageType = () => {
@@ -2254,6 +2261,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const resetImportedMarkdownState = () => {
     setNotice("");
+    setHandoffNotice("");
     folderInput.disabled = false;
     editableReupload = false;
     editableSourcePath = "";
@@ -2319,19 +2327,20 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     // never flashes as a new upload and then changes its requirement state.
     renderImageMatches(new Set());
     if (sourceMetadataIncomplete) {
+      setHandoffNotice("Tomos WriteからMarkdownを受け取りました。");
       setNotice("編集元の情報が不足しています。Tomos Postから原稿をもう一度ダウンロードしてください。", true);
       updatePageSelection();
       return true;
     }
     if (sourceMetadata.complete) {
       updatePageSelection();
-      setNotice("Tomos Writeから編集済みMarkdownを受け取りました。内容を確認して投稿してください。");
+      setHandoffNotice("Tomos Writeから編集済みMarkdownを受け取りました。内容を確認して投稿してください。");
       return true;
     }
     updatePageSelection();
     const folder = extractFolder(markdown);
     if (folder !== null && folder.trim() !== "" && !isUnsafeFolder(folder)) folderInput.value = normalizeFolder(folder);
-    setNotice("Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。");
+    setHandoffNotice("Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。");
     return true;
   };
 
