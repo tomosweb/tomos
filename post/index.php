@@ -1751,7 +1751,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<section class="post-block"><h3>' . tomosPostIcon('image') . '<span>画像</span></h3>';
     echo '<label for="image_files">画像を選ぶ</label>';
     echo '<input id="image_files" type="file" name="image_files[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif" multiple>';
-    echo '<p class="hint">Markdownに画像がある場合は、Tomos Writeで使った元画像を選んでください。画像内容から自動で照合し、長辺2,048pxを超えるJPEG・PNG・WebPは端末側で縮小してから送信します。</p>';
+    echo '<p class="hint">Markdown本文やFront Matterで使う画像ファイルを選択してください。画像内容から自動で照合し、長辺2,048pxを超えるJPEG・PNG・WebPは端末側で縮小してから送信します。</p>';
     echo '<div id="image-frontmatter-notice" class="hint" hidden></div>';
     echo '<div id="image-match-status" class="result" hidden></div>';
     echo '<div id="ogp-image-status" class="result" hidden></div>';
@@ -2201,7 +2201,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       formatMismatch,
       unmatched,
       editableReupload
-        ? '<p class="hint">既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。</p>'
+        ? '<p class="hint">既存画像は選択不要です。Markdownで新たに追加した画像だけを選んでください。</p>'
         : '<p class="hint">不足している画像を追加で選ぶか、掲載をやめる画像を指定してください。</p>',
     ].join("");
     imageMatchStatus.querySelectorAll('input[name="omit_images[]"]').forEach((input) => {
@@ -2247,7 +2247,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       renderOgpImage();
       if (images.length > 0) {
         imageNotice.hidden = false;
-        imageNotice.textContent = `このMarkdownには画像が${images.length}点あります。Tomos Writeで使った元画像を選んでください。`;
+        imageNotice.textContent = `このMarkdownには画像が${images.length}点あります。対応する画像ファイルを選択してください。`;
         renderImageMatches(new Set());
       }
 
@@ -2262,7 +2262,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         editableSourcePath = String(sourceMetadata.values.tomos_source_path || "").replace(/\\/g, "/");
         if (images.length > 0) {
           imageNotice.hidden = false;
-          imageNotice.textContent = `既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。`;
+          imageNotice.textContent = `既存画像は選択不要です。Markdownで新たに追加した画像だけを選んでください。`;
           renderImageMatches(new Set());
         }
         updatePageSelection();
@@ -2362,8 +2362,8 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     if (images.length > 0) {
       imageNotice.hidden = false;
       imageNotice.textContent = editableReupload
-        ? "既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。"
-        : `このMarkdownには画像が${images.length}点あります。Tomos Writeで使った元画像を選んでください。`;
+        ? "既存画像は選択不要です。Markdownで新たに追加した画像だけを選んでください。"
+        : `このMarkdownには画像が${images.length}点あります。対応する画像ファイルを選択してください。`;
     }
     // Resolve source metadata before rendering image requirements so an editable handoff
     // never flashes as a new upload and then changes its requirement state.
@@ -2803,7 +2803,7 @@ function renderBasicPageDownloadButton(string $token, string $type, string $labe
 function renderEditableMarkdownSection(string $token, array $config, string $query, ?array $result): void
 {
     echo '<h2 id="editable-markdown">原稿を編集する</h2>';
-    echo '<p class="hint">公開中の記事、下書き、固定ページを検索し、Tomos Writeで編集するためのMarkdownをダウンロードします。</p>';
+    echo '<p class="hint">公開中の記事、下書き、固定ページを検索し、Markdownをダウンロードできます。Tomos Writeで開いて編集することもできます。</p>';
     echo '<form method="post" action="">';
     echo '<input type="hidden" name="action" value="search_editable_markdown">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';

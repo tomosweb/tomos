@@ -39,7 +39,7 @@ function checkDirectHandoffImageStateOrder(): void
         'const images = extractImages(markdown);',
         'renderImageMatches(new Set());',
     ], 'direct handoff must resolve editability before rendering image requirements');
-    assertContains($direct, '既存画像は選択不要です。Tomos Writeで新しく追加した画像だけを選んでください。', 'direct handoff must show the editable image guidance');
+    assertContains($direct, '既存画像は選択不要です。Markdownで新たに追加した画像だけを選んでください。', 'direct handoff must show the editable image guidance');
 }
 
 function checkFrontMatterLocalOgpImageHandoff(): void
