@@ -12,6 +12,7 @@ foreach ([
     'PageRepository' => 'PageRepository.php',
     'HtmlCache' => 'HtmlCache.php',
     'ImageProcessor' => 'ImageProcessor.php',
+    'SiteBrandingAssets' => 'SiteBrandingAssets.php',
     'ImageReferenceIndex' => 'ImageReferenceIndex.php',
     'ImageDeletionRetryQueue' => 'ImageDeletionRetryQueue.php',
     'LinkAliasIndex' => 'LinkAliasIndex.php',
@@ -123,7 +124,9 @@ final class PostUpload
 
     private string $contentDir;
     private string $cacheDir;
+    private string $rootDir;
     private array $site;
+    private SiteBrandingAssets $siteBrandingAssets;
     private bool $htmlCacheEnabled;
     private bool $includeDrafts;
     private FrontMatterParser $frontMatterParser;
@@ -136,9 +139,11 @@ final class PostUpload
 
     public function __construct(array $config, string $rootDir, ?SocialProvider $socialProvider = null)
     {
+        $this->rootDir = rtrim($rootDir, DIRECTORY_SEPARATOR);
         $this->contentDir = (string) (($config['paths']['content_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'content'));
         $this->cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
         $this->site = is_array($config['site'] ?? null) ? $config['site'] : [];
+        $this->siteBrandingAssets = new SiteBrandingAssets($this->rootDir);
         $this->htmlCacheEnabled = (bool) ($config['features']['html_cache'] ?? false);
         $this->includeDrafts = (bool) ($config['metadata']['include_drafts'] ?? false);
         $this->frontMatterParser = new FrontMatterParser();
@@ -551,7 +556,7 @@ final class PostUpload
         }
 
         try {
-            $socialImage = $this->explicitSocialImage($markdown, $contentPath);
+            $socialImage = $this->socialImageForPublishing($markdown, $contentPath);
             $internalUrl = $this->urlFromContentPath($contentPath);
             return $this->socialPublishing->publishArticle(
                 $contentPath,
@@ -594,7 +599,7 @@ final class PostUpload
         }
 
         try {
-            $socialImage = $this->explicitSocialImage($markdown, $contentPath);
+            $socialImage = $this->socialImageForPublishing($markdown, $contentPath);
             $internalUrl = $this->urlFromContentPath($contentPath);
             return $this->socialPublishing->publishArticle(
                 $contentPath,
@@ -1253,7 +1258,7 @@ final class PostUpload
         }
 
         try {
-            $socialImage = $this->explicitSocialImage($markdown, $result->contentPath);
+            $socialImage = $this->socialImageForPublishing($markdown, $result->contentPath);
             $result->socialResult = $this->socialPublishing->publishArticle(
                 $result->contentPath,
                 $result->absoluteUrl,
@@ -1276,12 +1281,24 @@ final class PostUpload
 
 
     /** @return array{url:string,path:string} */
-    private function explicitSocialImage(string $markdown, string $contentPath): array
+    private function socialImageForPublishing(string $markdown, string $contentPath): array
     {
         $parsed = $this->frontMatterParser->parse($markdown);
         $metadata = is_array($parsed['metadata'] ?? null) ? $parsed['metadata'] : [];
         $target = trim((string) ($metadata['image'] ?? ''));
         if ($target === '') {
+            $siteOgp = $this->siteBrandingAssets->asset('ogp');
+            if ($siteOgp !== null) {
+                return [
+                    'url' => $this->siteBrandingAssets->absoluteUrl(
+                        'ogp',
+                        (string) ($this->site['url'] ?? ''),
+                        $this->publicBasePath()
+                    ),
+                    'path' => $siteOgp['path'],
+                ];
+            }
+
             return ['url' => '', 'path' => ''];
         }
 
