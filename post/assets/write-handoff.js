@@ -310,7 +310,7 @@
     if (transactionId) inflightWriteImportTransactions.add(transactionId);
     let accepted = false;
     try {
-      accepted = await Promise.resolve(importer(markdown, filename));
+      accepted = await Promise.resolve(importer(markdown, filename, { mode: "new", transactionId, session: writeImportSession }));
     } catch {
       accepted = false;
     } finally {
