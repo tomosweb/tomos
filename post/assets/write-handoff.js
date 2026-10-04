@@ -267,10 +267,72 @@
     button.addEventListener("click", () => void launchWrite(button));
   });
 
+
+  const writeImportParams = new URLSearchParams(window.location.search);
+  const writeImportSession = writeImportParams.get("write_import") === "1"
+    && /^[a-f0-9-]{32,36}$/i.test(writeImportParams.get("session") || "")
+    ? writeImportParams.get("session")
+    : "";
+  let writeImportSource = window.opener && !window.opener.closed ? window.opener : null;
+  const sendWriteImportReady = (source) => {
+    if (!source || !writeImportSession || !WRITE_ORIGIN) return;
+    source.postMessage({
+      protocol: PROTOCOL,
+      session: writeImportSession,
+      senderVersion: TOMOS_VERSION,
+      capabilities: CAPABILITIES,
+      type: "tomos:publish-ready",
+    }, WRITE_ORIGIN);
+  };
+  const inflightWriteImportTransactions = new Set();
+  const receiveWriteImport = async (message, source) => {
+    const markdown = message.document && message.document.markdown;
+    const filename = message.document && message.document.filename;
+    const transactionId = typeof message.transactionId === "string" ? message.transactionId : "";
+    if (!source || typeof markdown !== "string" || !MAX_MARKDOWN_BYTES || byteLength(markdown) > MAX_MARKDOWN_BYTES) return;
+    if (transactionId && processedReturnTransactions.has(transactionId)) {
+      source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-ack", transactionId }), WRITE_ORIGIN);
+      return;
+    }
+    if (transactionId && inflightWriteImportTransactions.has(transactionId)) return;
+    const importer = window.TomosPostImportMarkdown;
+    if (typeof importer !== "function") return;
+    if (transactionId) inflightWriteImportTransactions.add(transactionId);
+    let accepted = false;
+    try {
+      accepted = await Promise.resolve(importer(markdown, filename));
+    } catch {
+      accepted = false;
+    } finally {
+      if (transactionId) inflightWriteImportTransactions.delete(transactionId);
+    }
+    if (!accepted) return;
+    if (transactionId) processedReturnTransactions.add(transactionId);
+    source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-ack", transactionId }), WRITE_ORIGIN);
+    recordDiagnostic("new draft import ack received");
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("write_import");
+    cleanUrl.searchParams.delete("session");
+    window.history.replaceState(null, "", `${cleanUrl.pathname}${cleanUrl.search}`);
+    document.getElementById("post-upload")?.scrollIntoView({ behavior: scrollBehavior, block: "start" });
+  };
+
+  if (writeImportSession && document.getElementById("markdown_file") && WRITE_ORIGIN) {
+    sendWriteImportReady(writeImportSource);
+  }
+
   window.addEventListener("message", (event) => {
     if (!WRITE_ORIGIN || event.origin !== WRITE_ORIGIN) return;
-    if (!writeWindow || event.source !== writeWindow) return;
     const message = event.data;
+    if (writeImportSession && message && typeof message === "object"
+      && message.protocol === PROTOCOL && message.session === writeImportSession
+      && event.source && event.source === writeImportSource) {
+      if (typeof message.senderVersion === "string" && message.senderVersion !== "") writeVersion = message.senderVersion;
+      if (message.type === "write:publish-probe") sendWriteImportReady(event.source);
+      if (message.type === "write:publish-document") void receiveWriteImport(message, event.source);
+      return;
+    }
+    if (!writeWindow || event.source !== writeWindow) return;
     if (!message || typeof message !== "object") return;
     if (message.protocol !== PROTOCOL || message.session !== sessionId) return;
     if (typeof message.senderVersion === "string" && message.senderVersion !== "") writeVersion = message.senderVersion;
