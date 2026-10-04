@@ -7,8 +7,7 @@ require_once $root . '/tools/UpdateFileSet.php';
 
 function failCheck(string $message): never
 {
-    fwrite(STDERR, "post_write_cross_origin_coop_browser_update_check: FAIL: {$message}\n");
-    exit(1);
+    throw new RuntimeException("post_write_cross_origin_coop_browser_update_check: FAIL: {$message}");
 }
 
 function assertCheck(bool $condition, string $message): void
@@ -26,8 +25,8 @@ assertCheck(in_array('core/required-installed-files.txt', $runtimeFiles, true), 
 assertCheck(!in_array('.htaccess', $runtimeFiles, true), 'protected root .htaccess remains excluded from Browser Update');
 
 $postHtaccess = (string) file_get_contents($root . '/post/.htaccess');
-assertCheck(strpos($postHtaccess, 'Cross-Origin-Opener-Policy') !== false, 'post/.htaccess sets Cross-Origin-Opener-Policy');
-assertCheck(strpos($postHtaccess, 'same-origin-allow-popups') !== false, 'post/.htaccess preserves cross-origin opener for Tomos Write');
+assertCheck(strpos($postHtaccess, 'Cross-Origin-Opener-Policy') === false, 'post/.htaccess leaves COOP unset for the cross-origin Write opener');
+assertCheck(strpos($postHtaccess, 'same-origin-allow-popups') === false, 'post/.htaccess does not force same-origin-allow-popups');
 assertCheck(strpos($postHtaccess, 'RewriteEngine') === false, 'post/.htaccess does not restore RewriteEngine');
 assertCheck(strpos($postHtaccess, 'RewriteCond') === false, 'post/.htaccess does not restore RewriteCond');
 assertCheck(strpos($postHtaccess, 'RewriteRule') === false, 'post/.htaccess does not restore RewriteRule');
@@ -101,7 +100,8 @@ try {
 
         $packagedHtaccess = $zip->getFromName('files/post/.htaccess');
         assertCheck(is_string($packagedHtaccess), 'could not read packaged post/.htaccess');
-        assertCheck(strpos($packagedHtaccess, 'Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"') !== false, 'packaged post/.htaccess contains required COOP header');
+        assertCheck(strpos($packagedHtaccess, 'Cross-Origin-Opener-Policy') === false, 'packaged post/.htaccess leaves COOP unset');
+        assertCheck(strpos($packagedHtaccess, 'same-origin-allow-popups') === false, 'packaged post/.htaccess does not force same-origin-allow-popups');
         assertCheck(strpos($packagedHtaccess, 'RewriteEngine') === false && strpos($packagedHtaccess, 'RewriteCond') === false && strpos($packagedHtaccess, 'RewriteRule') === false, 'packaged post/.htaccess contains no auth routing');
 
         $manifestRaw = $zip->getFromName('manifest.json');
@@ -134,7 +134,8 @@ try {
     }
 
     $appliedPostHtaccess = (string) file_get_contents($baselineDir . '/post/.htaccess');
-    assertCheck(strpos($appliedPostHtaccess, 'same-origin-allow-popups') !== false, 'Browser Update replaces v0.7.2 tombstone with functional COOP header');
+    assertCheck(strpos($appliedPostHtaccess, 'Cross-Origin-Opener-Policy') === false, 'Browser Update keeps COOP unset for the cross-origin Write opener');
+    assertCheck(strpos($appliedPostHtaccess, 'same-origin-allow-popups') === false, 'Browser Update does not add same-origin-allow-popups');
     assertCheck(strpos($appliedPostHtaccess, 'RewriteEngine') === false && strpos($appliedPostHtaccess, 'RewriteCond') === false && strpos($appliedPostHtaccess, 'RewriteRule') === false, 'applied post/.htaccess remains routing-free');
     assertCheck(file_get_contents($baselineDir . '/.htaccess') === $baselineRootHtaccess, 'Browser Update leaves root .htaccess unchanged');
 
