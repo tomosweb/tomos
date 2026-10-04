@@ -47,6 +47,12 @@ $publishedWithdrawTarget = null;
 $completedWithdrawTarget = null;
 $activeSection = normalizeSection((string) ($_GET['section'] ?? 'upload'), $_GET);
 $returnTo = Tomos\PostAuthReturnTo::normalize($_SERVER['REQUEST_METHOD'] === 'POST' ? ($_POST['return_to'] ?? null) : ($_GET['return_to'] ?? null));
+if ($_SERVER['REQUEST_METHOD'] === 'GET'
+    && (string) ($_GET['write_import'] ?? '') === '1'
+    && preg_match('/^[a-f0-9-]{32,36}$/i', (string) ($_GET['session'] ?? ''))
+) {
+    $returnTo = Tomos\PostAuthReturnTo::normalize('/post/?write_import=1&session=' . strtolower((string) $_GET['session']));
+}
 $submissionId = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (string) ($_POST['submission_id'] ?? '')
     : Tomos\PostSubmissionGuard::issueId();
