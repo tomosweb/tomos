@@ -63,6 +63,38 @@ final class SearchIndex
         return $results;
     }
 
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function documents(): array
+    {
+        $documents = [];
+
+        foreach ($this->pages as $page) {
+            $title = $this->pageTitle($page);
+            $description = trim((string) ($page['description'] ?? ''));
+            if ($description === '') {
+                $description = trim((string) ($page['excerpt'] ?? ''));
+            }
+
+            $documents[] = [
+                'title' => $title,
+                'description' => $description,
+                'excerpt' => trim((string) ($page['excerpt'] ?? '')),
+                'tags' => array_values(array_map('strval', is_array($page['tags'] ?? null) ? $page['tags'] : [])),
+                'url' => Security::publicUrl((string) ($page['url'] ?? '/'), $this->publicBasePath),
+                'path' => (string) ($page['path'] ?? ''),
+                'search_text' => (string) ($page['search_text'] ?? ''),
+                'date' => trim((string) ($page['date'] ?? '')),
+                'updated' => trim((string) ($page['updated'] ?? '')),
+                'sort_date' => $this->pageSortDate($page),
+            ];
+        }
+
+        return $documents;
+    }
+
     public function pageHtml(string $query): string
     {
         $query = $this->normalizeQuery($query);
