@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tomos;
 
-foreach (['PostInbox' => 'PostInbox.php', 'MetadataIndex' => 'MetadataIndex.php'] as $dependency => $file) {
+foreach (['PostInbox' => 'PostInbox.php', 'PageCatalogBuilder' => 'PageCatalogBuilder.php', 'MetadataIndex' => 'MetadataIndex.php'] as $dependency => $file) {
     if (!class_exists(__NAMESPACE__ . '\\' . $dependency)) {
         require_once __DIR__ . DIRECTORY_SEPARATOR . $file;
     }
