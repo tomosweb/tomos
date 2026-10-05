@@ -371,28 +371,40 @@ final class StaticSiteBuilder
 
     private function internalUrlFromPublicUrl(string $url): string
     {
-        $url = trim($url);
-        if ($url === '') {
+        $path = trim($url);
+        if ($path === '') {
             return '/';
         }
 
-        $path = parse_url($url, PHP_URL_PATH);
-        $path = is_string($path) && $path !== '' ? $path : $url;
-        $base = Security::normalizeBasePath($this->publicBasePath);
+        // Keep raw UTF-8 path bytes intact. parse_url() can corrupt raw
+        // multibyte path strings on some runtimes, so strip query/fragment
+        // manually and decode only after the public base path is removed.
+        $positions = array_filter(
+            [strpos($path, '?'), strpos($path, '#')],
+            static function ($position): bool {
+                return $position !== false;
+            }
+        );
+        if ($positions !== []) {
+            $path = substr($path, 0, min($positions));
+        }
 
+        $base = Security::normalizeBasePath($this->publicBasePath);
         if ($base !== '') {
-            if ($path === $base) {
+            if ($path === $base || $path === $base . '/') {
                 $path = '/';
             } elseif (strpos($path, $base . '/') === 0) {
                 $path = substr($path, strlen($base));
             }
         }
 
-        if ($path === '' || $path[0] !== '/') {
-            $path = '/' . $path;
+        $path = rawurldecode($path);
+        $validation = Security::validateUrlPath($path);
+        if (empty($validation['is_valid'])) {
+            throw new \RuntimeException('Invalid static output URL: ' . $url);
         }
 
-        return $path;
+        return (string) $validation['path'];
     }
 
     private function robotsTxt(): string
