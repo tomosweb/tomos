@@ -75,6 +75,7 @@ Tomosには次の6テーマを同梱しています。
 - `project/phase9-runtime-checklist.md`: 画像対応Phase 9実機回帰チェック
 - `project/security.md`: セキュリティ詳細
 - `project/performance.md`: 通常表示とキャッシュの計測メモ
+- `project/static-runtime-development-concept.md`: GitHub / Cloudflare等を想定したStatic Runtime開発構想とCore / Runtime更新方針
 
 ルートの `SECURITY.md` は外部向けの概要、`project/security.md` は開発者・設置者向けの詳細です。
 
