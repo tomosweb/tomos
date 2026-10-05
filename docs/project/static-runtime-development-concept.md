@@ -141,6 +141,68 @@ ThemeをPHP版とStatic版で二重管理しない。
 
 Theme ContractまたはFront Matter仕様の変更は両Runtimeに共通するTomos API変更として扱う。
 
+
+## Stable版以降のグローバル志向
+
+Stable版以降のTomosは、日本国内のホスティング事情だけを前提にせず、海外利用を含むグローバル志向で設計する。
+
+Static RuntimeではGitHubを世界中で広く利用される開発・公開インフラの一つとして扱い、GitHubであることを利用者から隠さない。
+
+Tomos独自用語へ置き換えてGitHubの存在を抽象化するのではなく、必要に応じて次の名称をそのままUIやドキュメントへ表示する。
+
+- GitHub Repository
+- GitHub Pages
+- GitHub Actions
+
+TomosはGitHub専用製品にはしないが、Static Runtimeの最初の標準経路としてGitHubを有力候補とする。将来Cloudflare Pages等を追加する場合も、Publishing Coreを共通化し、Hosting Adapter側で差分を吸収する。
+
+### 公開サイト言語と管理UI言語を分離する
+
+公開サイトの言語とTomos管理画面の表示言語は別設定として扱う。
+
+概念上は少なくとも次を分離する。
+
+```text
+site.language      = 公開サイトの言語
+admin.ui_language  = 管理画面の表示言語
+```
+
+これにより、例えば次の組み合わせを可能にする。
+
+- 英語サイトを日本語UIで管理する
+- 日本語サイトを英語UIで管理する
+
+### 管理UIの国際化
+
+Stable版以降の管理UIは、日本語とEnglishの切り替えを正式要件とする。
+
+対象には少なくとも次を含める。
+
+- Tomos Post
+- Site Settings
+- Theme管理
+- Security / Passkey
+- Tomos Update
+- setup
+- エラー、警告、確認メッセージ
+- 将来のGitHub版初期設定・管理UI
+
+UI文言は画面コードへ直接固定せず、共通メッセージ辞書等へ分離できる構造を検討する。初期対応言語は日本語とEnglishを基本とし、将来の追加言語を妨げない構造とする。
+
+ブラウザ言語から初期値を推定することは候補とするが、利用者が管理画面から明示的に切り替えられ、その選択を保持できることを優先する。
+
+### グローバル対応でCore側が意識する事項
+
+- 日本語を暗黙の前提にしない
+- UTF-8と多言語文字列を標準ケースとして扱う
+- 多言語URLを例外扱いしない
+- 公開サイトの `site.language` と管理UI言語を混同しない
+- 日付表示等のlocale依存表示をTheme / UIの責務として整理する
+- Theme Contractと開発者ドキュメントを英語利用者にも成立させる
+- 独自ドメイン利用を特定地域向けの例外として扱わない
+
+この国際化方針はStatic Runtimeだけの要件ではなく、PHP Web Runtimeを含むTomos全体のStable版以降の設計原則とする。
+
 ## アップデートの考え方
 
 Tomosのアップデートを「PHP版とStatic版の二重開発」にしない。
