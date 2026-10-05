@@ -19,7 +19,7 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
-$options = getopt('', ['config::', 'output::']);
+$options = getopt('', ['config::', 'output::', 'tomos-root::']);
 $rootDir = dirname(__DIR__);
 $configPath = isset($options['config']) && is_string($options['config']) && $options['config'] !== ''
     ? $options['config']
@@ -27,6 +27,10 @@ $configPath = isset($options['config']) && is_string($options['config']) && $opt
 $outputDir = isset($options['output']) && is_string($options['output']) && $options['output'] !== ''
     ? $options['output']
     : $rootDir . '/build/static-site';
+$tomosRoot = isset($options['tomos-root']) && is_string($options['tomos-root']) && $options['tomos-root'] !== ''
+    ? $options['tomos-root']
+    : $rootDir;
+putenv('TOMOS_ROOT=' . $tomosRoot);
 
 if (!is_file($configPath) || !is_readable($configPath)) {
     fwrite(STDERR, "Config file not found: {$configPath}\n");
@@ -40,7 +44,8 @@ if (!is_array($config)) {
 }
 
 try {
-    $builder = new Tomos\StaticSiteBuilder($config, dirname($configPath));
+    $config = Tomos\StaticSiteConfig::normalize($config, dirname($configPath), $tomosRoot);
+    $builder = new Tomos\StaticSiteBuilder($config, $tomosRoot);
     $result = $builder->build($outputDir);
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Static build failed: ' . $exception->getMessage() . "\n");

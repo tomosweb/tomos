@@ -2,7 +2,27 @@
 
 策定日: 2026-10-05  
 対象: Tomos v1.1.9 / main  
-状態: 構想・境界整理段階。実装は未着手。
+状態: Phase 3・Phase 4完了。Phase 5実装済み（Human Gate待ち）。
+
+## 2026-10-05時点の実装状況
+
+Phase 3では共通Publishing Coreとして `PublishingEngine`、`PageCatalogBuilder`、
+`ThemeContextBuilder` を整理し、Core版とStatic Buildから利用する状態にした。
+Phase 4では `StaticSiteBuilder` と `tools/build-static-site.php` を実装し、通常ページ、
+Virtual Folder、Tags、`/all/`、RSS、Sitemap、robots.txt、404、Theme/content asset、
+日本語URL、browser-side検索、`search-index.json`、GitHub版のpath-based pagination
+（`/folder/page/2/`）をbuildできる。
+
+Phase 5ではGitHub版の最小公開経路を追加した。
+
+- `examples/tomos-github/` は、固定名 `tomosweb/tomos-github` の検証Repositoryへ移せる最小構成
+- `tomos.config.php` はCore版の `config.php` を要求せず、サイト設定と機能だけを記述
+- workflowは `TOMOS_VERSION` のtagを固定取得し、Static Build結果だけをPages artifactへ渡す
+- Pull Requestではbuild検証のみ、`main` pushまたはworkflow手動実行時だけdeploy jobを許可
+- GitHub Pages Project Pagesの初期URLは `https://tomosweb.github.io/tomos-github/`
+
+GitHub版専用のPublishing Core、管理UI、OAuth、投稿、Passkey、Update UI、Workspace連携は
+このPhaseの対象外である。
 
 ## 呼称
 
@@ -314,4 +334,6 @@ GitHub版では、
 7. Publishing Core versionとRuntime compatibilityの管理方法
 8. 共通Publishing Core回帰テストをCore版・GitHub版で共有する方法
 
-この文書の段階では、GitHub版の実装、既存Coreの切り出し、ディレクトリ再構成は行わない。
+Phase 3・4で共通Publishing CoreとStatic Buildの実装を行い、Phase 5でGitHub Actions /
+GitHub Pages経路を実装した。既存Core版のHTTP、Search、query pagination、Post、Passkey、
+Update、Installerはこの経路のために複製・変更しない。

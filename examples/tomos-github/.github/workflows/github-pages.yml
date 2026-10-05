@@ -1,0 +1,114 @@
+name: Tomos GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: github-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # This is the Phase 5 development baseline. Update it deliberately to a
+  # Phase 5-compatible Tomos tag when one is released.
+  TOMOS_VERSION: 53b45aaa5c4ac834760ef549b9699ba8ccdc6e25
+  TOMOS_REPOSITORY: https://github.com/tomosweb/tomos.git
+  OUTPUT_DIR: ${{ runner.temp }}/tomos-github-pages
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout site
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring
+          coverage: none
+
+      - name: Fetch pinned Tomos Publishing Core
+        shell: bash
+        run: |
+          set -euo pipefail
+          tomos_root="$RUNNER_TEMP/tomos-core"
+          git clone --depth 1 "$TOMOS_REPOSITORY" "$tomos_root"
+          git -C "$tomos_root" fetch --depth 1 origin "$TOMOS_VERSION"
+          git -C "$tomos_root" checkout --detach "$TOMOS_VERSION"
+          test "$(git -C "$tomos_root" rev-parse HEAD)" = "$TOMOS_VERSION"
+          echo "TOMOS_ROOT=$tomos_root" >> "$GITHUB_ENV"
+
+      - name: Run Static Build contract
+        shell: bash
+        run: php "$TOMOS_ROOT/tests/static_site_builder_check.php"
+
+      - name: Build static site
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/assets"
+          cp "$TOMOS_ROOT/assets/tomos-static-search.js" "$GITHUB_WORKSPACE/assets/tomos-static-search.js"
+          rm -rf "$OUTPUT_DIR"
+          php "$TOMOS_ROOT/tools/build-static-site.php" \
+            --config="$GITHUB_WORKSPACE/tomos.config.php" \
+            --tomos-root="$TOMOS_ROOT" \
+            --output="$OUTPUT_DIR"
+
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Verify Pages artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$OUTPUT_DIR/index.html"
+          test -f "$OUTPUT_DIR/404.html"
+          test -f "$OUTPUT_DIR/search-index.json"
+          test -f "$OUTPUT_DIR/feed.xml"
+          test -f "$OUTPUT_DIR/sitemap.xml"
+          test -f "$OUTPUT_DIR/robots.txt"
+          test -f "$OUTPUT_DIR/assets/tomos-static-search.js"
+          test -f "$OUTPUT_DIR/themes/tomos-minimal/assets/style.css"
+          test -f "$OUTPUT_DIR/content/assets/example.txt"
+          test -f "$OUTPUT_DIR/日本語記事/index.html"
+          test -f "$OUTPUT_DIR/news/first-post/index.html"
+          test ! -e "$OUTPUT_DIR/tomos.config.php"
+          test ! -e "$OUTPUT_DIR/core"
+          test ! -e "$OUTPUT_DIR/tools"
+          test ! -e "$OUTPUT_DIR/tests"
+          test ! -e "$OUTPUT_DIR/.github"
+          test -z "$(find "$OUTPUT_DIR" -type f -name '*.md' -print -quit)"
+          grep -F 'https://tomosweb.github.io/tomos-github/' "$OUTPUT_DIR/index.html"
+          grep -F '/tomos-github/news/first-post' "$OUTPUT_DIR/news/first-post/index.html"
+          ! grep -F 'Draft' "$OUTPUT_DIR/search-index.json"
+          ! grep -F '/draft' "$OUTPUT_DIR/sitemap.xml"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.OUTPUT_DIR }}
+
+  deploy:
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
