@@ -77,6 +77,7 @@ Tomosには次の6テーマを同梱しています。
 - `project/performance.md`: 通常表示とキャッシュの計測メモ
 - `project/static-runtime-development-concept.md`: GitHub / Cloudflare等を想定したStatic Runtime開発構想とCore / Runtime更新方針
 - `project/publishing-core-v1.md`: Core版とGitHub版で共有するPublishing Core v1の責務・契約
+- `project/publishing-core-v1-regression.md`: v1.1.9を基準とするPublishing Core回帰テスト設計
 
 ルートの `SECURITY.md` は外部向けの概要、`project/security.md` は開発者・設置者向けの詳細です。
 
