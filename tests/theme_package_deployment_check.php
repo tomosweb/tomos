@@ -331,7 +331,7 @@ function withWatcher(callable $watcher, callable $operation): void
             if ($watcher()) {
                 exit(0);
             }
-            usleep(100);
+            usleep(10);
         }
         exit(3);
     }
