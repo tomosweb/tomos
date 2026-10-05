@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -139,10 +141,11 @@ $forgotUrl = preg_replace('#/+#', '/', $forgotUrl);
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}button,.button{display:inline-block;padding:.75rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}
 </style>
 <link rel="stylesheet" href="../../assets/tomos-post-security.css">
+<link rel="stylesheet" href="../../assets/tomos-post-ui.css">
 </head>
-<body>
-<h1>Tomos Post</h1>
-<h2>パスキーで開く</h2>
+<body class="post-standalone">
+<main class="wrap">
+<h1>パスキーで開く</h1>
 <p>登録済みパスキーで認証します。管理用合言葉認証は従来どおり利用できます。</p>
 
 <?php if (empty($status['available'])): ?>
@@ -156,7 +159,6 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 
 <p id="result" role="status" aria-live="polite"></p>
 <p><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a> <a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">合言葉を忘れた場合</a></p>
-<p><a class="button" href="<?= htmlspecialchars((string) $securityReturnUrl, ENT_QUOTES, 'UTF-8') ?>">セキュリティへ戻る</a></p>
 
 <script>
 (() => {
@@ -233,5 +235,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
   });
 })();
 </script>
+<?= tomosPostReturnLink((string) $securityReturnUrl, 'セキュリティへ戻る') ?>
+</main>
 </body>
 </html>

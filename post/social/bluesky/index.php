@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -100,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $token = (string) $_SESSION['tomos_post_token'];
 $settingsUrl = $publicPath('post/?section=settings');
 $securityCssUrl = $publicPath('post/assets/tomos-post-security.css');
+$uiCssUrl = $publicPath('post/assets/tomos-post-ui.css');
 
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store, private');
@@ -111,10 +114,11 @@ header('X-Robots-Tag: noindex, nofollow');
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bluesky連携 - Tomos Post</title>
 <link rel="stylesheet" href="<?= htmlspecialchars($securityCssUrl, ENT_QUOTES, 'UTF-8') ?>">
+<link rel="stylesheet" href="<?= htmlspecialchars($uiCssUrl, ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body>
-<h1>Bluesky連携</h1>
-<p class="hint">Tomosで公開した記事を、Frontmatterの指定に応じてBlueskyへ告知します。記事公開とBluesky投稿は別処理です。</p>
+<body class="post-standalone">
+<main class="wrap">
+<header class="page-heading"><h1><?= tomosPostIcon('bluesky') ?><span>Bluesky</span></h1><p class="hint">Bluesky接続・投稿設定</p></header>
 
 <?php if ($errors !== []): ?>
 <div class="result ng"><strong>Bluesky連携を完了できませんでした。</strong><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div>
@@ -134,7 +138,8 @@ header('X-Robots-Tag: noindex, nofollow');
 <?php else: ?>
 <p class="hint">Blueskyアカウントと接続されています。</p>
 <?php endif; ?>
-<div class="result">
+<div class="result account-row">
+<?= tomosPostIcon('check') ?><div>
 <strong>接続中のアカウント</strong><br>
 <?php if ((string) ($account['handle'] ?? '') !== ''): ?>
 <code>@<?= htmlspecialchars((string) $account['handle'], ENT_QUOTES, 'UTF-8') ?></code>
@@ -142,13 +147,13 @@ header('X-Robots-Tag: noindex, nofollow');
 <code><?= htmlspecialchars((string) ($account['did'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code>
 <?php endif; ?>
 </div>
+</div>
 
 <form method="post">
 <input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
 <input type="hidden" name="action" value="disconnect">
 <div class="actions">
 <button class="danger" type="submit">接続を解除する</button>
-<a class="button" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES, 'UTF-8') ?>">設定へ戻る</a>
 </div>
 </form>
 <?php else: ?>
@@ -161,10 +166,11 @@ header('X-Robots-Tag: noindex, nofollow');
 <label for="identifier">BlueskyハンドルまたはDID</label>
 <input id="identifier" type="text" name="identifier" autocomplete="off" spellcheck="false" required>
 <div class="actions">
-<button type="submit">Blueskyと接続</button>
-<a class="button" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES, 'UTF-8') ?>">設定へ戻る</a>
+<button type="submit"><?= tomosPostIcon('bluesky') ?><span>Blueskyと接続</span></button>
 </div>
 </form>
 <?php endif; ?>
+<?= tomosPostReturnLink($settingsUrl) ?>
+</main>
 </body>
 </html>

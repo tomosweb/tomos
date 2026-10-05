@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -138,6 +140,7 @@ $forgotUrl = $hasPasskey
     ? $publicPath('post/passkey/password-reset/')
     : $publicPath('post/passkey/recovery/');
 $token = (string) $_SESSION['tomos_post_token'];
+$settingsUrl = $publicPath('post/?section=settings');
 ?><!doctype html>
 <html lang="ja">
 <head>
@@ -148,11 +151,11 @@ $token = (string) $_SESSION['tomos_post_token'];
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}.card{border-top:1px solid #ddd;padding:1.2rem 0}.card:first-of-type{border-top:0}.button,button{display:inline-block;padding:.7rem 1rem;margin:.2rem .35rem .2rem 0;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;font:inherit;cursor:pointer}.primary{font-weight:700}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.hint{color:#666}input[type=password]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem;font:inherit}.remember-auth{display:flex;gap:.5rem;align-items:flex-start;margin:.6rem 0 1rem}.remember-auth input{margin-top:.35rem}
 </style>
 <link rel="stylesheet" href="../assets/tomos-post-security.css">
+<link rel="stylesheet" href="../assets/tomos-post-ui.css">
 </head>
-<body>
-<h1>Tomos Post</h1>
-<h2>セキュリティ</h2>
-<p>Tomos Postで使うパスキーの管理と、管理用合言葉を忘れた場合の復旧を行います。</p>
+<body class="post-standalone">
+<main class="wrap security-page">
+<header class="page-heading"><h1><?= tomosPostIcon('security') ?><span>セキュリティ</span></h1><p class="hint">認証、パスキー、API関連</p></header>
 
 <?php foreach ($messages as $message): ?>
 <div class="result"><p><?= htmlspecialchars((string) $message, ENT_QUOTES, 'UTF-8') ?></p></div>
@@ -169,8 +172,8 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 
 <?php if ($authenticated): ?>
-<section class="card">
-<h2>Obsidian投稿用トークン</h2>
+<section class="card security-section">
+<h2><?= tomosPostIcon('edit') ?><span>Obsidian投稿用トークン</span></h2>
 <p class="hint">ObsidianからTomosへHTTPS投稿するための専用トークンです。再発行すると以前のトークンは無効になります。</p>
 <form method="post" action="">
 <input type="hidden" name="action" value="issue_inbox_api_token">
@@ -196,8 +199,8 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <p>登録済みパスキー: <?= count($credentials) ?> 件</p>
 </div>
 
-<section class="card">
-<h2>パスキーを管理する</h2>
+<section class="card security-section">
+<h2><?= tomosPostIcon('security') ?><span>パスキーを管理する</span></h2>
 <p>登録済みパスキーの確認、名称変更、削除、新しいパスキーの追加ができます。</p>
 <?php if ($authenticated): ?>
 <a class="button primary" href="<?= htmlspecialchars($publicPath('post/passkey/manage/'), ENT_QUOTES, 'UTF-8') ?>">登録済みパスキーを管理</a>
@@ -228,8 +231,8 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 </section>
 
-<section class="card">
-<h2>管理用合言葉を忘れた場合</h2>
+<section class="card security-section">
+<h2><?= tomosPostIcon('security') ?><span>管理用合言葉を忘れた場合</span></h2>
 <?php if ($hasPasskey): ?>
 <p>登録済みパスキーで本人確認し、管理用合言葉を再設定できます。</p>
 <a class="button primary" href="<?= htmlspecialchars($forgotUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで合言葉を再設定</a>
@@ -240,6 +243,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </section>
 <?php endif; ?>
 
-<p><a class="button" href="<?= htmlspecialchars($publicPath('post/?section=settings'), ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
+<?= tomosPostReturnLink($settingsUrl) ?>
+</main>
 </body>
 </html>

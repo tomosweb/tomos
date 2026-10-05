@@ -18,6 +18,7 @@ cache/security/post-auth/.gitkeep
 cache/security/post-submissions/.gitkeep
 cache/post-upload-sessions/.gitkeep
 post/index.php
+post/ui.php
 post/.htaccess
 post/auth-gate.php
 post/inbox/api/index.php
@@ -111,6 +112,9 @@ core/webauthn/vendor/autoload.php
 core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php
 post/site-settings.php
 post/settings/index.php
+post/navigation/index.php
+post/analytics/index.php
+post/assets/tomos-post-ui.css
 post/theme/index.php
 post/theme/confirm/index.php
 post/theme/add/index.php

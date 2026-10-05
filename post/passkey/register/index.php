@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -134,10 +136,11 @@ $securityUrl = preg_replace('#/+#', '/', $securityUrl);
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}input,button{font:inherit}input[type=password],input[type=text]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem}button,.button{display:inline-block;padding:.7rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}code{word-break:break-all}
 </style>
 <link rel="stylesheet" href="../../assets/tomos-post-security.css">
+<link rel="stylesheet" href="../../assets/tomos-post-ui.css">
 </head>
-<body>
-<h1>Tomos Post</h1>
-<h2>パスキーを追加</h2>
+<body class="post-standalone">
+<main class="wrap">
+<h1>パスキーを追加</h1>
 <p>Tomos Postへ追加するパスキーを登録します。現在の管理用合言葉認証は変更されません。</p>
 
 <?php if (empty($status['available'])): ?>
@@ -173,7 +176,6 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </ul>
 <?php endif; ?>
 
-<p><a class="button" href="<?= htmlspecialchars((string) $securityUrl, ENT_QUOTES, 'UTF-8') ?>">セキュリティへ戻る</a> <a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
 
 <script>
 (() => {
@@ -266,5 +268,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
   });
 })();
 </script>
+<?= tomosPostReturnLink((string) $securityUrl, 'セキュリティへ戻る') ?>
+</main>
 </body>
 </html>

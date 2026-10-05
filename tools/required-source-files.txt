@@ -10,6 +10,7 @@ CHANGELOG.md
 SECURITY.md
 KNOWN_LIMITATIONS.md
 post/index.php
+post/ui.php
 post/.htaccess
 post/auth-gate.php
 post/inbox/api/index.php
@@ -94,6 +95,9 @@ core/webauthn/composer.lock
 core/webauthn/vendor/autoload.php
 core/webauthn/vendor/lbuchs/webauthn/src/WebAuthn.php
 post/settings/index.php
+post/navigation/index.php
+post/analytics/index.php
+post/assets/tomos-post-ui.css
 post/theme/index.php
 post/theme/confirm/index.php
 post/theme/add/index.php
