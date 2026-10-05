@@ -139,7 +139,7 @@ try {
             'ga4_measurement_id' => '',
         ],
         'features' => [
-            'search' => false,
+            'search' => true,
             'tags' => true,
             'rss' => true,
             'sitemap' => true,
@@ -174,6 +174,9 @@ try {
         '/tags/index.html',
         '/tags/alpha/index.html',
         '/all/index.html',
+        '/search/index.html',
+        '/search-index.json',
+        '/assets/tomos-static-search.js',
         '/feed.xml',
         '/sitemap.xml',
         '/robots.txt',
@@ -193,6 +196,18 @@ try {
 
     $virtualHtml = (string) file_get_contents($output . '/docs/index.html');
     staticBuildCheck(strpos($virtualHtml, 'Guide') !== false, 'virtual folder page list missing');
+
+    $searchHtml = (string) file_get_contents($output . '/search/index.html');
+    staticBuildCheck(strpos($searchHtml, 'data-static-search') !== false, 'static search container missing');
+    staticBuildCheck(strpos($searchHtml, '/repo/search-index.json') !== false, 'static search index URL mismatch');
+    staticBuildCheck(strpos($searchHtml, '/repo/assets/tomos-static-search.js') !== false, 'static search script URL mismatch');
+
+    $searchDocuments = json_decode((string) file_get_contents($output . '/search-index.json'), true);
+    staticBuildCheck(is_array($searchDocuments), 'static search index JSON invalid');
+    staticBuildCheck(count($searchDocuments) === 5, 'static search document count mismatch');
+    $searchUrls = array_column($searchDocuments, 'url');
+    staticBuildCheck(in_array('/repo/posts/entry', $searchUrls, true), 'static search public URL missing');
+    staticBuildCheck(!in_array('/repo/draft', $searchUrls, true), 'draft leaked into static search index');
 
     $feed = (string) file_get_contents($output . '/feed.xml');
     staticBuildCheck(strpos($feed, 'https://example.test/repo/posts/entry') !== false, 'feed public URL mismatch');
