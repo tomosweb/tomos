@@ -10,12 +10,9 @@ final class MetadataIndex
     private string $cacheDir;
     private string $indexFile;
     private string $managementIndexFile;
-    private bool $includeDrafts;
     private FrontMatterParser $frontMatterParser;
-    private PageRepository $pageRepository;
     private PageCatalogBuilder $catalogBuilder;
     private LinkAliasIndex $linkAliasIndex;
-    private string $defaultLanguage;
 
     public function __construct(
         string $contentDir,
@@ -33,15 +30,12 @@ final class MetadataIndex
         $this->cacheDir = rtrim($cacheDir, DIRECTORY_SEPARATOR);
         $this->indexFile = $this->cacheDir . DIRECTORY_SEPARATOR . 'index' . DIRECTORY_SEPARATOR . 'pages.json';
         $this->managementIndexFile = $this->cacheDir . DIRECTORY_SEPARATOR . 'index' . DIRECTORY_SEPARATOR . 'post-articles.json';
-        $this->includeDrafts = $includeDrafts;
         $this->frontMatterParser = $frontMatterParser ?? new FrontMatterParser();
-        $this->pageRepository = new PageRepository($this->contentDir, $this->frontMatterParser);
-        $this->defaultLanguage = LanguageTag::fallback($defaultLanguage);
         $this->catalogBuilder = new PageCatalogBuilder(
             $this->contentDir,
             $this->frontMatterParser,
-            $this->includeDrafts,
-            $this->defaultLanguage
+            $includeDrafts,
+            $defaultLanguage
         );
         $this->linkAliasIndex = new LinkAliasIndex($this->cacheDir);
     }
