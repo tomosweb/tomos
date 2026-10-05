@@ -104,6 +104,13 @@ try {
         $content . '/docs/guide.md',
         "---\ntitle: Guide\ndraft: false\n---\nGuide body.\n"
     );
+    for ($i = 1; $i <= 31; $i++) {
+        staticBuildWrite(
+            $content . '/archive/item-' . str_pad((string) $i, 2, '0', STR_PAD_LEFT) . '.md',
+            "---\ntitle: Archive {$i}\ndraft: false\n---\nArchive body {$i}.\n"
+        );
+    }
+
     staticBuildWrite(
         $content . '/draft.md',
         "---\ntitle: Draft\ndraft: true\n---\nHidden body.\n"
@@ -162,8 +169,8 @@ try {
     $builder = new StaticSiteBuilder($config, $root);
     $result = $builder->build($output);
 
-    staticBuildCheck(($result['pages'] ?? 0) === 5, 'public page count mismatch');
-    staticBuildCheck(($result['virtual_folders'] ?? 0) >= 2, 'virtual folder count mismatch');
+    staticBuildCheck(($result['pages'] ?? 0) === 36, 'public page count mismatch');
+    staticBuildCheck(($result['virtual_folders'] ?? 0) >= 3, 'virtual folder count mismatch');
     staticBuildCheck(($result['tags'] ?? 0) === 1, 'tag count mismatch');
 
     foreach ([
@@ -171,6 +178,8 @@ try {
         '/about/index.html',
         '/posts/entry/index.html',
         '/docs/index.html',
+        '/archive/index.html',
+        '/archive/page/2/index.html',
         '/tags/index.html',
         '/tags/alpha/index.html',
         '/all/index.html',
@@ -197,6 +206,14 @@ try {
     $virtualHtml = (string) file_get_contents($output . '/docs/index.html');
     staticBuildCheck(strpos($virtualHtml, 'Guide') !== false, 'virtual folder page list missing');
 
+    $archivePage1 = (string) file_get_contents($output . '/archive/index.html');
+    staticBuildCheck(strpos($archivePage1, '/repo/archive/page/2/') !== false, 'static pagination next URL mismatch');
+
+    $archivePage2 = (string) file_get_contents($output . '/archive/page/2/index.html');
+    staticBuildCheck(strpos($archivePage2, '31–31件を表示') !== false, 'static pagination second page range mismatch');
+    staticBuildCheck(strpos($archivePage2, '/repo/archive/') !== false, 'static pagination first-page URL mismatch');
+    staticBuildCheck(strpos($archivePage2, '?page=') === false, 'static pagination leaked Core query URLs');
+
     $searchHtml = (string) file_get_contents($output . '/search/index.html');
     staticBuildCheck(strpos($searchHtml, 'data-static-search') !== false, 'static search container missing');
     staticBuildCheck(strpos($searchHtml, '/repo/search-index.json') !== false, 'static search index URL mismatch');
@@ -204,7 +221,7 @@ try {
 
     $searchDocuments = json_decode((string) file_get_contents($output . '/search-index.json'), true);
     staticBuildCheck(is_array($searchDocuments), 'static search index JSON invalid');
-    staticBuildCheck(count($searchDocuments) === 5, 'static search document count mismatch');
+    staticBuildCheck(count($searchDocuments) === 36, 'static search document count mismatch');
     $searchUrls = array_column($searchDocuments, 'url');
     staticBuildCheck(in_array('/repo/posts/entry', $searchUrls, true), 'static search public URL missing');
     staticBuildCheck(!in_array('/repo/draft', $searchUrls, true), 'draft leaked into static search index');
