@@ -89,6 +89,15 @@ try {
     );
 
     staticBuildWrite(
+        $root . '/assets/tomos-static-search.js',
+        (string) file_get_contents(dirname(__DIR__) . '/assets/tomos-static-search.js')
+    );
+    staticBuildWrite(
+        $root . '/assets/tomos-default-favicon.png',
+        'favicon-fixture'
+    );
+
+    staticBuildWrite(
         $content . '/index.md',
         "---\ntitle: Home\ndraft: false\n---\n# Home\n\nWelcome.\n"
     );
