@@ -9,10 +9,12 @@ final class App
     private array $config;
     private string $ga4Nonce = '';
     private ?ThemeSettings $themeSettings = null;
+    private PublishingEngine $publishingEngine;
 
     public function __construct(array $config)
     {
         $this->config = $config;
+        $this->publishingEngine = new PublishingEngine($config);
         if (Ga4::measurementId($config) !== '') {
             try {
                 $this->ga4Nonce = rtrim(strtr(base64_encode(random_bytes(18)), '+/', '-_'), '=');
@@ -129,7 +131,7 @@ final class App
             if ($cachedContent !== null) {
                 $contentHtml = $cachedContent['html'];
                 $contentToc = $cachedContent['toc'];
-                $relatedItems = $this->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
+                $relatedItems = $this->publishingEngine->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
                 $performance->set('html_cache', 'hit');
             } else {
                 $performance->set('html_cache', 'miss');
@@ -173,7 +175,7 @@ final class App
             $performance->set('wiki_link_parse', 'skipped');
         }
 
-        echo $this->renderPage($renderer, $navigation, $pages, [
+        echo $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => $page['title'],
             'description' => SeoMetadata::description($page, $this->config['site']),
             'url' => Security::publicUrl($page['url'], $publicBasePath),
@@ -186,7 +188,7 @@ final class App
             'excerpt' => $page['excerpt'] ?? '',
             'tags' => $page['tags'],
             'language' => $page['language'] ?? null,
-            'tags_html' => $this->pageTagsHtml(is_array($page['tags']) ? $page['tags'] : [], $publicBasePath),
+            'tags_html' => $this->publishingEngine->pageTagsHtml(is_array($page['tags']) ? $page['tags'] : [], $publicBasePath),
             'content' => $contentHtml,
             'toc' => $contentToc,
             'related_items' => $relatedItems,
@@ -221,7 +223,7 @@ final class App
             $performance->set('markdown_render', 'skipped');
             $performance->set('wiki_link_parse', 'skipped');
             $performance->lap('html_cache_check');
-            $cachedContent['related_items'] = $this->relatedItemsFromHtml(
+            $cachedContent['related_items'] = $this->publishingEngine->relatedItemsFromHtml(
                 $cachedContent['html'],
                 (string) ($page['url'] ?? ''),
                 $pages,
@@ -232,22 +234,21 @@ final class App
         $performance->set('html_cache', 'miss');
         $performance->lap('html_cache_check');
 
-        $wikiLinkParser = new WikiLinkParser($pages, $publicBasePath, $this->loadLinkAliases());
+        $linkAliases = $this->loadLinkAliases();
         $performance->increment('link_aliases_load');
-        $imageEmbedParser = new ImageEmbedParser((string) $this->config['paths']['content_dir'], $publicBasePath);
-        $contentRaw = $this->contentWithoutDuplicateTitleHeading((string) $page['content_raw'], (string) $page['title']);
-        $contentRaw = $imageEmbedParser->replace($contentRaw, $sourcePath !== '' ? $sourcePath : 'index.md');
-        $contentRaw = $wikiLinkParser->replace($contentRaw);
+        $rendered = $this->publishingEngine->renderMarkdownContent(
+            $page,
+            $markdownParser,
+            $pages,
+            $publicBasePath,
+            $linkAliases
+        );
         $performance->set('wiki_link_parse', 'run');
-        $rendered = $markdownParser->toHtmlWithToc($contentRaw);
         $performance->set('markdown_render', 'run');
-        $contentHtml = $wikiLinkParser->restore($rendered['html']);
-        $contentHtml = $imageEmbedParser->restore($contentHtml);
-        $relatedItems = $this->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
 
-        $htmlCache->write($sourcePath, $sourceFile, $contentHtml, $rendered['toc']);
+        $htmlCache->write($sourcePath, $sourceFile, $rendered['html'], $rendered['toc']);
 
-        return ['html' => $contentHtml, 'toc' => $rendered['toc'], 'related_items' => $relatedItems];
+        return $rendered;
     }
 
     private function loadPages(MetadataIndex $metadataIndex, PerformanceLogger $performance): array
@@ -323,31 +324,6 @@ final class App
             . str_replace('/', DIRECTORY_SEPARATOR, $path);
     }
 
-    private function pageTagsHtml(array $tags, string $publicBasePath): string
-    {
-        $clean = [];
-        foreach ($tags as $tag) {
-            $tag = trim((string) $tag);
-            if ($tag !== '') {
-                $clean[$tag] = $tag;
-            }
-        }
-
-        if ($clean === []) {
-            return '';
-        }
-
-        $html = '<footer class="page-tags" aria-label="タグ">';
-        foreach (array_values($clean) as $tag) {
-            $slug = str_replace('.', '%2E', rawurlencode($tag));
-            $href = rtrim(Security::publicUrl('/tags/', $publicBasePath), '/') . '/' . $slug;
-            $html .= '<a href="' . $this->escape($href) . '" class="tag-link">' . $this->escape($tag) . '</a>';
-        }
-        $html .= '</footer>';
-
-        return $html;
-    }
-
     private function createPageRepository(FrontMatterParser $frontMatterParser): ?PageRepository
     {
         try {
@@ -382,25 +358,6 @@ final class App
         return $this->themeSettings;
     }
 
-    private function contentWithoutDuplicateTitleHeading(string $markdown, string $title): string
-    {
-        $title = trim($title);
-        if ($title === '') {
-            return $markdown;
-        }
-
-        $normalizedMarkdown = str_replace(["\r\n", "\r"], "\n", $markdown);
-        if (preg_match('/\A([ \t\n]*)#\s+([^\n]+)[ \t]*(?:\n|$)/u', $normalizedMarkdown, $matches) !== 1) {
-            return $normalizedMarkdown;
-        }
-
-        if (trim($matches[2]) !== $title) {
-            return $normalizedMarkdown;
-        }
-
-        return ltrim(substr($normalizedMarkdown, strlen($matches[0])), "\n");
-    }
-
     private function renderNotFoundPage(
         TemplateRenderer $renderer,
         MarkdownParser $markdownParser,
@@ -412,7 +369,7 @@ final class App
         $description = '指定されたページは存在しないか、非公開になっています。';
         $content = $markdownParser->toHtml('指定されたページは存在しないか、非公開になっています。' . "\n\n" . '[トップページへ戻る](/)');
 
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => $title,
             'description' => $description,
             'url' => '',
@@ -443,7 +400,7 @@ final class App
         string $publicBasePath
     ): string {
         if ($urlPath === '/tags' || $urlPath === '/tags/') {
-            return $this->renderPage($renderer, $navigation, $pages, [
+            return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
                 'title' => 'タグ一覧',
                 'description' => 'タグからページを探します。',
                 'url' => Security::publicUrl('/tags/', $publicBasePath),
@@ -466,7 +423,7 @@ final class App
         $tag = $tagIndex->resolveTag($slug);
         if ($tag === null) {
             http_response_code(404);
-            return $this->renderPage($renderer, $navigation, $pages, [
+            return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
                 'title' => 'タグが見つかりません',
                 'description' => '指定されたタグのページはありません。',
                 'url' => '',
@@ -487,7 +444,7 @@ final class App
             ]);
         }
 
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => 'タグ: ' . $tag,
             'description' => 'タグ「' . $tag . '」のページ一覧です。',
             'url' => $tagIndex->tagUrl($tag),
@@ -516,7 +473,7 @@ final class App
     ): string {
         $query = $this->queryParam($requestUri, 'q');
 
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => '検索',
             'description' => 'サイト内を検索します。',
             'url' => Security::publicUrl('/search/', $publicBasePath),
@@ -541,7 +498,7 @@ final class App
         array $pages,
         string $publicBasePath
     ): string {
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => 'すべての項目',
             'description' => '公開中のすべてのページを一覧します。',
             'url' => Security::publicUrl('/all/', $publicBasePath),
@@ -560,97 +517,6 @@ final class App
             'internal_url' => '/all/',
             'breadcrumbs' => $navigation->breadcrumbs($pages, '/all/'),
         ]);
-    }
-
-    private function renderPage(TemplateRenderer $renderer, NavigationBuilder $navigation, array $pages, array $page): string
-    {
-        $currentUrl = (string) ($page['internal_url'] ?? '');
-        $date = trim((string) ($page['date'] ?? ''));
-        $updated = trim((string) ($page['updated'] ?? ''));
-        $page['show_updated'] = $updated !== '' && $updated !== $date;
-        $page['meta_html'] = $this->pageMetaHtml($date, $updated);
-        $folder = ($page['page_type'] ?? '') === 'virtual_folder_index'
-            ? trim((string) ($page['folder_path'] ?? ''), '/')
-            : $this->folderFromIndexPath((string) ($page['path'] ?? ''));
-        $folderPageNumber = (int) ($page['folder_page_number'] ?? 1);
-        $requiredVariables = $renderer->requiredVariablesForPage($page);
-        $page['folder_pages_html'] = $folder !== null && isset($requiredVariables['page.folder_pages_html'])
-            ? $navigation->folderPageList($pages, $folder, $folderPageNumber, 30)
-            : '';
-
-        $needsTree = isset($requiredVariables['nav.tree']) || isset($requiredVariables['nav.mobile_tree']);
-        $tree = $needsTree
-            ? $navigation->tree($pages, $currentUrl, false, !empty($this->config['features']['rss']))
-            : '';
-
-        $needsTagContext = isset($requiredVariables['tag.list']) || isset($requiredVariables['tag.items']);
-        $tagIndex = $needsTagContext ? new TagIndex($pages, $this->publicBasePath()) : null;
-
-        return $renderer->renderPage($page + [
-            'toc' => '',
-            'tags_html' => '',
-            'related_items' => [],
-            'tag' => [
-                'list' => isset($requiredVariables['tag.list']) && $tagIndex !== null
-                    ? $tagIndex->indexHtml()
-                    : '',
-                'items' => isset($requiredVariables['tag.items']) && $tagIndex !== null
-                    ? $tagIndex->items()
-                    : [],
-            ],
-            'nav' => [
-                'tree' => isset($requiredVariables['nav.tree']) ? $tree : '',
-                'mobile_tree' => isset($requiredVariables['nav.mobile_tree']) ? $tree : '',
-                'sections' => isset($requiredVariables['nav.sections'])
-                    ? $navigation->sectionLinks($pages, $currentUrl)
-                    : '',
-                'primary_links' => isset($requiredVariables['nav.primary_links'])
-                    ? $navigation->primaryLinks($pages, $currentUrl, !empty($this->config['features']['rss']))
-                    : '',
-                'primary_items' => isset($requiredVariables['nav.primary_items'])
-                    ? $navigation->primaryItems($pages, $currentUrl, !empty($this->config['features']['rss']))
-                    : [],
-                'breadcrumbs' => $page['breadcrumbs'] ?? '',
-            ],
-            'list' => [
-                'pages' => $folder === null && isset($requiredVariables['list.pages'])
-                    ? $navigation->pageList($pages)
-                    : '',
-                'latest_pages' => isset($requiredVariables['list.latest_pages'])
-                    ? $navigation->latestPageList($pages, 12)
-                    : '',
-            ],
-        ]);
-    }
-
-    private function pageMetaHtml(string $date, string $updated): string
-    {
-        $items = [];
-        if ($date !== '') {
-            $escapedDate = $this->escape($date);
-            $items[] = '<time datetime="' . $escapedDate . '">公開日: ' . $escapedDate . '</time>';
-        }
-
-        if ($updated !== '' && $updated !== $date) {
-            $escapedUpdated = $this->escape($updated);
-            $items[] = '<time datetime="' . $escapedUpdated . '">更新日: ' . $escapedUpdated . '</time>';
-        }
-
-        if ($items === []) {
-            return '';
-        }
-
-        return '<div class="page-meta">' . implode(' ', $items) . '</div>';
-    }
-
-    private function folderFromIndexPath(string $path): ?string
-    {
-        if ($path === '' || $path === 'index.md' || substr($path, -9) !== '/index.md') {
-            return null;
-        }
-
-        $folder = substr($path, 0, -9);
-        return $folder === '' ? null : $folder;
     }
 
     private function escape(string $value): string
@@ -744,134 +610,6 @@ final class App
         }
 
         return $path;
-    }
-
-    /**
-     * @return array<int, array{title: string, url: string}>
-     */
-    private function relatedItemsFromHtml(string $html, string $currentUrl, array $pages, string $publicBasePath): array
-    {
-        $pagesByUrl = [];
-        foreach ($pages as $page) {
-            if (!is_array($page) || !empty($page['draft'])) {
-                continue;
-            }
-
-            $url = $this->normalizePagePath((string) ($page['url'] ?? ''));
-            if ($url === null) {
-                continue;
-            }
-
-            $pagesByUrl[$url] = $page;
-        }
-
-        $current = $this->normalizePagePath($currentUrl);
-        if ($pagesByUrl === [] || $current === null) {
-            return [];
-        }
-
-        preg_match_all(
-            '/<a\\b[^>]*\\bhref\\s*=\\s*(["\\\'])(.*?)\\1[^>]*>.*?<\\/a>/isu',
-            $html,
-            $matches,
-            PREG_SET_ORDER
-        );
-
-        $related = [];
-        $seen = [];
-        foreach ($matches as $match) {
-            $anchorHtml = (string) ($match[0] ?? '');
-            if (stripos($anchorHtml, '<img') !== false) {
-                continue;
-            }
-
-            $path = $this->internalLinkPath((string) ($match[2] ?? ''), $current, $publicBasePath);
-            if ($path === null || $path === $current || isset($seen[$path]) || !isset($pagesByUrl[$path])) {
-                continue;
-            }
-
-            $target = $pagesByUrl[$path];
-            $title = trim((string) ($target['title'] ?? ''));
-            if ($title === '') {
-                $title = (string) ($target['path'] ?? 'Untitled');
-            }
-
-            $seen[$path] = true;
-            $related[] = [
-                'title' => $title,
-                'url' => Security::publicUrl($path, $publicBasePath),
-            ];
-        }
-
-        return $related;
-    }
-
-    private function internalLinkPath(string $href, string $currentUrl, string $publicBasePath): ?string
-    {
-        $href = html_entity_decode(trim($href), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        if ($href === '' || $href[0] === '#' || strpos($href, '//') === 0) {
-            return null;
-        }
-
-        $scheme = parse_url($href, PHP_URL_SCHEME);
-        if ($scheme !== null) {
-            return null;
-        }
-
-        $positions = array_filter([strpos($href, '?'), strpos($href, '#')], static function ($position): bool {
-            return $position !== false;
-        });
-        if ($positions !== []) {
-            $href = substr($href, 0, min($positions));
-        }
-        if ($href === '') {
-            return null;
-        }
-
-        if ($href[0] !== '/') {
-            $base = substr($currentUrl, -1) === '/'
-                ? rtrim($currentUrl, '/')
-                : dirname($currentUrl);
-            $href = rtrim($base, '/') . '/' . ltrim($href, '/');
-        }
-
-        $publicBasePath = Security::normalizeBasePath($publicBasePath);
-        if ($publicBasePath !== '') {
-            if ($href === $publicBasePath) {
-                $href = '/';
-            } elseif (strpos($href, $publicBasePath . '/') === 0) {
-                $href = substr($href, strlen($publicBasePath));
-            } else {
-                return null;
-            }
-        }
-
-        return $this->normalizePagePath($href);
-    }
-
-    private function normalizePagePath(string $url): ?string
-    {
-        $url = trim($url);
-        if ($url === '') {
-            return null;
-        }
-
-        $positions = array_filter([strpos($url, '?'), strpos($url, '#')], static function ($position): bool {
-            return $position !== false;
-        });
-        if ($positions !== []) {
-            $url = substr($url, 0, min($positions));
-        }
-        if ($url === '' || $url[0] !== '/') {
-            $url = '/' . $url;
-        }
-
-        $validation = Security::validateUrlPath($url);
-        if (empty($validation['is_valid'])) {
-            return null;
-        }
-
-        return (string) $validation['path'];
     }
 
     private function publicBasePath(): string
