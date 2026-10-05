@@ -8,8 +8,8 @@
 
 本構想では、今後Tomosの2つの提供形態を次のように呼称する。
 
-- **Core版**: 現行のホスティング環境へ設置して利用するTomos。技術的にはCore版のPHP Web Runtimeを利用する。
-- **GitHub版**: GitHub対応のTomos。GitHub Repository / GitHub Actions / GitHub Pages等を利用するGitHub版のStatic Build Runtimeを基本とする。
+- **Core版**: 現行のホスティング環境へ設置して利用するTomos。技術的にはPHP Web Runtimeを利用する。
+- **GitHub版**: GitHub対応のTomos。GitHub Repository / GitHub Actions / GitHub Pages等を利用するStatic Build Runtimeを基本とする。
 
 なお、両者で共用する内部コンポーネントを指す場合は **共通Publishing Core** と表記し、製品呼称としての「Core版」と区別する。
 
@@ -26,8 +26,8 @@ GitHub版を別製品・別Coreとして開発せず、現行Tomosの公開処�
                          |
              +-----------+-----------+
              |                       |
-       Core版のPHP Web Runtime         GitHub版のStatic Build Runtime
-       Core版                 GitHub版
+       PHP Web Runtime           Static Build Runtime
+       Core版                    GitHub版
 ```
 
 利用者からは同じTomosとして扱い、内部で実行方式だけを分ける。
@@ -58,7 +58,7 @@ GitHub版を別製品・別Coreとして開発せず、現行Tomosの公開処�
 
 ## Runtime固有とする責務
 
-### Core版のPHP Web Runtime
+### Core版（PHP Web Runtime）
 
 - HTTP request / response
 - Apache routing / .htaccess
@@ -73,7 +73,7 @@ GitHub版を別製品・別Coreとして開発せず、現行Tomosの公開処�
 - setup / installer
 - PHP環境・書き込み権限等の設置確認
 
-### GitHub版のStatic Build Runtime
+### GitHub版（Static Build Runtime）
 
 - 全公開ページの列挙と一括build
 - HTMLファイル出力
@@ -124,7 +124,7 @@ GitHub版には以下をそのまま移植しない。
 
 を統括している。
 
-GitHub版対応では `App.php` をGitHub版向けに複製せず、「1ページまたは1サイトをTomosとして組み立てる処理」をPublishing Core側へ整理し、PHP RuntimeとGitHub版の双方が利用できる形を検討する。
+GitHub版対応では `App.php` をGitHub版向けに複製せず、「1ページまたは1サイトをTomosとして組み立てる処理」をPublishing Core側へ整理し、Core版とGitHub版の双方が利用できる形を検討する。
 
 `TemplateRenderer` はTheme共用の中心とする。`MetadataIndex` はデータモデル生成を共用し、cache I/OをRuntime側の責務として分離する方向で検討する。
 
@@ -210,7 +210,7 @@ UI文言は画面コードへ直接固定せず、共通メッセージ辞書等
 - Theme Contractと開発者ドキュメントを英語利用者にも成立させる
 - 独自ドメイン利用を特定地域向けの例外として扱わない
 
-この国際化方針はGitHub版だけの要件ではなく、Core版のPHP Web Runtimeを含むTomos全体のStable版以降の設計原則とする。
+この国際化方針はGitHub版だけの要件ではなく、Core版を含むTomos全体のStable版以降の設計原則とする。
 
 ## アップデートの考え方
 
@@ -230,9 +230,9 @@ Tomosのアップデートを「Core版とGitHub版の二重開発」にしな�
 - Tag / Navigation / RSS / Sitemap修正
 - Front Matter仕様追加
 
-Coreを一度修正し、Core版のPHP Web RuntimeとGitHub版のStatic Build Runtimeの双方が同じCore更新を利用する。
+Coreを一度修正し、Core版とGitHub版の双方が同じ共通Publishing Core更新を利用する。
 
-Core版では従来のTomos Updateから更新する。GitHub版では指定Publishing Publishing Core versionを更新して再buildする。
+Core版では従来のTomos Updateから更新する。GitHub版では指定Publishing Core versionを更新して再buildする。
 
 ### 2. PHP Runtime固有の更新
 
