@@ -82,7 +82,7 @@ try {
     $published = request($baseUrl . '/post/?section=published', $cookie);
     assertSame(200, $published['status'], 'published page status');
     assertContains('Write Handoff Test', $published['body'], 'published fixture');
-    assertContains('class="secondary tomos-write-edit"', $published['body'], 'Tomos Write button');
+    assertContains('class="text-button tomos-write-edit"', $published['body'], 'Tomos Write button');
     assertContains('src="/tomos-edit/post/assets/write-handoff.js"', $published['body'], 'base-aware Write script URL');
 
     $asset = request($baseUrl . '/post/assets/write-handoff.js', $cookie);
