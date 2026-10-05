@@ -224,6 +224,40 @@ final class StaticSiteBuilder
         $this->writeRouteHtml($outputDir, '/all/', $allHtml);
         $written++;
 
+        if (!empty($this->config['features']['search'])) {
+            $searchIndex = new SearchIndex($pages, $this->publicBasePath);
+            $documents = $searchIndex->documents();
+            $json = json_encode($documents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            if (!is_string($json)) {
+                throw new \RuntimeException('Static search index could not be encoded.');
+            }
+            $this->writeFile(
+                $outputDir . DIRECTORY_SEPARATOR . 'search-index.json',
+                $json . "\n"
+            );
+            $written++;
+
+            $searchHtml = $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
+                'title' => '検索',
+                'description' => 'サイト内を検索します。',
+                'url' => Security::publicUrl('/search/', $this->publicBasePath),
+                'page_type' => 'website',
+                'title_explicit' => true,
+                'date' => '',
+                'published' => '',
+                'updated' => '',
+                'image' => '',
+                'excerpt' => 'サイト内を検索します。',
+                'tags' => [],
+                'tags_html' => '',
+                'content' => $this->staticSearchPageHtml(),
+                'internal_url' => '/search/',
+                'breadcrumbs' => $searchIndex->breadcrumbs(),
+            ]);
+            $this->writeRouteHtml($outputDir, '/search/', $searchHtml);
+            $written++;
+        }
+
         if (!empty($this->config['features']['tags'])) {
             $tagIndex = new TagIndex($pages, $this->publicBasePath);
 
@@ -407,6 +441,25 @@ final class StaticSiteBuilder
         return (string) $validation['path'];
     }
 
+    private function staticSearchPageHtml(): string
+    {
+        $action = Security::publicUrl('/search/', $this->publicBasePath);
+        $indexUrl = Security::publicUrl('/search-index.json', $this->publicBasePath);
+        $scriptUrl = Security::publicUrl('/assets/tomos-static-search.js', $this->publicBasePath);
+
+        return '<section class="search-page" data-static-search data-search-index-url="' . $this->escape($indexUrl) . '">'
+            . '<h1>検索</h1>'
+            . '<form action="' . $this->escape($action) . '" method="get" class="search-form">'
+            . '<label for="search-q">検索語</label>'
+            . '<input id="search-q" type="search" name="q" value="">'
+            . '<button type="submit">検索</button>'
+            . '</form>'
+            . '<p class="search-summary" data-static-search-summary>検索語を入力してください。</p>'
+            . '<ul class="search-results" data-static-search-results></ul>'
+            . '<script src="' . $this->escape($scriptUrl) . '" defer></script>'
+            . '</section>';
+    }
+
     private function robotsTxt(): string
     {
         $lines = ['User-agent: *', 'Allow: /'];
@@ -580,6 +633,11 @@ final class StaticSiteBuilder
         if (!rmdir($path)) {
             throw new \RuntimeException('Static output directory could not be removed.');
         }
+    }
+
+    private function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     private function writeFile(string $path, string $content): void
