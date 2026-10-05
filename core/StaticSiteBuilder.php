@@ -7,9 +7,9 @@ namespace Tomos;
 /**
  * Local static build runtime for the future GitHub edition.
  *
- * This first implementation intentionally excludes browser-side search and
- * multi-page folder pagination. It proves that the shared Publishing Core can
- * generate a deployable static site without the Core edition HTTP runtime.
+ * Generates a deployable static site without the Core edition HTTP runtime.
+ * Browser-side search and path-based folder pagination are provided for the
+ * static runtime while shared publishing semantics remain in Publishing Core.
  */
 final class StaticSiteBuilder
 {
@@ -109,6 +109,7 @@ final class StaticSiteBuilder
                 'path' => $page['path'],
                 'folder_path' => '',
                 'folder_page_number' => 1,
+                'static_pagination' => true,
                 'internal_url' => $page['url'],
                 'breadcrumbs' => $navigation->breadcrumbs($pages, (string) $page['url']),
             ]);
@@ -141,6 +142,7 @@ final class StaticSiteBuilder
                 'path' => '',
                 'folder_path' => (string) $page['folder_path'],
                 'folder_page_number' => 1,
+                'static_pagination' => true,
                 'internal_url' => (string) $page['url'],
                 'breadcrumbs' => $navigation->breadcrumbs($pages, (string) $page['url']),
             ]);
@@ -149,6 +151,15 @@ final class StaticSiteBuilder
             $written++;
             $virtualFolderCount++;
         }
+
+        $this->writeFolderPaginationPages(
+            $outputDir,
+            $pages,
+            $renderer,
+            $navigation,
+            $aliases,
+            $written
+        );
 
         $this->writeSystemPages($outputDir, $pages, $renderer, $navigation, $written);
 
@@ -195,6 +206,154 @@ final class StaticSiteBuilder
         ];
     }
 
+    private function writeFolderPaginationPages(
+        string $outputDir,
+        array $pages,
+        TemplateRenderer $renderer,
+        NavigationBuilder $navigation,
+        array $aliases,
+        int &$written
+    ): void {
+        foreach ($this->folderPageCounts($pages) as $folder => $totalItems) {
+            $totalPages = (int) ceil($totalItems / 30);
+            if ($totalPages <= 1) {
+                continue;
+            }
+
+            $indexPath = $folder . '/index.md';
+            $indexedPage = null;
+            foreach ($pages as $candidate) {
+                if (is_array($candidate) && (string) ($candidate['path'] ?? '') === $indexPath) {
+                    $indexedPage = $candidate;
+                    break;
+                }
+            }
+
+            if ($indexedPage !== null) {
+                $route = (new Router(''))->resolve((string) ($indexedPage['url'] ?? '/'));
+                $lookup = $this->pageRepository->findByRoute($route);
+                if ($lookup->status !== 'ok' || $lookup->page === null) {
+                    throw new \RuntimeException('Static pagination could not load folder index: ' . $indexPath);
+                }
+
+                $page = $lookup->page;
+                $rendered = $this->publishingEngine->renderMarkdownContent(
+                    $page,
+                    $this->markdownParser,
+                    $pages,
+                    $this->publicBasePath,
+                    $aliases
+                );
+
+                for ($pageNumber = 2; $pageNumber <= $totalPages; $pageNumber++) {
+                    $internalUrl = '/' . $folder . '/page/' . $pageNumber . '/';
+                    $html = $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
+                        'title' => $page['title'],
+                        'description' => SeoMetadata::description($page, $this->config['site']),
+                        'url' => Security::publicUrl($internalUrl, $this->publicBasePath),
+                        'page_type' => $page['page_type'] ?? 'markdown_page',
+                        'title_explicit' => $page['title_explicit'] ?? false,
+                        'date' => $page['date'],
+                        'published' => $page['published'] ?? '',
+                        'updated' => $page['updated'],
+                        'image' => $page['image'] ?? '',
+                        'excerpt' => $page['excerpt'] ?? '',
+                        'tags' => $page['tags'],
+                        'language' => $page['language'] ?? null,
+                        'tags_html' => $this->publishingEngine->pageTagsHtml(
+                            is_array($page['tags']) ? $page['tags'] : [],
+                            $this->publicBasePath
+                        ),
+                        'content' => $rendered['html'],
+                        'toc' => $rendered['toc'],
+                        'related_items' => $rendered['related_items'],
+                        'path' => $page['path'],
+                        'folder_path' => $folder,
+                        'folder_page_number' => $pageNumber,
+                        'static_pagination' => true,
+                        'internal_url' => $internalUrl,
+                        'breadcrumbs' => $navigation->breadcrumbs($pages, (string) $page['url']),
+                    ]);
+                    $this->writeRouteHtml($outputDir, $internalUrl, $html);
+                    $written++;
+                }
+
+                continue;
+            }
+
+            $baseUrl = '/' . $folder . '/';
+            $virtual = VirtualFolderIndex::find(
+                new Route($baseUrl, [$indexPath]),
+                $pages
+            );
+            if ($virtual === null) {
+                continue;
+            }
+
+            $title = $this->themeSettings->virtualFolderTitle($folder);
+            for ($pageNumber = 2; $pageNumber <= $totalPages; $pageNumber++) {
+                $internalUrl = '/' . $folder . '/page/' . $pageNumber . '/';
+                $html = $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
+                    'title' => $title,
+                    'description' => '',
+                    'url' => Security::publicUrl($internalUrl, $this->publicBasePath),
+                    'page_type' => 'virtual_folder_index',
+                    'title_explicit' => false,
+                    'date' => '',
+                    'published' => '',
+                    'updated' => '',
+                    'image' => '',
+                    'excerpt' => '',
+                    'tags' => [],
+                    'language' => null,
+                    'tags_html' => '',
+                    'content' => '',
+                    'toc' => '',
+                    'related_items' => [],
+                    'path' => '',
+                    'folder_path' => $folder,
+                    'folder_page_number' => $pageNumber,
+                    'static_pagination' => true,
+                    'internal_url' => $internalUrl,
+                    'breadcrumbs' => $navigation->breadcrumbs($pages, $baseUrl),
+                ]);
+                $this->writeRouteHtml($outputDir, $internalUrl, $html);
+                $written++;
+            }
+        }
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    private function folderPageCounts(array $pages): array
+    {
+        $counts = [];
+
+        foreach ($pages as $page) {
+            if (!is_array($page) || !empty($page['draft'])) {
+                continue;
+            }
+
+            $path = trim(str_replace('\\', '/', (string) ($page['path'] ?? '')), '/');
+            if ($path === '' || strpos($path, '/') === false || substr($path, -9) === '/index.md') {
+                continue;
+            }
+
+            $folder = dirname($path);
+            $relative = substr($path, strlen($folder) + 1);
+            if ($folder === '.' || $folder === '' || strpos($relative, '/') !== false) {
+                continue;
+            }
+
+            $counts[$folder] = ($counts[$folder] ?? 0) + 1;
+        }
+
+        ksort($counts, SORT_NATURAL);
+
+        return $counts;
+    }
+
     private function writeSystemPages(
         string $outputDir,
         array $pages,
@@ -223,6 +382,40 @@ final class StaticSiteBuilder
         ]);
         $this->writeRouteHtml($outputDir, '/all/', $allHtml);
         $written++;
+
+        if (!empty($this->config['features']['search'])) {
+            $searchIndex = new SearchIndex($pages, $this->publicBasePath);
+            $documents = $searchIndex->documents();
+            $json = json_encode($documents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            if (!is_string($json)) {
+                throw new \RuntimeException('Static search index could not be encoded.');
+            }
+            $this->writeFile(
+                $outputDir . DIRECTORY_SEPARATOR . 'search-index.json',
+                $json . "\n"
+            );
+            $written++;
+
+            $searchHtml = $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
+                'title' => '検索',
+                'description' => 'サイト内を検索します。',
+                'url' => Security::publicUrl('/search/', $this->publicBasePath),
+                'page_type' => 'website',
+                'title_explicit' => true,
+                'date' => '',
+                'published' => '',
+                'updated' => '',
+                'image' => '',
+                'excerpt' => 'サイト内を検索します。',
+                'tags' => [],
+                'tags_html' => '',
+                'content' => $this->staticSearchPageHtml(),
+                'internal_url' => '/search/',
+                'breadcrumbs' => $searchIndex->breadcrumbs(),
+            ]);
+            $this->writeRouteHtml($outputDir, '/search/', $searchHtml);
+            $written++;
+        }
 
         if (!empty($this->config['features']['tags'])) {
             $tagIndex = new TagIndex($pages, $this->publicBasePath);
@@ -407,6 +600,25 @@ final class StaticSiteBuilder
         return (string) $validation['path'];
     }
 
+    private function staticSearchPageHtml(): string
+    {
+        $action = Security::publicUrl('/search/', $this->publicBasePath);
+        $indexUrl = Security::publicUrl('/search-index.json', $this->publicBasePath);
+        $scriptUrl = Security::publicUrl('/assets/tomos-static-search.js', $this->publicBasePath);
+
+        return '<section class="search-page" data-static-search data-search-index-url="' . $this->escape($indexUrl) . '">'
+            . '<h1>検索</h1>'
+            . '<form action="' . $this->escape($action) . '" method="get" class="search-form">'
+            . '<label for="search-q">検索語</label>'
+            . '<input id="search-q" type="search" name="q" value="">'
+            . '<button type="submit">検索</button>'
+            . '</form>'
+            . '<p class="search-summary" data-static-search-summary>検索語を入力してください。</p>'
+            . '<ul class="search-results" data-static-search-results></ul>'
+            . '<script src="' . $this->escape($scriptUrl) . '" defer></script>'
+            . '</section>';
+    }
+
     private function robotsTxt(): string
     {
         $lines = ['User-agent: *', 'Allow: /'];
@@ -580,6 +792,11 @@ final class StaticSiteBuilder
         if (!rmdir($path)) {
             throw new \RuntimeException('Static output directory could not be removed.');
         }
+    }
+
+    private function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     private function writeFile(string $path, string $content): void

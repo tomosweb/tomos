@@ -80,9 +80,12 @@ final class PublishingEngine
             : $this->folderFromIndexPath((string) ($page['path'] ?? ''));
         $folderPageNumber = (int) ($page['folder_page_number'] ?? 1);
         $requiredVariables = $renderer->requiredVariablesForPage($page);
-        $page['folder_pages_html'] = $folder !== null && isset($requiredVariables['page.folder_pages_html'])
-            ? $navigation->folderPageList($pages, $folder, $folderPageNumber, 30)
-            : '';
+        $page['folder_pages_html'] = '';
+        if ($folder !== null && isset($requiredVariables['page.folder_pages_html'])) {
+            $page['folder_pages_html'] = !empty($page['static_pagination'])
+                ? $navigation->folderPageListStatic($pages, $folder, $folderPageNumber, 30)
+                : $navigation->folderPageList($pages, $folder, $folderPageNumber, 30);
+        }
 
         $needsTree = isset($requiredVariables['nav.tree']) || isset($requiredVariables['nav.mobile_tree']);
         $tree = $needsTree
