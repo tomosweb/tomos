@@ -10,7 +10,7 @@
 
 初期公開URLは `https://tomosweb.github.io/tomos-github/` です。Project Pagesのため `base_path` は `/tomos-github` に固定しています。
 
-利用するTomos versionはworkflowの `TOMOS_VERSION` に固定しています。現在はStatic Buildを含む開発基準 `6a7466d511bf971d90c571b30050108c88ebe0af` を使用しています。Phase 5対応tagが用意されたら、tagまたはcommit SHAを明示的に変更し、Pull Requestでbuild結果を確認してください。`main` への常時追従は行いません。
+利用するTomos versionはworkflowの `TOMOS_VERSION` に固定しています。現在はPhase 5対応コードを含む開発基準 `53b45aaa5c4ac834760ef549b9699ba8ccdc6e25` を使用しています。Phase 5対応tagが用意されたら、tagまたはcommit SHAを明示的に変更し、Pull Requestでbuild結果を確認してください。`main` への常時追従は行いません。
 
 このRepositoryはGitHub版の検証・将来の標準構成候補です。開発中のため、GitHub OAuth、投稿UI、Inbox、Passkey、Update UI、Workspace連携などは含みません。
 
