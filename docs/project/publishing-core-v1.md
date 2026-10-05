@@ -2,7 +2,7 @@
 
 策定日: 2026-10-05  
 基準: Tomos v1.1.9  
-状態: 設計仕様。実装未着手。
+状態: Phase 3・Phase 4完了。Phase 5実装済み（Human Gate待ち）。
 
 ## 1. 目的
 
@@ -378,7 +378,9 @@ v1.1.9では `page.folder_pages_html` が1ページ30件で、
 3. GitHub版では一覧を全件出力する
 4. 将来Core版もpath-based paginationへ変更する
 
-この項目はPhase 4のStatic Build実装前に決定する。
+Phase 4で決定・実装済み。Core版は従来どおり `?page=2` を使用し、Static Buildだけが
+`/folder/page/2/` を生成する。Static Buildのpaginationは `NavigationBuilder` と
+`PublishingEngine` を利用し、Core版のrequest paginationを変更しない。
 
 **現時点ではv1.1.9 Core版の `?page=N` を変更しない。**
 
@@ -403,7 +405,10 @@ v1.1.9では `page.folder_pages_html` が1ページ30件で、
 
 保存形式は未決定。
 
-GitHub版の設定形式を先にCore版へ押し付けない。
+GitHub版では `tomos.config.php` を使用し、Core版の `config.php` を利用者へ要求しない。
+`tools/build-static-site.php` の `--tomos-root` と `StaticSiteConfig` が、サイト側の
+相対 `content/` と固定tagで取得したTomos本体のThemeを接続する。明示された
+`site.base_path` は自動判定より優先される。
 
 ## 11. Version / Update契約
 
@@ -459,7 +464,7 @@ GitHub版ではGitHubを隠さず、Repository / Actions / Pagesという名称�
 
 ## 13. v1.1.9互換Gate
 
-共通Publishing Coreの整理後、GitHub版実装へ進む前にCore版で次を確認する。
+共通Publishing Coreの整理後、GitHub版のHuman Gateへ進む前にCore版で次を確認する。
 
 - 公開URLが変わらない
 - draft挙動が変わらない
@@ -477,7 +482,21 @@ GitHub版ではGitHubを隠さず、Repository / Actions / Pagesという名称�
 
 Core整理による差分は、意図した仕様変更以外は認めない。
 
-## 14. Phase 1完了条件
+## 14. 実装済みPhase 3・4・5
+
+Phase 3では `PublishingEngine`、`PageCatalogBuilder`、`ThemeContextBuilder` を共通処理として
+利用する境界を実装した。Phase 4では `StaticSiteBuilder` とそのCLIを実装し、Static Build
+の公開artifact、browser-side search、content/theme asset、RSS、Sitemap、404、robots.txt、
+日本語URL、Virtual Folder、Tags、`/all/`、path-based paginationを検証している。
+
+Phase 5では `examples/tomos-github`、`tomos.config.php`、固定version取得、最小権限の
+GitHub Pages workflow、Pages artifactの内容検証、`tests/github_pages_build_check.php` を
+追加した。標準検証Repository名は `tomosweb/tomos-github` に固定する。
+
+Core版のURL、Search request、query pagination、Post、Passkey、Update、Installerの仕様は
+この実装によって変更しない。
+
+## 15. Phase 1完了条件
 
 次の条件を満たした時点でPublishing Core v1仕様を固定したとみなす。
 
@@ -491,4 +510,4 @@ Core整理による差分は、意図した仕様変更以外は認めない。
 8. 日英UIと公開サイト言語の分離が定義されている。
 9. v1.1.9互換Gateが定義されている。
 
-この仕様の固定だけでは、既存コードのディレクトリ移動、class分割、GitHub Actions追加等は行わない。
+この仕様の初期固定は設計段階の記録であり、現在は後続Phaseの実装記録をこの文書へ追記している。

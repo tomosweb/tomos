@@ -2,7 +2,8 @@
 
 策定日: 2026-10-05  
 基準: Tomos v1.1.9  
-状態: Phase 2 設計。テスト実装は未着手。
+状態: Phase 2設計を基準に、Phase 3・Phase 4のStatic Build回帰を実装済み。Phase 5
+GitHub Pages contract testを追加済み（Human Gate待ち）。
 
 ## 1. 目的
 
@@ -10,7 +11,8 @@ GitHub版の開発に伴って共通Publishing Coreを整理する際、Core版�
 
 既存の個別テストは継続利用し、その上に「1つの代表サイトをTomosとして公開した結果全体」を比較する回帰Gateを追加する。
 
-Phase 2では基準と比較方法だけを固定し、Core実装やGitHub版実装は変更しない。
+Phase 2では基準と比較方法を固定した。Phase 3・4では既存Core版を壊さない共通処理と
+Static Buildを実装し、Phase 5ではGitHub版workflowとartifact境界を追加した。
 
 ## 2. 基本方針
 
@@ -183,7 +185,8 @@ folder直下に31件以上の記事を置く。
 - `?page=2` を明示的に記録
 - GitHub版で別方式へ変更する場合の差分を可視化
 
-このfixtureはPhase 4前のpagination方式決定にも使う。
+このfixtureはPhase 4で決定したRuntime差分（Core版の `?page=2` とGitHub版の
+`/folder/page/2/`）を比較する基準として利用する。
 
 ### 3.2 External URL fixture
 
@@ -482,11 +485,11 @@ Stable版のグローバル志向を踏まえ、fixtureは最初から日本語�
 
 Tomosの公開結果全体がv1.1.9から変わっていないことを確認する。
 
-両方をFormal Gateへ組み込むことをPhase 3以降で検討する。
+両方をFormal Gateへ組み込むことをPhase 3以降の実装で確認する。
 
-## 12. 実装予定物
+## 12. Phase 2時点の実装予定物（履歴）
 
-Phase 2の次工程で実装する場合、概ね次を想定する。
+Phase 2時点では、次の実装を想定していた。
 
 ```text
 tests/
@@ -509,9 +512,25 @@ tests/
   publishing_core_v1_regression_check.php
 ```
 
-正確なdirectory名は既存test構造に合わせて実装時に決める。
+正確なdirectory名は後続Phaseで既存test構造に合わせて確定した。
 
-## 13. Phase 2完了条件
+## 13. Phase 3・4・5の実装回帰
+
+現在のStatic Build回帰は次のテストで確認する。
+
+- `tests/publishing_engine_boundary_check.php`: 共通Publishing Coreの境界
+- `tests/page_catalog_builder_check.php`: Page Catalogの共通生成
+- `tests/theme_context_builder_check.php`: Theme Contextの共通生成
+- `tests/static_site_builder_check.php`: Static artifact、asset、検索、RSS、Sitemap、404、
+  draft除外、path-based pagination
+- `tests/github_pages_build_check.php`: 最小 `tomos.config.php`、GitHub Pages base path、
+  日本語URL、draft除外、artifactへのソース混入防止
+
+GitHub版workflowはPull Requestでこれらの契約を実行し、Pages artifactを作成するが、
+Pull Requestから本番Pagesへdeployしない。`main` pushまたはworkflow_dispatchだけがdeploy
+jobへ進む。
+
+## 14. Phase 2完了条件
 
 設計上は次を満たした時点でPhase 2完了とする。
 
@@ -526,4 +545,5 @@ tests/
 9. 日本語 / Englishを最初からfixtureへ含める。
 10. 既存個別テストを維持する。
 
-このPhaseでは既存Core、Theme、Runtimeの実装変更は行わない。
+Phase 2時点では既存Core、Theme、Runtimeの実装変更を行わない方針だった。現在の
+実装状況は本書冒頭および「Phase 3・4・5の実装回帰」に記載する。
