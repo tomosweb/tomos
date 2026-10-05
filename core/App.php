@@ -9,10 +9,12 @@ final class App
     private array $config;
     private string $ga4Nonce = '';
     private ?ThemeSettings $themeSettings = null;
+    private PublishingEngine $publishingEngine;
 
     public function __construct(array $config)
     {
         $this->config = $config;
+        $this->publishingEngine = new PublishingEngine($config);
         if (Ga4::measurementId($config) !== '') {
             try {
                 $this->ga4Nonce = rtrim(strtr(base64_encode(random_bytes(18)), '+/', '-_'), '=');
@@ -129,7 +131,7 @@ final class App
             if ($cachedContent !== null) {
                 $contentHtml = $cachedContent['html'];
                 $contentToc = $cachedContent['toc'];
-                $relatedItems = $this->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
+                $relatedItems = $this->publishingEngine->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
                 $performance->set('html_cache', 'hit');
             } else {
                 $performance->set('html_cache', 'miss');
@@ -173,7 +175,7 @@ final class App
             $performance->set('wiki_link_parse', 'skipped');
         }
 
-        echo $this->renderPage($renderer, $navigation, $pages, [
+        echo $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => $page['title'],
             'description' => SeoMetadata::description($page, $this->config['site']),
             'url' => Security::publicUrl($page['url'], $publicBasePath),
@@ -186,7 +188,7 @@ final class App
             'excerpt' => $page['excerpt'] ?? '',
             'tags' => $page['tags'],
             'language' => $page['language'] ?? null,
-            'tags_html' => $this->pageTagsHtml(is_array($page['tags']) ? $page['tags'] : [], $publicBasePath),
+            'tags_html' => $this->publishingEngine->pageTagsHtml(is_array($page['tags']) ? $page['tags'] : [], $publicBasePath),
             'content' => $contentHtml,
             'toc' => $contentToc,
             'related_items' => $relatedItems,
@@ -221,7 +223,7 @@ final class App
             $performance->set('markdown_render', 'skipped');
             $performance->set('wiki_link_parse', 'skipped');
             $performance->lap('html_cache_check');
-            $cachedContent['related_items'] = $this->relatedItemsFromHtml(
+            $cachedContent['related_items'] = $this->publishingEngine->relatedItemsFromHtml(
                 $cachedContent['html'],
                 (string) ($page['url'] ?? ''),
                 $pages,
@@ -232,22 +234,21 @@ final class App
         $performance->set('html_cache', 'miss');
         $performance->lap('html_cache_check');
 
-        $wikiLinkParser = new WikiLinkParser($pages, $publicBasePath, $this->loadLinkAliases());
+        $linkAliases = $this->loadLinkAliases();
         $performance->increment('link_aliases_load');
-        $imageEmbedParser = new ImageEmbedParser((string) $this->config['paths']['content_dir'], $publicBasePath);
-        $contentRaw = $this->contentWithoutDuplicateTitleHeading((string) $page['content_raw'], (string) $page['title']);
-        $contentRaw = $imageEmbedParser->replace($contentRaw, $sourcePath !== '' ? $sourcePath : 'index.md');
-        $contentRaw = $wikiLinkParser->replace($contentRaw);
+        $rendered = $this->publishingEngine->renderMarkdownContent(
+            $page,
+            $markdownParser,
+            $pages,
+            $publicBasePath,
+            $linkAliases
+        );
         $performance->set('wiki_link_parse', 'run');
-        $rendered = $markdownParser->toHtmlWithToc($contentRaw);
         $performance->set('markdown_render', 'run');
-        $contentHtml = $wikiLinkParser->restore($rendered['html']);
-        $contentHtml = $imageEmbedParser->restore($contentHtml);
-        $relatedItems = $this->relatedItemsFromHtml($contentHtml, (string) ($page['url'] ?? ''), $pages, $publicBasePath);
 
-        $htmlCache->write($sourcePath, $sourceFile, $contentHtml, $rendered['toc']);
+        $htmlCache->write($sourcePath, $sourceFile, $rendered['html'], $rendered['toc']);
 
-        return ['html' => $contentHtml, 'toc' => $rendered['toc'], 'related_items' => $relatedItems];
+        return $rendered;
     }
 
     private function loadPages(MetadataIndex $metadataIndex, PerformanceLogger $performance): array
@@ -412,7 +413,7 @@ final class App
         $description = '指定されたページは存在しないか、非公開になっています。';
         $content = $markdownParser->toHtml('指定されたページは存在しないか、非公開になっています。' . "\n\n" . '[トップページへ戻る](/)');
 
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => $title,
             'description' => $description,
             'url' => '',
@@ -443,7 +444,7 @@ final class App
         string $publicBasePath
     ): string {
         if ($urlPath === '/tags' || $urlPath === '/tags/') {
-            return $this->renderPage($renderer, $navigation, $pages, [
+            return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
                 'title' => 'タグ一覧',
                 'description' => 'タグからページを探します。',
                 'url' => Security::publicUrl('/tags/', $publicBasePath),
@@ -466,7 +467,7 @@ final class App
         $tag = $tagIndex->resolveTag($slug);
         if ($tag === null) {
             http_response_code(404);
-            return $this->renderPage($renderer, $navigation, $pages, [
+            return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
                 'title' => 'タグが見つかりません',
                 'description' => '指定されたタグのページはありません。',
                 'url' => '',
@@ -487,7 +488,7 @@ final class App
             ]);
         }
 
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => 'タグ: ' . $tag,
             'description' => 'タグ「' . $tag . '」のページ一覧です。',
             'url' => $tagIndex->tagUrl($tag),
@@ -516,7 +517,7 @@ final class App
     ): string {
         $query = $this->queryParam($requestUri, 'q');
 
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => '検索',
             'description' => 'サイト内を検索します。',
             'url' => Security::publicUrl('/search/', $publicBasePath),
@@ -541,7 +542,7 @@ final class App
         array $pages,
         string $publicBasePath
     ): string {
-        return $this->renderPage($renderer, $navigation, $pages, [
+        return $this->publishingEngine->renderPage($renderer, $navigation, $pages, [
             'title' => 'すべての項目',
             'description' => '公開中のすべてのページを一覧します。',
             'url' => Security::publicUrl('/all/', $publicBasePath),
