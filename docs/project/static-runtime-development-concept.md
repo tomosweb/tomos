@@ -1,7 +1,7 @@
 # Tomos GitHub版 開発構想
 
 策定日: 2026-10-05  
-対象: Tomos v1.1.8 / main  
+対象: Tomos v1.1.9 / main  
 状態: 構想・境界整理段階。実装は未着手。
 
 ## 呼称
@@ -276,7 +276,7 @@ Tomos Core 1.2.0
 
 GitHub版では、
 
-1. 利用Publishing Publishing Core versionを明示
+1. 利用Publishing Core versionを明示
 2. 更新時にversionを変更
 3. 再build
 4. 問題がある場合は旧versionへ戻す
@@ -296,6 +296,10 @@ GitHub版では、
 - GitHub Pagesへのasset配置不具合 -> GitHub版のみ修正
 
 共通仕様のバグをRuntimeごとに個別修正しない。
+
+## Publishing Core v1仕様
+
+詳細仕様は `docs/project/publishing-core-v1.md` を参照する。
 
 ## 開発開始前に固定する事項
 
