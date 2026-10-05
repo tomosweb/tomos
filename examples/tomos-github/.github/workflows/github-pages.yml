@@ -15,9 +15,9 @@ permissions:
   contents: read
 
 env:
-  # This is the Phase 3/4 development baseline. Update it deliberately to a
+  # This is the Phase 5 development baseline. Update it deliberately to a
   # Phase 5-compatible Tomos tag when one is released.
-  TOMOS_VERSION: 6a7466d511bf971d90c571b30050108c88ebe0af
+  TOMOS_VERSION: 53b45aaa5c4ac834760ef549b9699ba8ccdc6e25
   TOMOS_REPOSITORY: https://github.com/tomosweb/tomos.git
   OUTPUT_DIR: ${{ runner.temp }}/tomos-github-pages
 
