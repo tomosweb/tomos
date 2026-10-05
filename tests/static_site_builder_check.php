@@ -107,7 +107,7 @@ try {
     );
     staticBuildWrite(
         $content . '/posts/entry.md',
-        "---\ntitle: Entry\ndescription: Entry description\ntags:\n  - alpha\ndraft: false\n---\n## Section\n\nEntry body.\n"
+        "---\ntitle: Entry\ndescription: Entry description\ndate: 2026-10-05\ntags:\n  - alpha\ndraft: false\n---\n## Section\n\nEntry body.\n"
     );
     staticBuildWrite(
         $content . '/docs/guide.md',
@@ -116,7 +116,7 @@ try {
     for ($i = 1; $i <= 31; $i++) {
         staticBuildWrite(
             $content . '/archive/item-' . str_pad((string) $i, 2, '0', STR_PAD_LEFT) . '.md',
-            "---\ntitle: Archive {$i}\ndraft: false\n---\nArchive body {$i}.\n"
+            "---\ntitle: Archive {$i}\ndate: 2026-01-01\ndraft: false\n---\nArchive body {$i}.\n"
         );
     }
 
