@@ -150,7 +150,7 @@ function renderAuthGate(array $config, array $errors, array $warnings, ?string $
     echo 'button,.button{background:var(--accent);border:1px solid var(--accent);border-radius:6px;color:#fff;cursor:pointer;display:inline-block;font:inherit;font-weight:700;padding:.7rem 1rem;text-decoration:none}button:hover,.button:hover{background:var(--accent-hover);border-color:var(--accent-hover)}button:focus-visible,.button:focus-visible,input[type=password]:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1rem}';
     echo '.errors{background:var(--error-bg);border:1px solid var(--error-border);border-radius:6px;color:var(--error-text);margin-top:1rem;padding:1rem}.notice{background:var(--notice-bg);border:1px solid var(--notice-border);border-radius:6px;color:var(--notice-text);margin-top:1rem;padding:1rem}';
     echo '@media(max-width:560px){body{padding:16px 10px}.wrap{padding:20px 16px}button,.button{box-sizing:border-box;min-height:44px}}';
-    echo '</style></head><body><main class="wrap">';
+    echo '</style><link rel="stylesheet" href="' . htmlspecialchars(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath), ENT_QUOTES, 'UTF-8') . '"></head><body class="post-standalone"><main class="wrap">';
     echo '<h1>Tomos Post</h1>';
     echo '<p class="hint">管理画面を開くには認証してください。</p>';
 

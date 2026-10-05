@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 3) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -94,11 +96,12 @@ function renderThemeAddResult(array $config, array $errors, ?array $result): voi
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
+    $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
     $addUrl = Tomos\Security::publicUrl('/post/theme/add/', $publicBasePath);
     $siteUrl = Tomos\Security::publicUrl('/', $publicBasePath);
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>テーマ追加・更新結果</title>';
-    echo '<style>body{background:#f6f4ef;color:#2f2f2f;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}.wrap{background:#fcfbf8;border:1px solid #d9d6cf;border-radius:10px;box-sizing:border-box;margin:0 auto;max-width:720px;padding:28px}.errors{background:#f8ecea;border:1px solid #d9a39e;border-radius:6px;color:#8a2e26;padding:1rem}.success,.notice{background:#fbf4e8;border:1px solid #e5c998;border-radius:6px;padding:1rem}.button{background:#9a431c;border:1px solid #9a431c;border-radius:6px;color:#fff;display:inline-block;font-weight:700;padding:.7rem 1rem;text-decoration:none}.button.secondary{background:#fff;color:#2f2f2f;border-color:#d9d6cf}.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.5rem}code{background:#f1f1ee;border-radius:4px;padding:.1rem .25rem}</style></head><body><main class="wrap"><h1>テーマ追加・更新結果</h1>';
+    echo '<style>body{background:#f6f4ef;color:#2f2f2f;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}.wrap{background:#fcfbf8;border:1px solid #d9d6cf;border-radius:10px;box-sizing:border-box;margin:0 auto;max-width:720px;padding:28px}.errors{background:#f8ecea;border:1px solid #d9a39e;border-radius:6px;color:#8a2e26;padding:1rem}.success,.notice{background:#fbf4e8;border:1px solid #e5c998;border-radius:6px;padding:1rem}.button{background:#9a431c;border:1px solid #9a431c;border-radius:6px;color:#fff;display:inline-block;font-weight:700;padding:.7rem 1rem;text-decoration:none}.button.secondary{background:#fff;color:#2f2f2f;border-color:#d9d6cf}.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.5rem}code{background:#f1f1ee;border-radius:4px;padding:.1rem .25rem}</style><link rel="stylesheet" href="' . e(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath)) . '"></head><body class="post-standalone"><main class="wrap"><h1>テーマ追加・更新結果</h1>';
     if ($errors !== []) {
         echo '<div class="errors"><strong>テーマを追加・更新できませんでした。</strong><ul>';
         foreach ($errors as $error) {
@@ -128,6 +131,7 @@ function renderThemeAddResult(array $config, array $errors, ?array $result): voi
         }
         echo '<div class="actions"><a class="button" href="' . e($siteUrl) . '">公開サイトを開く</a><a class="button secondary" href="' . e($themeUrl) . '">テーマ一覧へ戻る</a></div>';
     }
+    echo tomosPostReturnLink($postUrl);
     echo '</main></body></html>';
 }
 

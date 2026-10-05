@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -100,6 +102,7 @@ function renderThemeAddPage(array $config, array $errors, ?array $summary, strin
 {
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
+    $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
     $addUrl = Tomos\Security::publicUrl('/post/theme/add/', $publicBasePath);
     $confirmUrl = Tomos\Security::publicUrl('/post/theme/add/confirm/', $publicBasePath);
 
@@ -112,7 +115,7 @@ function renderThemeAddPage(array $config, array $errors, ?array $summary, strin
     echo '<style>
 :root{--bg:#f6f4ef;--surface:#fcfbf8;--input:#fff;--text:#2f2f2f;--muted:#6b6b6b;--border:#d9d6cf;--primary:#9a431c;--primary-hover:#853919;--notice:#fbf4e8;--notice-border:#e5c998;--error:#f8ecea;--error-border:#d9a39e;--info:#f7f7f4}
 html,body{width:100%;overflow-x:hidden}body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}.wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-sizing:border-box;margin:0 auto;max-width:760px;padding:28px}h1{font-size:1.8rem;margin:0 0 .5rem}h2{font-size:1.2rem;margin:1.7rem 0 .7rem}.hint{color:var(--muted);font-size:.95rem}.errors{background:var(--error);border:1px solid var(--error-border);border-radius:6px;color:#8a2e26;padding:1rem}.summary,.notice{border:1px solid var(--notice-border);border-radius:6px;padding:1rem}.summary{background:var(--info);border-color:#e2e1dd}.notice{background:var(--notice)}input[type=file]{background:var(--input);border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font:inherit;max-width:100%;padding:.65rem;width:100%}button,.button{background:var(--primary);border:1px solid var(--primary);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:.7rem 1rem;text-decoration:none}button:hover{background:var(--primary-hover)}.button.secondary{background:var(--input);color:var(--text);border-color:var(--border)}.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.5rem}code{background:#f1f1ee;border-radius:4px;padding:.1rem .25rem;overflow-wrap:anywhere}.meta{display:grid;gap:.5rem}.meta p{margin:0}
-</style></head><body><main class="wrap">';
+</style><link rel="stylesheet" href="' . e(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath)) . '"></head><body class="post-standalone"><main class="wrap">';
     echo '<h1>テーマZIPを追加・更新</h1>';
 
     if ($errors !== []) {
@@ -169,6 +172,7 @@ html,body{width:100%;overflow-x:hidden}body{background:var(--bg);color:var(--tex
             echo '<div class="actions"><button type="submit">アップロードして確認</button><a class="button secondary" href="' . e($themeUrl) . '">テーマ選択へ戻る</a></div></form>';
         }
     }
+    echo tomosPostReturnLink($postUrl);
     echo '</main></body></html>';
 }
 

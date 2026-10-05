@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -88,11 +90,12 @@ function renderDisabled(): void
     echo '<link rel="icon" href="../../themes/tomos-minimal/assets/favicon.png" type="image/png">';
     echo '<link rel="apple-touch-icon" href="../../themes/tomos-minimal/assets/apple-touch-icon.png">';
     echo '<title>Tomos Post 合言葉の再発行は無効です</title>';
-    echo '<style>:root{--tomos-bg:#f6f4ef;--tomos-surface:#fcfbf8;--tomos-text:#2f2f2f;--tomos-border:#d9d6cf;--tomos-code-bg:#f1f1ee;--tomos-code-text:#555;--tomos-shadow:0 1px 2px rgba(47,47,47,0.04)}html,body{width:100%;overflow-x:hidden}body{background:var(--tomos-bg);color:var(--tomos-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7;margin:0;padding:32px 16px}.wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:760px;padding:28px}h1{color:var(--tomos-text)}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}</style>';
-    echo '</head><body><main class="wrap">';
+    echo '<style>:root{--tomos-bg:#f6f4ef;--tomos-surface:#fcfbf8;--tomos-text:#2f2f2f;--tomos-border:#d9d6cf;--tomos-code-bg:#f1f1ee;--tomos-code-text:#555;--tomos-shadow:0 1px 2px rgba(47,47,47,0.04)}html,body{width:100%;overflow-x:hidden}body{background:var(--tomos-bg);color:var(--tomos-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7;margin:0;padding:32px 16px}.wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:760px;padding:28px}h1{color:var(--tomos-text)}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}</style><link rel="stylesheet" href="../assets/tomos-post-ui.css">';
+    echo '</head><body class="post-standalone"><main class="wrap">';
     echo '<h1>Tomos Post 合言葉の再発行は現在無効です。</h1>';
     echo '<p>合言葉を再発行する場合は、設置ディレクトリ直下に <code>post-reset.enable</code> をアップロードしてください。</p>';
     echo '<p>再発行が終わったら、安全のため <code>post-reset.enable</code> を削除してください。</p>';
+    echo tomosPostReturnLink('../');
     echo '</main></body></html>';
 }
 
@@ -113,7 +116,7 @@ body{background:var(--tomos-bg);color:var(--tomos-text);font-family:system-ui,-a
 .wrap{background:var(--tomos-surface);border:1px solid var(--tomos-border);border-radius:10px;box-shadow:var(--tomos-shadow);box-sizing:border-box;margin:0 auto;max-width:780px;padding:28px}
 h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}.notice{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.errors{background:var(--tomos-error-bg);border:1px solid var(--tomos-error-border);border-radius:6px;color:var(--tomos-danger-text);padding:1rem}.success{background:var(--tomos-notice-bg);border:1px solid var(--tomos-notice-border);border-radius:6px;color:var(--tomos-notice-text);padding:1rem}.secret{font-size:1.1rem;font-weight:700;word-break:break-all}
 .actions{margin-top:1.5rem}button{background:var(--tomos-primary);border:1px solid var(--tomos-primary);border-radius:6px;color:#fff;font:inherit;font-size:16px;font-weight:700;padding:0.7rem 1rem}button:hover{background:var(--tomos-primary-hover);border-color:var(--tomos-primary-hover)}button:active{background:var(--tomos-primary-active);border-color:var(--tomos-primary-active)}button:focus-visible{outline:3px solid rgba(164,74,29,0.28);outline-offset:2px}code{background:var(--tomos-code-bg);border-radius:4px;color:var(--tomos-code-text);padding:0.1rem 0.25rem;overflow-wrap:anywhere;word-break:break-word}
-</style></head><body><main class="wrap">';
+</style><link rel="stylesheet" href="' . e(Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? '')))) . '"></head><body class="post-standalone"><main class="wrap">';
     echo '<h1>' . e($title) . '</h1>';
 
     if ($errors !== []) {
@@ -131,11 +134,13 @@ h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}.notice{background
         echo '<p>新しい管理用合言葉:</p><p class="secret"><code>' . e($newPassword) . '</code></p>';
         echo '<p>安全のため、サーバー上の <code>post-reset.enable</code> を削除してください。</p>';
         echo '</div>';
+        echo tomosPostReturnLink(Tomos\Security::publicUrl('/post/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
         echo '</main></body></html>';
         return;
     }
 
     if ($disabled) {
+        echo tomosPostReturnLink(Tomos\Security::publicUrl('/post/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
         echo '</main></body></html>';
         return;
     }
@@ -146,6 +151,7 @@ h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}.notice{background
     echo '<div class="actions"><button type="submit">新しい合言葉を作成する</button></div>';
     echo '</form>';
     echo '<p>再発行が終わったら、安全のため <code>post-reset.enable</code> を削除してください。</p>';
+    echo tomosPostReturnLink(Tomos\Security::publicUrl('/post/', (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
     echo '</main></body></html>';
 }
 

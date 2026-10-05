@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -22,6 +24,7 @@ $config = is_file($configPath) ? require $configPath : [];
 $config = is_array($config) ? $config : [];
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
+$uiCssUrl = Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath);
 $errors = [];
 $criticalErrors = [];
 $warnings = [];
@@ -107,10 +110,10 @@ h1{font-size:1.6rem;margin-top:0}.notice{padding:12px 14px;border-radius:8px;mar
 label{display:block;font-weight:700;margin:18px 0 6px}input[type=password]{box-sizing:border-box;width:100%;padding:10px;border:1px solid #aaa;border-radius:6px}
 button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#222;color:#fff;font-weight:700;cursor:pointer}a{color:inherit}
 </style>
+<link rel="stylesheet" href="<?= h($uiCssUrl) ?>">
 </head>
-<body>
-<main>
-<section>
+<body class="post-standalone">
+<main class="wrap">
 <h1><?= $pending ? 'Tomos Updateを完了します' : 'Tomos Updateがすべて完了しました' ?></h1>
 <?php foreach ($criticalErrors as $error): ?>
 <p class="notice critical"><?= h((string) $error) ?></p>
@@ -135,8 +138,7 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <?php else: ?>
 <p>Tomosの更新が完了しました。</p>
 <?php endif; ?>
-<p><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>">Tomos Postへ戻る</a></p>
-</section>
+<?= tomosPostReturnLink($postUrl) ?>
 </main>
 </body>
 </html>

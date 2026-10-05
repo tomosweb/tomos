@@ -1,3 +1,18 @@
+## v1.1.9 - 2026-10-05
+
+### UI / Information Design
+
+- Tomos Postの投稿・下書き・公開済み・設定画面を再構成し、視認性と操作の分かりやすさを改善しました。
+- NavigationとGoogle Analyticsの設定を独立画面に整理しました。
+- Theme、Bluesky、Security、Passkey、Tomos Update関連画面のUIを共通デザインへ統一しました。
+- ローカルSVGアイコン、文字コントラスト、レスポンシブ表示を改善しました。
+- 既存機能の追加・仕様変更ではなく、画面構成・情報設計・表示の改善です。
+
+### Compatibility / Update
+
+- v1.1.8からv1.1.9へ、署名付きTomos Updateで更新します。
+- 更新時も`config.php`、`content/`、uploads、サイト固有Themeなどの運用データを保持します。
+
 ## v1.1.8 - 2026-10-04
 
 ### Added / Improved

@@ -87,7 +87,7 @@ try {
     assertNotContains('stroke-dasharray', $first['body'], 'first Upload must not render a dotted trajectory');
     assertNotContains('Tomos Writeなどで作成したMarkdownファイルをTomosに投稿し、必要に応じて投稿済みページをWeb上から外します。', $first['body'], 'old Post description must not be rendered');
     assertNotContains('TOMOS MESSAGE', $first['body'], 'Tomos Message heading must not be rendered');
-    assertContains('1. Markdownを投稿する', $first['body'], 'first Upload section');
+    assertContains('原稿を投稿する', $first['body'], 'Upload heading');
     assertContains('set-cookie: tomos_post_daily_message_at=', strtolower($first['headers']), 'first rendered message must set the recurrence cookie');
     assertContains('path=/tomos-edit/post/', strtolower($first['headers']), 'recurrence cookie must be isolated to the subdirectory Post path');
     assertContains('httponly', strtolower($first['headers']), 'recurrence cookie must be HttpOnly');

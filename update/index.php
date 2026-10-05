@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/post/ui.php';
+
 session_start();
 
 spl_autoload_register(function (string $class): void {
@@ -22,6 +24,7 @@ $config = is_file($configPath) ? require $configPath : [];
 $config = is_array($config) ? $config : [];
 $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
 $postUrl = Tomos\Security::publicUrl('/post/', $publicBasePath) . '?section=settings';
+$uiCssUrl = Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicBasePath);
 $updateUrl = Tomos\Security::publicUrl('/update/', $publicBasePath);
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
@@ -182,6 +185,7 @@ renderUpdatePage(
     (string) $_SESSION['tomos_update_token'],
     $updateUrl,
     $postUrl,
+    $uiCssUrl,
     !empty($_SESSION['tomos_post_authenticated'])
 );
 
@@ -196,6 +200,7 @@ function renderUpdatePage(
     string $token,
     string $updateUrl,
     string $postUrl,
+    string $uiCssUrl,
     bool $authenticated
 ): void {
     header('Content-Type: text/html; charset=utf-8');
@@ -204,7 +209,7 @@ function renderUpdatePage(
     echo '<title>Tomos Update</title><style>
 :root{--bg:#f6f4ef;--surface:#fcfbf8;--input:#fff;--text:#2f2f2f;--muted:#6b6b6b;--border:#d9d6cf;--accent:#9a431c;--accent-hover:#853919;--notice:#fbf4e8;--notice-border:#e5c998;--error:#f8ecea;--error-border:#d9a39e}
 *{box-sizing:border-box}body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;margin:0;padding:32px 16px}.wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:0 auto;max-width:820px;padding:28px}h1{font-size:1.8rem;margin:0 0 .5rem}h2{font-size:1.2rem;margin:2rem 0 1rem}.version,.summary,.notice,.errors,.success{border:1px solid var(--border);border-radius:7px;margin:1rem 0;padding:1rem}.errors{background:var(--error);border-color:var(--error-border)}.notice,.success{background:var(--notice);border-color:var(--notice-border)}label{display:block;font-weight:700;margin:.8rem 0 .3rem}input[type=file],input[type=password]{background:var(--input);border:1px solid var(--border);border-radius:6px;font:inherit;max-width:100%;padding:.65rem;width:100%}button,.button{background:var(--accent);border:1px solid var(--accent);border-radius:6px;color:#fff;display:inline-block;font:inherit;font-weight:700;padding:.7rem 1rem;text-decoration:none}button:hover{background:var(--accent-hover)}.button.secondary{background:var(--input);color:var(--text);border-color:var(--border)}.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.5rem}.muted{color:var(--muted)}ul.files{max-height:18rem;overflow:auto;padding-left:1.4rem}code{overflow-wrap:anywhere}
-</style></head><body><main class="wrap">';
+</style><link rel="stylesheet" href="' . e($uiCssUrl) . '"></head><body class="post-standalone"><main class="wrap">';
     echo '<h1>Tomos Update</h1>';
     echo '<p class="muted">署名済みの更新ZIPから、Tomos本体だけを更新します。</p>';
     echo '<div class="version"><strong>現在のバージョン：</strong> ' . e($currentVersion === '' ? '不明' : $currentVersion) . '</div>';
@@ -220,7 +225,7 @@ function renderUpdatePage(
         echo '<div class="success"><h2>Tomosを更新しました。</h2>';
         echo '<p><strong>' . e((string) $result['previous_version']) . ' → ' . e((string) $result['version']) . '</strong></p>';
         echo '<p>更新ファイル：' . (int) $result['file_count'] . '件<br>設定・記事・画像：変更なし</p></div>';
-        echo '<div class="actions"><a class="button secondary" href="' . e($postUrl) . '">Tomos Postへ戻る</a></div>';
+        echo tomosPostReturnLink($postUrl);
         echo '</main></body></html>';
         return;
     }
@@ -270,7 +275,11 @@ function renderUpdatePage(
         echo '<input type="hidden" name="action" value="inspect"><input type="hidden" name="_token" value="' . e($token) . '">';
         echo '<label for="update_zip">更新ZIPを選択</label><input id="update_zip" type="file" name="update_zip" accept=".zip,application/zip" required>';
         renderUpdateAuthFields($authenticated);
-        echo '<div class="actions"><button type="submit">更新内容を確認</button><a class="button secondary" href="' . e($postUrl) . '">Tomos Postへ戻る</a></div></form></section>';
+        $manualButtonClass = is_array($releaseInfo) && !empty($releaseInfo['update_available']) ? ' secondary' : '';
+        echo '<div class="actions"><button type="submit" class="' . $manualButtonClass . '">更新内容を確認</button></div></form></section>';
+    }
+    if ($result === null) {
+        echo tomosPostReturnLink($postUrl);
     }
     echo '</main></body></html>';
 }
