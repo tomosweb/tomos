@@ -135,7 +135,7 @@ GET /publish-api/github/connect/start.php
 Publisher の戻り先は Tomos 側で固定する。
 
 ```text
-obsidian://tomos-publisher/github-connect
+obsidian://tomos-publisher-github-connect
 ```
 
 実装時は Obsidian Desktop / Mobile の Human Gate を行い、custom URI が利用できない環境向けに一時コードの手入力 fallback を用意できる。
@@ -601,3 +601,5 @@ handoff の replay 防止情報と publish upload staging は TTL 付き tempora
 - Publisher: `tomosweb/tomos-obsidian/main.ts`
 - Core Publisher API: `tomosweb/tomos/core/PostInboxApi.php`
 - Write handoff: `tomosweb/tomos-write/docs/handoff-protocol.md`
+- Obsidian URI format: `https://obsidian.md/help/Extending%2BObsidian/Obsidian%2BURI`
+- Obsidian plugin API `registerObsidianProtocolHandler`: `obsidianmd/obsidian-api/obsidian.d.ts`
