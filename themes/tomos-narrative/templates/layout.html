@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="{{ page.language }}">
+<head>
+  {{{ site.analytics_html }}}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{{ page.seo_head_html }}}
+  <link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}">
+  <link rel="stylesheet" href="{{ theme.asset_url }}/style.css">
+</head>
+<body>
+  <div class="narrative-shell">
+    <header class="site-header">
+      <a class="site-title" href="{{ site.home_url }}">{{ site.name }}</a>
+      <nav class="site-links" aria-label="主要ページ">
+        {{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}
+      </nav>
+      <details class="mobile-menu">
+        <summary aria-label="メニューを開く">メニュー</summary>
+        <nav aria-label="モバイルメニュー">{{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}</nav>
+      </details>
+    </header>
+
+    <main class="site-main">{{{ page.body }}}</main>
+
+    <footer class="site-footer">
+      <a href="{{ site.home_url }}">{{ site.name }}</a>
+      <a href="https://tomoswords.org/docs/">Tomosの使い方</a>
+    </footer>
+  </div>
+</body>
+</html>
