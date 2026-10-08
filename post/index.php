@@ -2009,8 +2009,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     return null;
   };
 
+  const imageSourceKey = (value) => {
+    const path = String(value || "").trim();
+    return path.startsWith("<") && path.endsWith(">") ? path.slice(1, -1) : path;
+  };
+
   const localImageReference = (value) => {
-    const trimmed = String(value || "").trim();
+    const sourcePath = String(value || "").trim();
+    const trimmed = imageSourceKey(sourcePath);
     if (
       trimmed === "" ||
       /^(?:https?:|data:|#)/i.test(trimmed) ||
@@ -2023,14 +2029,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     const normalized = trimmed.replace(/\\/g, "/");
     if (!/\.(?:jpg|jpeg|png|gif|webp)$/i.test(normalized)) return null;
     const sourceName = normalized.split("/").pop() || "";
-    return sourceName === "" ? null : { sourcePath: trimmed, sourceName };
+    return sourceName === "" ? null : { sourcePath, sourceName };
   };
 
   const extractImages = (markdown) => {
     const images = [];
     let match;
 
-    const managedPattern = /!\[([^\]\n]*)\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/giu;
+    const managedPattern = /!\[([^\]\n]*)\]\(<?images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))>?\)/giu;
     while ((match = managedPattern.exec(markdown)) !== null) {
       const fileName = match[2].toLowerCase();
       if (!images.some((image) => image.kind === "managed" && image.fileName === fileName)) {
@@ -2038,7 +2044,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       }
     }
 
-    const markdownPattern = /!\[([^\]\n]*)\]\(([^)\s]+)\)/giu;
+    const markdownPattern = /!\[([^\]\n]*)\]\((<[^>\r\n]+>|[^)\s]+)\)/giu;
     while ((match = markdownPattern.exec(markdown)) !== null) {
       const local = localImageReference(match[2]);
       if (!local) continue;
@@ -2082,7 +2088,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     if (localByPath.size === 0) return markdown;
 
     let rewritten = markdown.replace(
-      /!\[([^\]\n]*)\]\(([^)\s]+)\)/giu,
+      /!\[([^\]\n]*)\]\((<[^>\r\n]+>|[^)\s]+)\)/giu,
       (whole, alt, target) => {
         const image = localByPath.get(String(target || ""));
         return image ? `![${alt}](images/${image.fileName})` : whole;
@@ -2442,9 +2448,13 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const rewriteManagedArticleImages = (markdown) => {
     const preprocessor = window.TomosPostImagePreprocessor;
+    const normalizedMarkdown = markdown.replace(
+      /(!\[[^\]\n]*\]\()<(images\/tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))>(\))/giu,
+      (whole, prefix, path, suffix) => `${prefix}${path}${suffix}`
+    );
     return preprocessor && typeof preprocessor.rewriteManagedReferences === "function"
-      ? preprocessor.rewriteManagedReferences(markdown, managedImageRenames)
-      : markdown;
+      ? preprocessor.rewriteManagedReferences(normalizedMarkdown, managedImageRenames)
+      : normalizedMarkdown;
   };
 
   const chooseReferenceImage = (event) => {
@@ -2461,6 +2471,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   ogpImageStatus.addEventListener("click", chooseReferenceImage);
 
   const selectImageFiles = (addedFiles, explicitTarget = null) => {
+    if (addedFiles.length === 0) return;
     const selectionVersion = imageSelectionVersion;
     updatePageSelection();
     // Serialize selections so a second picker cannot overwrite an in-flight batch.
@@ -2500,13 +2511,13 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
           const localMatches = sourceManagedName === "" ? [] : requiredImages.filter(
             (image) => image.kind === "local"
               && (explicitTarget
-                ? image.sourcePath === explicitTarget.sourcePath
+                ? imageSourceKey(image.sourcePath) === imageSourceKey(explicitTarget.sourcePath)
                 : String(image.sourceName || "").toLowerCase() === file.name.toLowerCase())
           );
           const ogpMatch = sourceManagedName !== ""
             && frontMatterImage
             && (explicitTarget
-              ? frontMatterImage.sourcePath === explicitTarget.sourcePath
+              ? imageSourceKey(frontMatterImage.sourcePath) === imageSourceKey(explicitTarget.sourcePath)
               : String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase());
           if (managedMatch || localMatches.length > 0 || ogpMatch) {
             let uploadFile = file;
@@ -2601,20 +2612,23 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         ? `拡張子と画像データの形式が一致しない画像が${formatMismatch}点あります。元画像を確認してください。`
         : oversized > 0
         ? `現在の公開先で扱える容量を超える画像が${oversized}点あります。別の画像を選んでください。`
+        : unmatched > 0
+        ? requiredImages.length === 0 && !frontMatterImage
+          ? "選択した画像の対応先がMarkdownに見つかりません。画像を含む原稿が取り込まれているか確認してください。"
+          : `対応先を確認できない画像が${unmatched}点あります。対応する画像の「この画像を選ぶ」から選び直してください。`
         : resizeFallback > 0
         ? `大きな画像${resized}点を縮小しました。${resizeFallback}点はブラウザで縮小できず、元画像のまま送信します。`
         : resized > 0
         ? `画像の照合が完了しました。大きな画像${resized}点を端末側で縮小しました。`
         : addedFiles.length > 0 && !window.TomosPostImagePreprocessor
         ? "画像の照合が完了しました。ブラウザ画像縮小機能を読み込めなかったため、大きな画像はサーバー側で加工できない場合があります。"
-        : "画像の照合が完了しました。";
-      processingStatus.style.color = oversized > 0 || formatMismatch > 0 || resizeFallback > 0 ? "var(--tomos-danger-text)" : "";
+        : `投稿する画像を${selectedImages.size}点選択しました。`;
+      processingStatus.style.color = unmatched > 0 || oversized > 0 || formatMismatch > 0 || resizeFallback > 0 ? "var(--tomos-danger-text)" : "";
     });
   };
 
   imageInput.addEventListener("change", () => {
     const files = Array.from(imageInput.files || []);
-    imageInput.value = "";
     selectImageFiles(files);
   });
   referenceImageInput.addEventListener("change", () => {
@@ -2693,6 +2707,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
     const files = Array.from(selectedImages.entries()).filter(([imageName]) => !omitted.has(imageName));
     if (files.length === 0) {
+      // Ignore unmatched/omitted native picker files during Markdown-only submit.
+      imageInput.disabled = true;
+      referenceImageInput.disabled = true;
       submitting = true;
       submitButton.disabled = true;
       submitButton.textContent = "投稿中…";

@@ -76,10 +76,13 @@ await get('post-upload-form').listeners.submit({preventDefault(){}});
 assert.equal(get('tomos-handoff-markdown').value, `![A](images/${state.requiredImages[0].fileName})`);
 // Ordinary matching remains available without manual binding.
 api.load('![A](matching.jpg)');
+get('image_files').value = 'C:\\fakepath\\matching.jpg';
 get('image_files').files = [photo('matching.jpg','normal')];
 get('image_files').listeners.change();
 await api.wait();
 assert.equal(api.state().selectedImages.size, 1);
+assert.equal(get('image_files').value, 'C:\\fakepath\\matching.jpg', 'native selection label must not be cleared');
+assert.match(get('image-processing-status').textContent, /1点選択/);
 // A new import invalidates a pending picker and queued selection.
 api.load('![A](old.jpg)');
 const status = get('image-match-status');
@@ -89,4 +92,42 @@ picker.files = [photo('old.jpg','old')];
 picker.listeners.change();
 await api.wait();
 assert.equal(api.state().selectedImages.size, 0);
+// Rejected selections must never report successful matching, even without references.
+api.load('本文だけの原稿');
+get('image_files').files = [photo('extra.jpg', 'extra')];
+get('image_files').listeners.change();
+await api.wait();
+assert.equal(api.state().selectedImages.size, 0);
+assert.match(get('image-processing-status').textContent, /対応先がMarkdownに見つかりません/);
+assert.equal(get('image-processing-status').style.color, 'var(--tomos-danger-text)');
+await get('post-upload-form').listeners.submit({preventDefault(){}});
+assert.equal(get('image_files').disabled, true, 'unmatched native files must not be submitted');
+assert.equal(picker.disabled, true);
+api.load('![A](expected.jpg)');
+get('image_files').files = [photo('renamed.jpg', 'renamed')];
+get('image_files').listeners.change();
+await api.wait();
+assert.match(get('image-processing-status').textContent, /この画像を選ぶ/);
+// Tomos Write angle-bracket destinations (the reported IMG_6286.jpeg case).
+api.load('---\nimage: IMG_6286.jpeg\n---\n![IMG_6286](<IMG_6286.jpeg>)');
+assert.equal(api.state().requiredImages.length, 1);
+assert.equal(api.state().requiredImages[0].sourceName, 'IMG_6286.jpeg');
+await choose(0, photo('image.jpeg', 'iphone-photo'));
+await get('post-upload-form').listeners.submit({preventDefault(){}});
+assert.equal(api.state().frontMatterImage.fileName, api.state().requiredImages[0].fileName);
+assert.equal(get('tomos-handoff-markdown').value, `---\nimage: images/${api.state().frontMatterImage.fileName}\n---\n![IMG_6286](images/${api.state().requiredImages[0].fileName})`);
+assert.ok(requests.filter(r=>r.url === '?post_api=image').at(-1).body.get('image_file'));
+// Angle destinations may contain spaces or parentheses; preserve the reference key.
+api.load('![Photo](<photos/my photo (1).jpeg>)');
+assert.equal(api.state().requiredImages.length, 1);
+await choose(0, photo('image.jpeg', 'space-path-photo'));
+await get('post-upload-form').listeners.submit({preventDefault(){}});
+assert.equal(get('tomos-handoff-markdown').value, `![Photo](images/${api.state().requiredImages[0].fileName})`);
+api.load('![A](<images/tms-aaaaaaaaaaaaaaaa.jpg>)');
+assert.equal(api.state().requiredImages[0].kind, 'managed');
+await choose(0, photo('converted.jpeg', 'managed-angle-photo'));
+await get('post-upload-form').listeners.submit({preventDefault(){}});
+assert.equal(get('tomos-handoff-markdown').value, `![A](images/${api.state().requiredImages[0].fileName})`);
+api.load('![remote](<https://example.test/photo.jpeg>)');
+assert.equal(api.state().requiredImages.length, 0, 'external angle destinations must not require uploads');
 console.log('post_image_selection_runtime_check: OK');
