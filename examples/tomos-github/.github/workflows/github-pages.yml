@@ -26,10 +26,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: read
+    outputs:
+      setup_complete: ${{ steps.setup_status.outputs.ready }}
     steps:
       - name: Checkout site
         uses: actions/checkout@v4
+
+      - name: Check whether Pages setup is complete
+        id: setup_status
+        shell: bash
+        run: |
+          if [[ -f .tomos-setup-complete ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -65,10 +76,6 @@ jobs:
             --tomos-root="$TOMOS_ROOT" \
             --output="$OUTPUT_DIR"
 
-      - name: Configure GitHub Pages
-        id: pages
-        uses: actions/configure-pages@v5
-
       - name: Verify Pages artifact
         shell: bash
         run: |
@@ -101,7 +108,7 @@ jobs:
           path: ${{ env.OUTPUT_DIR }}
 
   deploy:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.setup_complete == 'true')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -112,6 +119,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
