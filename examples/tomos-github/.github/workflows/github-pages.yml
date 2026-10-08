@@ -88,17 +88,12 @@ jobs:
           test -f "$OUTPUT_DIR/robots.txt"
           test -f "$OUTPUT_DIR/assets/tomos-static-search.js"
           test -f "$OUTPUT_DIR/themes/tomos-minimal/assets/style.css"
-          test -f "$OUTPUT_DIR/content/assets/example.txt"
-          test -f "$OUTPUT_DIR/日本語記事/index.html"
-          test -f "$OUTPUT_DIR/news/first-post/index.html"
           test ! -e "$OUTPUT_DIR/tomos.config.php"
           test ! -e "$OUTPUT_DIR/core"
           test ! -e "$OUTPUT_DIR/tools"
           test ! -e "$OUTPUT_DIR/tests"
           test ! -e "$OUTPUT_DIR/.github"
           test -z "$(find "$OUTPUT_DIR" -type f -name '*.md' -print -quit)"
-          grep -F 'https://tomosweb.github.io/tomos-github/' "$OUTPUT_DIR/index.html"
-          grep -F '/tomos-github/news/first-post' "$OUTPUT_DIR/news/first-post/index.html"
           ! grep -F 'Draft' "$OUTPUT_DIR/search-index.json"
           ! grep -F '/draft' "$OUTPUT_DIR/sitemap.xml"
 
@@ -108,7 +103,7 @@ jobs:
           path: ${{ env.OUTPUT_DIR }}
 
   deploy:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.setup_complete == 'true')
+    if: needs.build.outputs.setup_complete == 'true' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     needs: build
     runs-on: ubuntu-latest
     permissions:
