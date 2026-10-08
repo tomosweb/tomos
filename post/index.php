@@ -1793,14 +1793,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   let loadedMarkdownFilename = "";
   const selectedImages = new Map();
   const managedImageRenames = new Map();
-  const supportsFileTransfer = (() => {
-    if (typeof DataTransfer === "undefined") return false;
-    try {
-      return new DataTransfer() instanceof DataTransfer;
-    } catch (error) {
-      return false;
-    }
-  })();
+  // Image uploads use FormData; retain selections independently of input.files.
+  const referenceImageInput = document.createElement("input");
+  referenceImageInput.type = "file";
+  referenceImageInput.accept = imageInput.accept;
+  referenceImageInput.hidden = true;
+  form.appendChild(referenceImageInput);
+  let referenceImageTarget = null;
+  let imageSelectionVersion = 0;
   let unmatchedImageCount = 0;
   let oversizedImageCount = 0;
   let formatMismatchImageCount = 0;
@@ -1857,7 +1857,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const updatePageSelection = () => {
     const type = selectedPageType();
-    const imageCount = imageInput.files ? imageInput.files.length : 0;
+    const imageCount = selectedImages.size;
     const imageText = imageCount > 0 ? ` 画像${imageCount}点を同時にアップロードします。` : "";
     folderInput.disabled = type === "home" || type === "about";
     if (type === "home") {
@@ -2133,6 +2133,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       '<ul class="image-status-list">',
       '<li class="image-status-item">',
       `<div class="image-status-line"><span><strong>${displayName}</strong><br>${details}</span>${status}</div>`,
+      '<button type="button" data-image-target="ogp">この画像を選ぶ</button>',
       '</li>',
       '</ul>',
     ].join("");
@@ -2150,7 +2151,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       return;
     }
 
-    const rows = requiredImages.map((image) => {
+    const rows = requiredImages.map((image, index) => {
       const selected = image.fileName !== "" && selectedImages.has(image.fileName);
       const selectedFile = selected ? selectedImages.get(image.fileName) : null;
       const omitted = image.kind === "managed" && preservedOmissions.has(image.fileName);
@@ -2178,12 +2179,15 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         '<li class="image-status-item">',
         `<div class="image-status-line"><span><strong>${escapeHtml(image.label)}</strong><br>${fileNames}</span>${status}</div>`,
         omission,
+        image.kind === "local" || !editableReupload
+          ? `<button type="button" data-image-target="${index}">この画像を選ぶ</button>`
+          : "",
         '</li>',
       ].join("");
     });
 
     const unmatched = unmatchedImageCount > 0
-      ? `<p class="image-match-warning">Markdownと一致しない画像が${unmatchedImageCount}点ありました。</p>`
+      ? `<p class="image-match-warning">Markdownと一致しない画像が${unmatchedImageCount}点ありました。対応する画像の「この画像を選ぶ」から選び直してください。</p>`
       : "";
     const oversized = oversizedImageCount > 0
       ? `<p class="image-match-warning">現在の公開先で扱える容量を超える画像が${oversizedImageCount}点ありました。別の画像を選んでください。</p>`
@@ -2221,6 +2225,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     updatePageSelection();
     imageNotice.hidden = true;
     imageNotice.textContent = "";
+    imageSelectionVersion += 1;
+    referenceImageTarget = null;
+    imageDiagnostics.clear();
     requiredImages = [];
     frontMatterImage = null;
     selectedImages.clear();
@@ -2313,6 +2320,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     loadedMarkdownFilename = "";
     imageNotice.hidden = true;
     imageNotice.textContent = "";
+    imageSelectionVersion += 1;
+    referenceImageTarget = null;
+    imageDiagnostics.clear();
     requiredImages = [];
     frontMatterImage = null;
     selectedImages.clear();
@@ -2437,18 +2447,26 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       : markdown;
   };
 
-  const syncSelectedInput = () => {
-    if (!supportsFileTransfer) return;
-    const transfer = new DataTransfer();
-    selectedImages.forEach((file) => transfer.items.add(file));
-    imageInput.files = transfer.files;
+  const chooseReferenceImage = (event) => {
+    const button = event.target.closest("button[data-image-target]");
+    if (!button || submitting) return;
+    referenceImageTarget = button.dataset.imageTarget === "ogp"
+      ? frontMatterImage
+      : requiredImages[Number(button.dataset.imageTarget)];
+    if (!referenceImageTarget) return;
+    referenceImageInput.value = "";
+    referenceImageInput.click();
   };
+  imageMatchStatus.addEventListener("click", chooseReferenceImage);
+  ogpImageStatus.addEventListener("click", chooseReferenceImage);
 
-  imageInput.addEventListener("change", () => {
+  const selectImageFiles = (addedFiles, explicitTarget = null) => {
+    const selectionVersion = imageSelectionVersion;
     updatePageSelection();
-    const addedFiles = Array.from(imageInput.files || []);
-    imageSelectionTask = (async () => {
+    // Serialize selections so a second picker cannot overwrite an in-flight batch.
+    imageSelectionTask = imageSelectionTask.then(async () => {
       await capabilitiesTask;
+      if (selectionVersion !== imageSelectionVersion) return;
       processingStatus.hidden = false;
       processingStatus.textContent = "選択した画像を確認しています。";
       let unmatched = 0;
@@ -2456,12 +2474,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       let formatMismatch = 0;
       let resized = 0;
       let resizeFallback = 0;
-      const diagnosticEntries = new Map();
-      if (!supportsFileTransfer) {
-        selectedImages.clear();
-        managedImageRenames.clear();
-        unmatchedImageCount = 0;
-      }
+      const diagnosticEntries = new Map(imageDiagnostics);
       for (const file of addedFiles) {
         if (file.size > MAX_IMAGE_BYTES) {
           oversized += 1;
@@ -2473,19 +2486,28 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         }
         try {
           const sourceManagedName = await managedNameForFile(file);
+          if (selectionVersion !== imageSelectionVersion) return;
           let managedName = sourceManagedName;
-          const managedMatch = sourceManagedName !== "" && requiredImages.some(
+          const explicitManaged = explicitTarget && explicitTarget.kind === "managed"
+            ? String(explicitTarget.sourceFileName || explicitTarget.fileName).toLowerCase()
+            : "";
+          const matchedManagedName = explicitManaged || sourceManagedName;
+          const managedMatch = sourceManagedName !== "" && (!explicitTarget || explicitManaged !== "") && requiredImages.some(
             (image) => image.kind === "managed"
               && String(image.sourceFileName || image.fileName).toLowerCase().replace(/\.jpeg$/, ".jpg")
-                === sourceManagedName.toLowerCase().replace(/\.jpeg$/, ".jpg")
+                === matchedManagedName.toLowerCase().replace(/\.jpeg$/, ".jpg")
           );
           const localMatches = sourceManagedName === "" ? [] : requiredImages.filter(
             (image) => image.kind === "local"
-              && String(image.sourceName || "").toLowerCase() === file.name.toLowerCase()
+              && (explicitTarget
+                ? image.sourcePath === explicitTarget.sourcePath
+                : String(image.sourceName || "").toLowerCase() === file.name.toLowerCase())
           );
           const ogpMatch = sourceManagedName !== ""
             && frontMatterImage
-            && String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase();
+            && (explicitTarget
+              ? frontMatterImage.sourcePath === explicitTarget.sourcePath
+              : String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase());
           if (managedMatch || localMatches.length > 0 || ogpMatch) {
             let uploadFile = file;
             const preprocessor = window.TomosPostImagePreprocessor;
@@ -2524,6 +2546,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
                 managedName = uploadManagedName;
               }
             }
+            if (selectionVersion !== imageSelectionVersion) return;
             diagnosticEntries.set(managedName, {
               source_managed_name: sourceManagedName,
               source_bytes: file.size,
@@ -2537,20 +2560,16 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
               resized: uploadFile !== file,
               reason: preprocessReason,
             });
-            if (managedMatch && sourceManagedName !== managedName) {
-              const previousOutputName = managedImageRenames.get(sourceManagedName);
-              if (previousOutputName) selectedImages.delete(previousOutputName);
-              managedImageRenames.set(sourceManagedName, managedName);
+            if (managedMatch && matchedManagedName !== managedName) {
+              managedImageRenames.set(matchedManagedName, managedName);
               requiredImages.filter((image) => image.kind === "managed"
-                && String(image.sourceFileName || image.fileName).toLowerCase() === sourceManagedName
+                && String(image.sourceFileName || image.fileName).toLowerCase() === matchedManagedName
               ).forEach((image) => { image.fileName = managedName; });
             } else if (managedMatch) {
-              const previousOutputName = managedImageRenames.get(sourceManagedName);
-              if (previousOutputName) selectedImages.delete(previousOutputName);
-              managedImageRenames.delete(sourceManagedName);
+              managedImageRenames.delete(matchedManagedName);
               requiredImages.filter((image) => image.kind === "managed"
-                && String(image.sourceFileName || image.fileName).toLowerCase() === sourceManagedName
-              ).forEach((image) => { image.fileName = sourceManagedName; });
+                && String(image.sourceFileName || image.fileName).toLowerCase() === matchedManagedName
+              ).forEach((image) => { image.fileName = matchedManagedName; });
             }
             localMatches.forEach((image) => { image.fileName = managedName; });
             if (ogpMatch) frontMatterImage.fileName = managedName;
@@ -2566,7 +2585,16 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       oversizedImageCount = oversized;
       formatMismatchImageCount = formatMismatch;
       imageDiagnostics = diagnosticEntries;
-      syncSelectedInput();
+      // Drop replaced files only after all references have been updated.
+      const referencedNames = new Set(requiredImages.map((image) => image.fileName));
+      if (frontMatterImage) referencedNames.add(frontMatterImage.fileName);
+      for (const name of selectedImages.keys()) {
+        if (!referencedNames.has(name)) {
+          selectedImages.delete(name);
+          imageDiagnostics.delete(name);
+        }
+      }
+      updatePageSelection();
       renderImageMatches();
       renderOgpImage();
       processingStatus.textContent = formatMismatch > 0
@@ -2581,7 +2609,20 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         ? "画像の照合が完了しました。ブラウザ画像縮小機能を読み込めなかったため、大きな画像はサーバー側で加工できない場合があります。"
         : "画像の照合が完了しました。";
       processingStatus.style.color = oversized > 0 || formatMismatch > 0 || resizeFallback > 0 ? "var(--tomos-danger-text)" : "";
-    })();
+    });
+  };
+
+  imageInput.addEventListener("change", () => {
+    const files = Array.from(imageInput.files || []);
+    imageInput.value = "";
+    selectImageFiles(files);
+  });
+  referenceImageInput.addEventListener("change", () => {
+    const target = referenceImageTarget;
+    referenceImageTarget = null;
+    // Ignore cancelled pickers and targets from a previous Markdown import.
+    if (!target || (!requiredImages.includes(target) && frontMatterImage !== target)) return;
+    selectImageFiles(Array.from(referenceImageInput.files || []), target);
   });
 
   const apiRequest = async (endpoint, data) => {
