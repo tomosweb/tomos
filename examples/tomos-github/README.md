@@ -1,28 +1,31 @@
-# Tomos GitHub版検証Repository
+# Tomos GitHub Pages example
 
-これは `tomosweb/tomos-github` 用の最小構成です。Tomos本体をこのRepositoryへ複製せず、GitHub Actionsがworkflowに固定された `TOMOS_VERSION` のTomos本体を取得してStatic Buildを実行します。
+This example builds a Tomos site without copying the Tomos core into the site repository. GitHub Actions checks out the Tomos version pinned in `TOMOS_VERSION` and runs the static site builder.
 
-## 構成
+## Configuration
 
-- `content/`: Markdownと公開するcontent asset
-- `tomos.config.php`: サイト名、GitHub Pages URL、Theme、機能の設定
-- `.github/workflows/github-pages.yml`: Pull Requestでbuildを検証し、`main`へのpushでGitHub Pagesへdeploy
+- `content/`: Markdown and public content assets
+- `tomos.config.php`: site name, URL, theme, and feature settings
+- `.github/workflows/github-pages.yml`: build and Pages deployment workflow
 
-初期公開URLは `https://tomosweb.github.io/tomos-github/` です。Project Pagesのため `base_path` は `/tomos-github` に固定しています。
+The default configuration derives the Pages origin and project path from `GITHUB_REPOSITORY`. For a project repository such as `owner/my-site`, it uses `https://owner.github.io` and `/my-site`. For the account site repository `owner/owner.github.io`, it uses an empty base path. `TOMOS_SITE_NAME`, `TOMOS_SITE_URL`, and `TOMOS_BASE_PATH` can override the derived values.
 
-利用するTomos versionはworkflowの `TOMOS_VERSION` に固定しています。現在はPhase 5 merge後の開発基準 `13e6d8f4634e687ae774a0e3a6d483f6a095b832` を使用しています。Phase 5対応tagが用意されたら、tagまたはcommit SHAを明示的に変更し、Pull Requestでbuild結果を確認してください。`main` への常時追従は行いません。
+The setup flow should write the user's chosen site name to `tomos.config.php`, configure Pages with the GitHub API, and then commit `.tomos-setup-complete`. The workflow may run on the template-generated repository's initial push, but it skips deployment until that marker exists. The marker is written only after Pages configuration succeeds. A later push deploys automatically; `workflow_dispatch` can be used to retry deployment.
 
-このRepositoryはGitHub版の検証・将来の標準構成候補です。開発中のため、GitHub OAuth、投稿UI、Inbox、Passkey、Update UI、Workspace連携などは含みません。
+The workflow pins `TOMOS_VERSION` to a compatible tag or commit. It does not follow `main` automatically.
 
-## ローカルbuild
+## Local build
 
-Tomos本体を別の場所へ取得したうえで、次のように実行します。
+Set `GITHUB_REPOSITORY` to the intended owner and repository name so the example derives the same URL it would use in Actions:
 
 ```bash
-TOMOS_ROOT=/path/to/tomos php /path/to/tomos/tools/build-static-site.php \
-  --config=/path/to/tomos-github/tomos.config.php \
+GITHUB_REPOSITORY=owner/my-site \
+TOMOS_SITE_NAME="My Tomos Site" \
+TOMOS_ROOT=/path/to/tomos \
+php /path/to/tomos/tools/build-static-site.php \
+  --config=/path/to/tomos/examples/tomos-github/tomos.config.php \
   --tomos-root=/path/to/tomos \
-  --output=/path/to/build/tomos-github
+  --output=/path/to/build/my-site
 ```
 
-出力ディレクトリには、Pagesへ公開する静的ファイルだけが生成されます。
+The output directory contains only static files intended for GitHub Pages.
