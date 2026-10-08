@@ -89,6 +89,8 @@ jobs:
           test -f "$OUTPUT_DIR/assets/tomos-static-search.js"
           test -f "$OUTPUT_DIR/themes/tomos-minimal/assets/style.css"
           test ! -e "$OUTPUT_DIR/tomos.config.php"
+          test ! -e "$OUTPUT_DIR/tomos-site-name.txt"
+          test ! -e "$OUTPUT_DIR/.tomos-setup-complete"
           test ! -e "$OUTPUT_DIR/core"
           test ! -e "$OUTPUT_DIR/tools"
           test ! -e "$OUTPUT_DIR/tests"
