@@ -60,6 +60,7 @@ jobs:
           set -euo pipefail
           php tests/image_processing_support_check.php
           node tests/post_image_preprocessor_check.js
+          node tests/post_image_selection_runtime_check.mjs
           php tests/release_docs_check.php
 
       - name: Run regression checks

@@ -1793,14 +1793,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
   let loadedMarkdownFilename = "";
   const selectedImages = new Map();
   const managedImageRenames = new Map();
-  const supportsFileTransfer = (() => {
-    if (typeof DataTransfer === "undefined") return false;
-    try {
-      return new DataTransfer() instanceof DataTransfer;
-    } catch (error) {
-      return false;
-    }
-  })();
+  // Image uploads use FormData; retain selections independently of input.files.
+  const referenceImageInput = document.createElement("input");
+  referenceImageInput.type = "file";
+  referenceImageInput.accept = imageInput.accept;
+  referenceImageInput.hidden = true;
+  form.appendChild(referenceImageInput);
+  let referenceImageTarget = null;
+  let imageSelectionVersion = 0;
   let unmatchedImageCount = 0;
   let oversizedImageCount = 0;
   let formatMismatchImageCount = 0;
@@ -1857,7 +1857,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const updatePageSelection = () => {
     const type = selectedPageType();
-    const imageCount = imageInput.files ? imageInput.files.length : 0;
+    const imageCount = selectedImages.size;
     const imageText = imageCount > 0 ? ` 画像${imageCount}点を同時にアップロードします。` : "";
     folderInput.disabled = type === "home" || type === "about";
     if (type === "home") {
@@ -2009,8 +2009,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     return null;
   };
 
+  const imageSourceKey = (value) => {
+    const path = String(value || "").trim();
+    return path.startsWith("<") && path.endsWith(">") ? path.slice(1, -1) : path;
+  };
+
   const localImageReference = (value) => {
-    const trimmed = String(value || "").trim();
+    const sourcePath = String(value || "").trim();
+    const trimmed = imageSourceKey(sourcePath);
     if (
       trimmed === "" ||
       /^(?:https?:|data:|#)/i.test(trimmed) ||
@@ -2023,14 +2029,14 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     const normalized = trimmed.replace(/\\/g, "/");
     if (!/\.(?:jpg|jpeg|png|gif|webp)$/i.test(normalized)) return null;
     const sourceName = normalized.split("/").pop() || "";
-    return sourceName === "" ? null : { sourcePath: trimmed, sourceName };
+    return sourceName === "" ? null : { sourcePath, sourceName };
   };
 
   const extractImages = (markdown) => {
     const images = [];
     let match;
 
-    const managedPattern = /!\[([^\]\n]*)\]\(images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))\)/giu;
+    const managedPattern = /!\[([^\]\n]*)\]\(<?images\/(tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))>?\)/giu;
     while ((match = managedPattern.exec(markdown)) !== null) {
       const fileName = match[2].toLowerCase();
       if (!images.some((image) => image.kind === "managed" && image.fileName === fileName)) {
@@ -2038,7 +2044,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       }
     }
 
-    const markdownPattern = /!\[([^\]\n]*)\]\(([^)\s]+)\)/giu;
+    const markdownPattern = /!\[([^\]\n]*)\]\((<[^>\r\n]+>|[^)\s]+)\)/giu;
     while ((match = markdownPattern.exec(markdown)) !== null) {
       const local = localImageReference(match[2]);
       if (!local) continue;
@@ -2082,7 +2088,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     if (localByPath.size === 0) return markdown;
 
     let rewritten = markdown.replace(
-      /!\[([^\]\n]*)\]\(([^)\s]+)\)/giu,
+      /!\[([^\]\n]*)\]\((<[^>\r\n]+>|[^)\s]+)\)/giu,
       (whole, alt, target) => {
         const image = localByPath.get(String(target || ""));
         return image ? `![${alt}](images/${image.fileName})` : whole;
@@ -2133,6 +2139,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       '<ul class="image-status-list">',
       '<li class="image-status-item">',
       `<div class="image-status-line"><span><strong>${displayName}</strong><br>${details}</span>${status}</div>`,
+      '<button type="button" data-image-target="ogp">この画像を選ぶ</button>',
       '</li>',
       '</ul>',
     ].join("");
@@ -2150,7 +2157,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       return;
     }
 
-    const rows = requiredImages.map((image) => {
+    const rows = requiredImages.map((image, index) => {
       const selected = image.fileName !== "" && selectedImages.has(image.fileName);
       const selectedFile = selected ? selectedImages.get(image.fileName) : null;
       const omitted = image.kind === "managed" && preservedOmissions.has(image.fileName);
@@ -2178,12 +2185,15 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         '<li class="image-status-item">',
         `<div class="image-status-line"><span><strong>${escapeHtml(image.label)}</strong><br>${fileNames}</span>${status}</div>`,
         omission,
+        image.kind === "local" || !editableReupload
+          ? `<button type="button" data-image-target="${index}">この画像を選ぶ</button>`
+          : "",
         '</li>',
       ].join("");
     });
 
     const unmatched = unmatchedImageCount > 0
-      ? `<p class="image-match-warning">Markdownと一致しない画像が${unmatchedImageCount}点ありました。</p>`
+      ? `<p class="image-match-warning">Markdownと一致しない画像が${unmatchedImageCount}点ありました。対応する画像の「この画像を選ぶ」から選び直してください。</p>`
       : "";
     const oversized = oversizedImageCount > 0
       ? `<p class="image-match-warning">現在の公開先で扱える容量を超える画像が${oversizedImageCount}点ありました。別の画像を選んでください。</p>`
@@ -2221,6 +2231,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     updatePageSelection();
     imageNotice.hidden = true;
     imageNotice.textContent = "";
+    imageSelectionVersion += 1;
+    referenceImageTarget = null;
+    imageDiagnostics.clear();
     requiredImages = [];
     frontMatterImage = null;
     selectedImages.clear();
@@ -2313,6 +2326,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     loadedMarkdownFilename = "";
     imageNotice.hidden = true;
     imageNotice.textContent = "";
+    imageSelectionVersion += 1;
+    referenceImageTarget = null;
+    imageDiagnostics.clear();
     requiredImages = [];
     frontMatterImage = null;
     selectedImages.clear();
@@ -2432,23 +2448,36 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const rewriteManagedArticleImages = (markdown) => {
     const preprocessor = window.TomosPostImagePreprocessor;
+    const normalizedMarkdown = markdown.replace(
+      /(!\[[^\]\n]*\]\()<(images\/tms-[a-f0-9]{16}\.(?:jpg|jpeg|png|gif|webp))>(\))/giu,
+      (whole, prefix, path, suffix) => `${prefix}${path}${suffix}`
+    );
     return preprocessor && typeof preprocessor.rewriteManagedReferences === "function"
-      ? preprocessor.rewriteManagedReferences(markdown, managedImageRenames)
-      : markdown;
+      ? preprocessor.rewriteManagedReferences(normalizedMarkdown, managedImageRenames)
+      : normalizedMarkdown;
   };
 
-  const syncSelectedInput = () => {
-    if (!supportsFileTransfer) return;
-    const transfer = new DataTransfer();
-    selectedImages.forEach((file) => transfer.items.add(file));
-    imageInput.files = transfer.files;
+  const chooseReferenceImage = (event) => {
+    const button = event.target.closest("button[data-image-target]");
+    if (!button || submitting) return;
+    referenceImageTarget = button.dataset.imageTarget === "ogp"
+      ? frontMatterImage
+      : requiredImages[Number(button.dataset.imageTarget)];
+    if (!referenceImageTarget) return;
+    referenceImageInput.value = "";
+    referenceImageInput.click();
   };
+  imageMatchStatus.addEventListener("click", chooseReferenceImage);
+  ogpImageStatus.addEventListener("click", chooseReferenceImage);
 
-  imageInput.addEventListener("change", () => {
+  const selectImageFiles = (addedFiles, explicitTarget = null) => {
+    if (addedFiles.length === 0) return;
+    const selectionVersion = imageSelectionVersion;
     updatePageSelection();
-    const addedFiles = Array.from(imageInput.files || []);
-    imageSelectionTask = (async () => {
+    // Serialize selections so a second picker cannot overwrite an in-flight batch.
+    imageSelectionTask = imageSelectionTask.then(async () => {
       await capabilitiesTask;
+      if (selectionVersion !== imageSelectionVersion) return;
       processingStatus.hidden = false;
       processingStatus.textContent = "選択した画像を確認しています。";
       let unmatched = 0;
@@ -2456,12 +2485,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       let formatMismatch = 0;
       let resized = 0;
       let resizeFallback = 0;
-      const diagnosticEntries = new Map();
-      if (!supportsFileTransfer) {
-        selectedImages.clear();
-        managedImageRenames.clear();
-        unmatchedImageCount = 0;
-      }
+      const diagnosticEntries = new Map(imageDiagnostics);
       for (const file of addedFiles) {
         if (file.size > MAX_IMAGE_BYTES) {
           oversized += 1;
@@ -2473,19 +2497,28 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
         }
         try {
           const sourceManagedName = await managedNameForFile(file);
+          if (selectionVersion !== imageSelectionVersion) return;
           let managedName = sourceManagedName;
-          const managedMatch = sourceManagedName !== "" && requiredImages.some(
+          const explicitManaged = explicitTarget && explicitTarget.kind === "managed"
+            ? String(explicitTarget.sourceFileName || explicitTarget.fileName).toLowerCase()
+            : "";
+          const matchedManagedName = explicitManaged || sourceManagedName;
+          const managedMatch = sourceManagedName !== "" && (!explicitTarget || explicitManaged !== "") && requiredImages.some(
             (image) => image.kind === "managed"
               && String(image.sourceFileName || image.fileName).toLowerCase().replace(/\.jpeg$/, ".jpg")
-                === sourceManagedName.toLowerCase().replace(/\.jpeg$/, ".jpg")
+                === matchedManagedName.toLowerCase().replace(/\.jpeg$/, ".jpg")
           );
           const localMatches = sourceManagedName === "" ? [] : requiredImages.filter(
             (image) => image.kind === "local"
-              && String(image.sourceName || "").toLowerCase() === file.name.toLowerCase()
+              && (explicitTarget
+                ? imageSourceKey(image.sourcePath) === imageSourceKey(explicitTarget.sourcePath)
+                : String(image.sourceName || "").toLowerCase() === file.name.toLowerCase())
           );
           const ogpMatch = sourceManagedName !== ""
             && frontMatterImage
-            && String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase();
+            && (explicitTarget
+              ? imageSourceKey(frontMatterImage.sourcePath) === imageSourceKey(explicitTarget.sourcePath)
+              : String(frontMatterImage.sourceName || "").toLowerCase() === file.name.toLowerCase());
           if (managedMatch || localMatches.length > 0 || ogpMatch) {
             let uploadFile = file;
             const preprocessor = window.TomosPostImagePreprocessor;
@@ -2524,6 +2557,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
                 managedName = uploadManagedName;
               }
             }
+            if (selectionVersion !== imageSelectionVersion) return;
             diagnosticEntries.set(managedName, {
               source_managed_name: sourceManagedName,
               source_bytes: file.size,
@@ -2537,20 +2571,16 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
               resized: uploadFile !== file,
               reason: preprocessReason,
             });
-            if (managedMatch && sourceManagedName !== managedName) {
-              const previousOutputName = managedImageRenames.get(sourceManagedName);
-              if (previousOutputName) selectedImages.delete(previousOutputName);
-              managedImageRenames.set(sourceManagedName, managedName);
+            if (managedMatch && matchedManagedName !== managedName) {
+              managedImageRenames.set(matchedManagedName, managedName);
               requiredImages.filter((image) => image.kind === "managed"
-                && String(image.sourceFileName || image.fileName).toLowerCase() === sourceManagedName
+                && String(image.sourceFileName || image.fileName).toLowerCase() === matchedManagedName
               ).forEach((image) => { image.fileName = managedName; });
             } else if (managedMatch) {
-              const previousOutputName = managedImageRenames.get(sourceManagedName);
-              if (previousOutputName) selectedImages.delete(previousOutputName);
-              managedImageRenames.delete(sourceManagedName);
+              managedImageRenames.delete(matchedManagedName);
               requiredImages.filter((image) => image.kind === "managed"
-                && String(image.sourceFileName || image.fileName).toLowerCase() === sourceManagedName
-              ).forEach((image) => { image.fileName = sourceManagedName; });
+                && String(image.sourceFileName || image.fileName).toLowerCase() === matchedManagedName
+              ).forEach((image) => { image.fileName = matchedManagedName; });
             }
             localMatches.forEach((image) => { image.fileName = managedName; });
             if (ogpMatch) frontMatterImage.fileName = managedName;
@@ -2566,22 +2596,47 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
       oversizedImageCount = oversized;
       formatMismatchImageCount = formatMismatch;
       imageDiagnostics = diagnosticEntries;
-      syncSelectedInput();
+      // Drop replaced files only after all references have been updated.
+      const referencedNames = new Set(requiredImages.map((image) => image.fileName));
+      if (frontMatterImage) referencedNames.add(frontMatterImage.fileName);
+      for (const name of selectedImages.keys()) {
+        if (!referencedNames.has(name)) {
+          selectedImages.delete(name);
+          imageDiagnostics.delete(name);
+        }
+      }
+      updatePageSelection();
       renderImageMatches();
       renderOgpImage();
       processingStatus.textContent = formatMismatch > 0
         ? `拡張子と画像データの形式が一致しない画像が${formatMismatch}点あります。元画像を確認してください。`
         : oversized > 0
         ? `現在の公開先で扱える容量を超える画像が${oversized}点あります。別の画像を選んでください。`
+        : unmatched > 0
+        ? requiredImages.length === 0 && !frontMatterImage
+          ? "選択した画像の対応先がMarkdownに見つかりません。画像を含む原稿が取り込まれているか確認してください。"
+          : `対応先を確認できない画像が${unmatched}点あります。対応する画像の「この画像を選ぶ」から選び直してください。`
         : resizeFallback > 0
         ? `大きな画像${resized}点を縮小しました。${resizeFallback}点はブラウザで縮小できず、元画像のまま送信します。`
         : resized > 0
         ? `画像の照合が完了しました。大きな画像${resized}点を端末側で縮小しました。`
         : addedFiles.length > 0 && !window.TomosPostImagePreprocessor
         ? "画像の照合が完了しました。ブラウザ画像縮小機能を読み込めなかったため、大きな画像はサーバー側で加工できない場合があります。"
-        : "画像の照合が完了しました。";
-      processingStatus.style.color = oversized > 0 || formatMismatch > 0 || resizeFallback > 0 ? "var(--tomos-danger-text)" : "";
-    })();
+        : `投稿する画像を${selectedImages.size}点選択しました。`;
+      processingStatus.style.color = unmatched > 0 || oversized > 0 || formatMismatch > 0 || resizeFallback > 0 ? "var(--tomos-danger-text)" : "";
+    });
+  };
+
+  imageInput.addEventListener("change", () => {
+    const files = Array.from(imageInput.files || []);
+    selectImageFiles(files);
+  });
+  referenceImageInput.addEventListener("change", () => {
+    const target = referenceImageTarget;
+    referenceImageTarget = null;
+    // Ignore cancelled pickers and targets from a previous Markdown import.
+    if (!target || (!requiredImages.includes(target) && frontMatterImage !== target)) return;
+    selectImageFiles(Array.from(referenceImageInput.files || []), target);
   });
 
   const apiRequest = async (endpoint, data) => {
@@ -2652,6 +2707,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
     const files = Array.from(selectedImages.entries()).filter(([imageName]) => !omitted.has(imageName));
     if (files.length === 0) {
+      // Ignore unmatched/omitted native picker files during Markdown-only submit.
+      imageInput.disabled = true;
+      referenceImageInput.disabled = true;
       submitting = true;
       submitButton.disabled = true;
       submitButton.textContent = "投稿中…";
