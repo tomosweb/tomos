@@ -40,6 +40,8 @@ $root = sys_get_temp_dir() . '/tomos-github-pages-' . bin2hex(random_bytes(6));
 $content = $root . '/content';
 $config = $root . '/tomos.config.php';
 $output = $root . '/build';
+$siteUrl = 'https://pages.example.test';
+$basePath = '/sample-site';
 
 try {
     githubPagesWrite(
@@ -48,8 +50,8 @@ try {
         . "    'site' => [\n"
         . "        'name' => 'Tomos GitHub版',\n"
         . "        'description' => 'GitHub Pages static build fixture',\n"
-        . "        'url' => 'https://tomosweb.github.io',\n"
-        . "        'base_path' => '/tomos-github',\n"
+        . "        'url' => " . var_export($siteUrl, true) . ",\n"
+        . "        'base_path' => " . var_export($basePath, true) . ",\n"
         . "        'language' => 'ja',\n"
         . "    ],\n"
         . "    'theme' => ['name' => 'tomos-minimal'],\n"
@@ -130,17 +132,17 @@ try {
 
     $indexHtml = (string) file_get_contents($output . '/index.html');
     githubPagesCheck(
-        strpos($indexHtml, 'https://tomosweb.github.io/tomos-github/') !== false,
+        strpos($indexHtml, $siteUrl . $basePath . '/') !== false,
         'GitHub Pages canonical base path is missing'
     );
     $japaneseHtml = (string) file_get_contents($output . '/日本語/記事/index.html');
     githubPagesCheck(
-        strpos($japaneseHtml, 'https://tomosweb.github.io/tomos-github/%E6%97%A5%E6%9C%AC%E8%AA%9E/%E8%A8%98%E4%BA%8B') !== false,
+        strpos($japaneseHtml, $siteUrl . $basePath . '/%E6%97%A5%E6%9C%AC%E8%AA%9E/%E8%A8%98%E4%BA%8B') !== false,
         'Japanese canonical URL is missing'
     );
     $paginationHtml = (string) file_get_contents($output . '/archive/index.html');
     githubPagesCheck(
-        strpos($paginationHtml, '/tomos-github/archive/page/2/') !== false,
+        strpos($paginationHtml, $basePath . '/archive/page/2/') !== false,
         'path-based pagination URL is missing'
     );
 
