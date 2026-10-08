@@ -90,9 +90,8 @@ $output = $root . '/build';
 $siteUrl = 'https://pages.example.test';
 $basePath = '/sample-site';
 
-githubPagesCheckExampleConfig($tomosRoot, $root);
-
 try {
+    githubPagesCheckExampleConfig($tomosRoot, $root);
     githubPagesWrite(
         $config,
         "<?php\nreturn [\n"
