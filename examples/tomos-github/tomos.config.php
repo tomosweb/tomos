@@ -11,6 +11,13 @@ $repositoryOwner = $repositoryParts[0] ?? '';
 $repositoryName = $repositoryParts[1] ?? '';
 
 $siteName = getenv('TOMOS_SITE_NAME');
+$siteNameFile = __DIR__ . '/tomos-site-name.txt';
+if (is_file($siteNameFile)) {
+    $configuredSiteName = file_get_contents($siteNameFile);
+    if (is_string($configuredSiteName) && trim($configuredSiteName) !== '') {
+        $siteName = trim($configuredSiteName);
+    }
+}
 if (!is_string($siteName) || trim($siteName) === '') {
     $siteName = $repositoryName !== '' ? $repositoryName : 'My Tomos Site';
 }
