@@ -21,6 +21,10 @@ final class ThemeZipValidator
         if (!mkdir($themeDir, 0700, true)) {
             throw new \RuntimeException('Could not create isolated theme inspection directory.');
         }
+        $version = dirname(__DIR__) . '/VERSION';
+        if (is_file($version) && !copy($version, $base . '/VERSION')) {
+            throw new \RuntimeException('Could not prepare theme compatibility check.');
+        }
         $zip = new \ZipArchive();
         try {
             if ($zip->open($zipPath) !== true) {
