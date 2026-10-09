@@ -19,7 +19,7 @@ try {
         $site,
         $core
     );
-    if ($custom['paths']['theme_dir'] !== $site . '/themes') {
+    if ($custom['paths']['theme_dir'] !== realpath($site) . '/themes') {
         throw new RuntimeException('Site-local theme not selected');
     }
 
@@ -28,7 +28,7 @@ try {
         $site,
         $core
     );
-    if ($standard['paths']['theme_dir'] !== $core . '/themes') {
+    if ($standard['paths']['theme_dir'] !== realpath($core) . '/themes') {
         throw new RuntimeException('Bundled theme path changed');
     }
 
