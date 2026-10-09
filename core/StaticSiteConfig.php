@@ -90,6 +90,23 @@ final class StaticSiteConfig
             throw new \InvalidArgumentException('theme.name must not be empty.');
         }
 
+        // GitHub edition sites may ship their own themes in <site>/themes.
+        // Select that directory only when the requested theme actually exists
+        // there; bundled themes continue to resolve from the pinned Tomos Core.
+        // This is limited to static builds and does not affect the PHP runtime.
+        $name = $normalized['theme']['name'];
+        if (preg_match('/\\A[A-Za-z0-9_-]+\\z/', $name) !== 1) {
+            throw new \\InvalidArgumentException('theme.name has invalid characters.');
+        }
+        $siteThemes = $configDir . DIRECTORY_SEPARATOR . 'themes';
+        $candidate = $siteThemes . DIRECTORY_SEPARATOR . $name;
+        if (is_link($siteThemes) || is_link($candidate)) {
+            throw new \\InvalidArgumentException('Site-local theme symlinks are not allowed.');
+        }
+        if (is_dir($candidate)) {
+            $normalized['paths']['theme_dir'] = $siteThemes;
+        }
+
         return $normalized;
     }
 
