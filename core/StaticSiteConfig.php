@@ -95,13 +95,13 @@ final class StaticSiteConfig
         // there; bundled themes continue to resolve from the pinned Tomos Core.
         // This is limited to static builds and does not affect the PHP runtime.
         $name = $normalized['theme']['name'];
-        if (preg_match('/\\A[A-Za-z0-9_-]+\\z/', $name) !== 1) {
-            throw new \\InvalidArgumentException('theme.name has invalid characters.');
+        if (preg_match('/\A[A-Za-z0-9_-]+\z/', $name) !== 1) {
+            throw new \InvalidArgumentException('theme.name has invalid characters.');
         }
         $siteThemes = $configDir . DIRECTORY_SEPARATOR . 'themes';
         $candidate = $siteThemes . DIRECTORY_SEPARATOR . $name;
         if (is_link($siteThemes) || is_link($candidate)) {
-            throw new \\InvalidArgumentException('Site-local theme symlinks are not allowed.');
+            throw new \InvalidArgumentException('Site-local theme symlinks are not allowed.');
         }
         if (is_dir($candidate)) {
             $normalized['paths']['theme_dir'] = $siteThemes;
