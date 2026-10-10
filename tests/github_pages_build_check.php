@@ -35,21 +35,71 @@ function githubPagesRemoveTree(string $path): void
     @rmdir($path);
 }
 
+function githubPagesCheckExampleConfig(string $tomosRoot, string $root): void
+{
+    $configDir = $root . '/example-config';
+    $configPath = $configDir . '/tomos.config.php';
+    $source = file_get_contents($tomosRoot . '/examples/tomos-github/tomos.config.php');
+    githubPagesCheck(is_string($source), 'could not read GitHub Pages example config');
+    githubPagesWrite($configPath, $source);
+    githubPagesWrite($configDir . '/tomos-site-name.txt', 'My Custom Site');
+
+    $environmentNames = [
+        'TOMOS_ROOT',
+        'GITHUB_REPOSITORY',
+        'TOMOS_SITE_NAME',
+        'TOMOS_SITE_URL',
+        'TOMOS_BASE_PATH',
+    ];
+    $previousEnvironment = [];
+    foreach ($environmentNames as $name) {
+        $previousEnvironment[$name] = getenv($name);
+    }
+
+    try {
+        putenv('TOMOS_ROOT=' . $tomosRoot);
+        putenv('TOMOS_SITE_NAME');
+        putenv('TOMOS_SITE_URL');
+        putenv('TOMOS_BASE_PATH');
+        putenv('GITHUB_REPOSITORY=ExampleOwner/my-site');
+        $projectConfig = require $configPath;
+        githubPagesCheck($projectConfig['site']['name'] === 'My Custom Site', 'setup site title was not loaded');
+        githubPagesCheck($projectConfig['site']['url'] === 'https://exampleowner.github.io', 'project Pages origin was not derived');
+        githubPagesCheck($projectConfig['site']['base_path'] === '/my-site', 'project Pages base path was not derived');
+
+        putenv('GITHUB_REPOSITORY=ExampleOwner/ExampleOwner.github.io');
+        $accountConfig = require $configPath;
+        githubPagesCheck($accountConfig['site']['url'] === 'https://exampleowner.github.io', 'account Pages origin was not derived');
+        githubPagesCheck($accountConfig['site']['base_path'] === '', 'account Pages base path should be empty');
+    } finally {
+        foreach ($previousEnvironment as $name => $value) {
+            if ($value === false) {
+                putenv($name);
+            } else {
+                putenv($name . '=' . $value);
+            }
+        }
+    }
+}
+
 $tomosRoot = dirname(__DIR__);
 $root = sys_get_temp_dir() . '/tomos-github-pages-' . bin2hex(random_bytes(6));
 $content = $root . '/content';
 $config = $root . '/tomos.config.php';
 $output = $root . '/build';
+$siteUrl = 'https://pages.example.test';
+$basePath = '/sample-site';
 
 try {
+    githubPagesCheckExampleConfig($tomosRoot, $root);
     githubPagesWrite(
         $config,
         "<?php\nreturn [\n"
         . "    'site' => [\n"
         . "        'name' => 'Tomos GitHub版',\n"
         . "        'description' => 'GitHub Pages static build fixture',\n"
-        . "        'url' => 'https://tomosweb.github.io',\n"
-        . "        'base_path' => '/tomos-github',\n"
+        . "        'url' => " . var_export($siteUrl, true) . ",\n"
+        . "        'base_path' => " . var_export($basePath, true) . ",\n"
         . "        'language' => 'ja',\n"
         . "    ],\n"
         . "    'theme' => ['name' => 'tomos-minimal'],\n"
@@ -130,17 +180,17 @@ try {
 
     $indexHtml = (string) file_get_contents($output . '/index.html');
     githubPagesCheck(
-        strpos($indexHtml, 'https://tomosweb.github.io/tomos-github/') !== false,
+        strpos($indexHtml, $siteUrl . $basePath . '/') !== false,
         'GitHub Pages canonical base path is missing'
     );
     $japaneseHtml = (string) file_get_contents($output . '/日本語/記事/index.html');
     githubPagesCheck(
-        strpos($japaneseHtml, 'https://tomosweb.github.io/tomos-github/%E6%97%A5%E6%9C%AC%E8%AA%9E/%E8%A8%98%E4%BA%8B') !== false,
+        strpos($japaneseHtml, $siteUrl . $basePath . '/%E6%97%A5%E6%9C%AC%E8%AA%9E/%E8%A8%98%E4%BA%8B') !== false,
         'Japanese canonical URL is missing'
     );
     $paginationHtml = (string) file_get_contents($output . '/archive/index.html');
     githubPagesCheck(
-        strpos($paginationHtml, '/tomos-github/archive/page/2/') !== false,
+        strpos($paginationHtml, $basePath . '/archive/page/2/') !== false,
         'path-based pagination URL is missing'
     );
 

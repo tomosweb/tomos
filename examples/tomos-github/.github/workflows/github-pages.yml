@@ -26,10 +26,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: read
+    outputs:
+      setup_complete: ${{ steps.setup_status.outputs.ready }}
     steps:
       - name: Checkout site
         uses: actions/checkout@v4
+
+      - name: Check whether Pages setup is complete
+        id: setup_status
+        shell: bash
+        run: |
+          if [[ -f .tomos-setup-complete ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -65,10 +76,6 @@ jobs:
             --tomos-root="$TOMOS_ROOT" \
             --output="$OUTPUT_DIR"
 
-      - name: Configure GitHub Pages
-        id: pages
-        uses: actions/configure-pages@v5
-
       - name: Verify Pages artifact
         shell: bash
         run: |
@@ -81,17 +88,14 @@ jobs:
           test -f "$OUTPUT_DIR/robots.txt"
           test -f "$OUTPUT_DIR/assets/tomos-static-search.js"
           test -f "$OUTPUT_DIR/themes/tomos-minimal/assets/style.css"
-          test -f "$OUTPUT_DIR/content/assets/example.txt"
-          test -f "$OUTPUT_DIR/日本語記事/index.html"
-          test -f "$OUTPUT_DIR/news/first-post/index.html"
           test ! -e "$OUTPUT_DIR/tomos.config.php"
+          test ! -e "$OUTPUT_DIR/tomos-site-name.txt"
+          test ! -e "$OUTPUT_DIR/.tomos-setup-complete"
           test ! -e "$OUTPUT_DIR/core"
           test ! -e "$OUTPUT_DIR/tools"
           test ! -e "$OUTPUT_DIR/tests"
           test ! -e "$OUTPUT_DIR/.github"
           test -z "$(find "$OUTPUT_DIR" -type f -name '*.md' -print -quit)"
-          grep -F 'https://tomosweb.github.io/tomos-github/' "$OUTPUT_DIR/index.html"
-          grep -F '/tomos-github/news/first-post' "$OUTPUT_DIR/news/first-post/index.html"
           ! grep -F 'Draft' "$OUTPUT_DIR/search-index.json"
           ! grep -F '/draft' "$OUTPUT_DIR/sitemap.xml"
 
@@ -101,7 +105,7 @@ jobs:
           path: ${{ env.OUTPUT_DIR }}
 
   deploy:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    if: needs.build.outputs.setup_complete == 'true' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -112,6 +116,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
