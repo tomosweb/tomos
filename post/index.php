@@ -1730,7 +1730,11 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<h2 id="post-upload">原稿を投稿する</h2>';
     echo '<div id="tomos-write-handoff-notice" class="success" role="status" aria-live="polite" hidden></div>';
     echo '<p class="hint">通常記事、index.md、about.mdを同じフォームから投稿できます。</p>';
-    echo '<p class="hint">新しい記事をTomos Writeで作成する場合は <a href="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" target="_blank" rel="noopener noreferrer">Tomos Writeを開く</a> を利用できます。</p>';
+    echo '<div class="post-editor-shortcuts" role="group" aria-label="原稿を書くツール">';
+    echo '<a class="button secondary" href="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" target="_blank" rel="noopener noreferrer">Tomos Write</a>';
+    echo '<a class="button secondary" href="https://tomoswords.org/workspace/" target="_blank" rel="noopener noreferrer">Tomos Workspace</a>';
+    echo '</div>';
+    echo '<p class="post-obsidian-shortcut"><a href="https://tomoswords.org/docs/obsidian/" target="_blank" rel="noopener noreferrer">Obsidianで書く</a></p>';
     echo '<form id="post-upload-form" method="post" action="" enctype="multipart/form-data">';
     echo '<input type="hidden" name="action" value="upload">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
