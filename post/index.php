@@ -2975,7 +2975,7 @@ function renderPublishedSection(
     // Keep the infrequently edited fixed pages behind a separate, URL-addressable view.
     // The regular published list stays the default and retains its existing query behavior.
     $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
-    $fixedView = (string) ($_GET['view'] ?? '') === 'fixed';
+    $fixedView = isset($_GET['view']) && $_GET['view'] === 'fixed';
     $publishedListUrl = Tomos\Security::publicUrl('/post/?section=published', $publicBasePath);
     $fixedPagesUrl = Tomos\Security::publicUrl('/post/?section=published&view=fixed', $publicBasePath);
     echo '<nav class="page-list-tabs" aria-label="ページ一覧の表示切り替え">';
