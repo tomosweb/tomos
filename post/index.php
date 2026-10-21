@@ -1173,7 +1173,7 @@ function renderSectionNav(string $activeSection, string $publicBasePath): void
     $items = [
         'upload' => '投稿',
         'drafts' => '下書き',
-        'published' => 'ページ一覧',
+        'published' => '公開済み',
         'settings' => '設定',
     ];
 
@@ -1730,11 +1730,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<h2 id="post-upload">原稿を投稿する</h2>';
     echo '<div id="tomos-write-handoff-notice" class="success" role="status" aria-live="polite" hidden></div>';
     echo '<p class="hint">通常記事、index.md、about.mdを同じフォームから投稿できます。</p>';
-    echo '<div class="post-editor-shortcuts" role="group" aria-label="原稿を書くツール">';
-    echo '<a class="button secondary" href="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" target="_blank" rel="noopener noreferrer">Tomos Write</a>';
-    echo '<a class="button secondary" href="https://tomoswords.org/workspace/" target="_blank" rel="noopener noreferrer">Tomos Workspace</a>';
-    echo '<a class="button secondary" href="https://tomoswords.org/docs/obsidian/" target="_blank" rel="noopener noreferrer">Obsidianで書く</a>';
-    echo '</div>';
+    echo '<p class="hint">新しい記事をTomos Writeで作成する場合は <a href="' . e(Tomos\TomosWriteHandoff::canonicalUrl()) . '" target="_blank" rel="noopener noreferrer">Tomos Writeを開く</a> を利用できます。</p>';
     echo '<form id="post-upload-form" method="post" action="" enctype="multipart/form-data">';
     echo '<input type="hidden" name="action" value="upload">';
     echo '<input type="hidden" name="_token" value="' . e($token) . '">';
@@ -1767,6 +1763,7 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     echo '<div class="actions"><button id="post-upload-submit" type="submit">' . tomosPostIcon('upload') . '<span>公開する</span></button></div>';
     echo '</section>';
     echo '</form>';
+    renderBasicPagesSection($token, $config);
     echo '<script src="assets/tomos-post-image-preprocessor.js?v=1.1.4"></script>';
     echo <<<'HTML'
 <script>
@@ -2834,8 +2831,8 @@ function renderBasicPagesSection(string $token, array $config): void
     $homeUrl = Tomos\Security::publicUrl(Tomos\PostBasicPage::internalUrl(Tomos\PostBasicPage::HOME), $publicBasePath);
     $aboutUrl = Tomos\Security::publicUrl(Tomos\PostBasicPage::internalUrl(Tomos\PostBasicPage::ABOUT), $publicBasePath);
 
-    echo '<div class="basic-pages-panel" id="basic-pages">';
-    echo '<p class="hint">Markdownをダウンロードして編集後、<a href="' . e(Tomos\Security::publicUrl('/post/?section=upload', $publicBasePath)) . '">投稿画面</a>から同じファイル名で再投稿します。画像を変更する場合は画像も選択してください。</p>';
+    echo '<details class="basic-pages-panel" id="basic-pages"><summary>' . tomosPostIcon('home') . '<span>固定ページ</span></summary>';
+    echo '<div class="notice"><p>トップページやAboutページを変更する場合は、現在のMarkdownをダウンロードして編集し、ファイル名を変更せずに上の投稿フォームから再投稿してください。</p><p>画像を追加または変更する場合は、Markdownと一緒に画像も選択してください。</p></div>';
     echo '<div class="grid">';
     echo '<section class="basic-page"><h3>' . tomosPostIcon('home') . '<span>トップページ</span></h3>';
     renderBasicPageDownloadButton($token, Tomos\PostBasicPage::HOME, 'index.mdをダウンロード');
@@ -2843,7 +2840,7 @@ function renderBasicPagesSection(string $token, array $config): void
     echo '<section class="basic-page"><h3>' . tomosPostIcon('about') . '<span>About</span></h3>';
     renderBasicPageDownloadButton($token, Tomos\PostBasicPage::ABOUT, 'about.mdをダウンロード');
     echo '<p><a class="button secondary" href="' . e($aboutUrl) . '" target="_blank" rel="noopener noreferrer">Aboutページを確認</a></p></section>';
-    echo '</div></div>';
+    echo '</div></details>';
 }
 
 function renderBasicPageDownloadButton(string $token, string $type, string $label, bool $compact = false): void
@@ -2957,7 +2954,7 @@ function renderPublishedSection(
     string $editableQuery,
     ?array $editableSearchResult
 ): void {
-    echo '<h2 id="published-posts">ページ一覧</h2>';
+    echo '<h2 id="published-posts">公開済み</h2>';
 
     if (empty($_SESSION['tomos_post_authenticated'])) {
         echo '<form method="post" action="">';
@@ -2966,24 +2963,9 @@ function renderPublishedSection(
         echo '<input type="hidden" name="q" value="' . e($query) . '">';
         echo '<input type="hidden" name="year" value="' . e($year) . '">';
         echo '<input type="hidden" name="page" value="1">';
-        renderAuthenticationFields('published_view_password', 'ページ一覧を開くための管理用合言葉');
-        echo '<div class="actions"><button type="submit">ページ一覧を開く</button></div>';
+        renderAuthenticationFields('published_view_password', '公開済み投稿を開くための管理用合言葉');
+        echo '<div class="actions"><button type="submit">公開済み投稿を開く</button></div>';
         echo '</form>';
-        return;
-    }
-
-    // Keep the infrequently edited fixed pages behind a separate, URL-addressable view.
-    // The regular published list stays the default and retains its existing query behavior.
-    $publicBasePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
-    $fixedView = isset($_GET['view']) && $_GET['view'] === 'fixed';
-    $publishedListUrl = Tomos\Security::publicUrl('/post/?section=published', $publicBasePath);
-    $fixedPagesUrl = Tomos\Security::publicUrl('/post/?section=published&view=fixed', $publicBasePath);
-    echo '<nav class="page-list-tabs" aria-label="ページ一覧の表示切り替え">';
-    echo '<a href="' . e($publishedListUrl) . '"' . (!$fixedView ? ' aria-current="page"' : '') . '>公開済み記事</a>';
-    echo '<a href="' . e($fixedPagesUrl) . '"' . ($fixedView ? ' aria-current="page"' : '') . '>固定ページ</a>';
-    echo '</nav>';
-    if ($fixedView) {
-        renderBasicPagesSection($token, $config);
         return;
     }
 
