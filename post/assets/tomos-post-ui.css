@@ -472,6 +472,56 @@ code {
   margin-bottom: 0;
 }
 
+/* The page list has its own two-view navigation; article search is the default. */
+.page-list-tabs {
+  align-items: center;
+  border-bottom: 1px solid var(--tomos-ui-rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin: 0.7rem 0 1.4rem;
+}
+
+.page-list-tabs a {
+  background: transparent !important;
+  border-bottom: 2px solid transparent;
+  color: var(--tomos-text-secondary) !important;
+  display: inline-flex;
+  font-size: 0.94rem;
+  font-weight: 500;
+  min-height: 44px;
+  padding: 0.45rem 0.1rem;
+  margin-bottom: -1px;
+  text-decoration: none;
+}
+
+.page-list-tabs a:hover {
+  color: var(--tomos-text) !important;
+}
+
+.page-list-tabs a[aria-current="page"] {
+  border-bottom-color: var(--tomos-accent);
+  color: var(--tomos-accent) !important;
+  font-weight: 600;
+}
+
+.page-list-tabs a:focus-visible {
+  outline: 2px solid rgba(164, 74, 29, 0.42);
+  outline-offset: 3px;
+}
+
+.post-editor-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.85rem 0 1.1rem;
+}
+
+.post-editor-shortcuts .button {
+  min-height: 40px;
+}
+
 .post-block {
   border-top: 1px solid var(--tomos-ui-rule-soft);
   margin-top: 1.65rem;

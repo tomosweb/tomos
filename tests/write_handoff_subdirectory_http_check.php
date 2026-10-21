@@ -47,6 +47,15 @@ try {
         "---\ntitle: Write Handoff Test\ndate: 2026-09-11\n---\nWrite handoff regression body.\n"
     );
 
+    file_put_contents(
+        $installRoot . '/content/index.md',
+        "---\ntitle: Fixed Home Test\n---\nFixed home handoff regression body.\n"
+    );
+    file_put_contents(
+        $installRoot . '/content/about.md',
+        "---\ntitle: Fixed About Test\n---\nFixed about handoff regression body.\n"
+    );
+
     foreach (glob($installRoot . '/cache/index/*') ?: [] as $file) {
         @unlink($file);
     }
@@ -85,6 +94,16 @@ try {
     assertContains('class="text-button tomos-write-edit"', $published['body'], 'Tomos Write button');
     assertContains('src="/tomos-edit/post/assets/write-handoff.js"', $published['body'], 'base-aware Write script URL');
 
+    assertTrue(strpos($published['body'], 'Fixed Home Test') === false, 'published article tab must exclude home');
+    assertTrue(strpos($published['body'], 'Fixed About Test') === false, 'published article tab must exclude about');
+    $fixed = request($baseUrl . '/post/?section=published&view=fixed', $cookie);
+    assertSame(200, $fixed['status'], 'fixed page tab status');
+    assertSame(2, substr_count($fixed['body'], 'class="button secondary tomos-write-edit"'), 'both fixed pages must show existing Write edit buttons');
+    assertSame(2, substr_count($fixed['body'], 'class="basic-page editable-result"'), 'both fixed pages must use the existing Write selection scope');
+    foreach (['index.md', 'about.md'] as $fixedPath) {
+        assertContains('name="content_path" value="' . $fixedPath . '"', $fixed['body'], 'Write source path for ' . $fixedPath);
+    }
+
     $asset = request($baseUrl . '/post/assets/write-handoff.js', $cookie);
     assertSame(200, $asset['status'], 'Write handoff JS status');
     assertContains('const writeUrlValue = document.body?.dataset?.tomosWriteUrl || "";', $asset['body'], 'Write handoff JS reads the server-provided canonical endpoint');
@@ -99,6 +118,19 @@ try {
     $payload = json_decode($handoff['body'], true);
     assertTrue(is_array($payload) && !empty($payload['ok']), 'Write handoff endpoint payload');
     assertContains('Write handoff regression body.', (string) ($payload['markdown'] ?? ''), 'Write handoff Markdown payload');
+
+    foreach (['index.md' => 'Fixed home handoff regression body.', 'about.md' => 'Fixed about handoff regression body.'] as $fixedPath => $fixedBody) {
+        $fixedHandoff = request($baseUrl . '/post/write-handoff.php', $cookie, [
+            '_token' => hiddenValue($fixed['body'], '_token'),
+            'content_path' => $fixedPath,
+        ]);
+        assertSame(200, $fixedHandoff['status'], 'fixed Write handoff endpoint for ' . $fixedPath);
+        $fixedPayload = json_decode($fixedHandoff['body'], true);
+        assertTrue(is_array($fixedPayload) && !empty($fixedPayload['ok']), 'fixed Write handoff payload for ' . $fixedPath);
+        assertSame($fixedPath, (string) ($fixedPayload['filename'] ?? ''), 'fixed Write filename for ' . $fixedPath);
+        assertContains($fixedBody, (string) ($fixedPayload['markdown'] ?? ''), 'fixed Write body for ' . $fixedPath);
+        assertContains('tomos_source_path: "' . $fixedPath . '"', (string) ($fixedPayload['markdown'] ?? ''), 'fixed source metadata for ' . $fixedPath);
+    }
 
     $directMarkdown = "---\ntitle: Direct Handoff Import\ndate: 2026-09-17\n---\nDirect Markdown import regression body.\n";
     $directUpload = request($baseUrl . '/post/?section=upload', $cookie, [

@@ -1,1 +1,0 @@
-This file verifies that content assets are copied without publishing source Markdown.

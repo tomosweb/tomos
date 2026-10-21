@@ -7,7 +7,7 @@ if (!is_string($source)) {
     throw new RuntimeException('post/index.php could not be read');
 }
 
-foreach (['upload\' => \'投稿', 'drafts\' => \'下書き', 'published\' => \'公開済み', 'settings\' => \'設定'] as $needle) {
+foreach (['upload\' => \'投稿', 'drafts\' => \'下書き', 'published\' => \'ページ一覧', 'settings\' => \'設定'] as $needle) {
     if (strpos($source, $needle) === false) {
         throw new RuntimeException('primary navigation item is missing: ' . $needle);
     }
@@ -25,6 +25,82 @@ if (strpos($renderPage, 'renderEditableMarkdownSection(') !== false) {
 if (strpos($renderPage, 'renderSettingsHomeSection(') === false) {
     throw new RuntimeException('settings home must be rendered as a separate entry page');
 }
+
+$publishedBegin = strpos($source, 'function renderPublishedSection(');
+$publishedEnd = strpos($source, 'function publishedPublicUrl(', $publishedBegin === false ? 0 : $publishedBegin);
+$uploadBegin = strpos($source, 'function renderUploadForm(');
+$uploadEnd = strpos($source, 'function renderBasicPagesSection(', $uploadBegin === false ? 0 : $uploadBegin);
+$fixedBegin = strpos($source, 'function renderBasicPagesSection(');
+$fixedEnd = strpos($source, 'function renderBasicPageDownloadButton(', $fixedBegin === false ? 0 : $fixedBegin);
+if ($publishedBegin === false || $publishedEnd === false || $uploadBegin === false || $uploadEnd === false || $fixedBegin === false || $fixedEnd === false) {
+    throw new RuntimeException('page list function boundaries are missing');
+}
+$publishedSource = substr($source, $publishedBegin, $publishedEnd - $publishedBegin);
+$uploadSource = substr($source, $uploadBegin, $uploadEnd - $uploadBegin);
+$fixedSource = substr($source, $fixedBegin, $fixedEnd - $fixedBegin);
+foreach (['page-list-tabs', '公開済み記事</a>', '固定ページ</a>', 'aria-current="page"', 'view=fixed', 'renderBasicPagesSection($token, $config);'] as $needle) {
+    if (strpos($publishedSource, $needle) === false) {
+        throw new RuntimeException('page list tab navigation is missing: ' . $needle);
+    }
+}
+if (strpos($uploadSource, 'renderBasicPagesSection($token, $config);') !== false) {
+    throw new RuntimeException('fixed page panel must not remain below the upload form');
+}
+$fixedPosition = strpos($publishedSource, 'renderBasicPagesSection($token, $config);');
+$searchPosition = strpos($publishedSource, 'searchPublishedPosts(');
+if ($fixedPosition === false || $searchPosition === false || $fixedPosition > $searchPosition) {
+    throw new RuntimeException('fixed page tab must return before published article search');
+}
+if (strpos($publishedSource, 'if (empty($_SESSION[\'tomos_post_authenticated\']))') > $fixedPosition) {
+    throw new RuntimeException('fixed page tab must stay behind the existing Post authentication gate');
+}
+foreach (['Tomos\\PostBasicPage::HOME', 'Tomos\\PostBasicPage::ABOUT', 'renderBasicPageDownloadButton', 'post/?section=upload'] as $needle) {
+    if (strpos($fixedSource, $needle) === false) {
+        throw new RuntimeException('fixed page existing download and upload workflow is missing: ' . $needle);
+    }
+}
+
+// A fixed page must expose the exact form contract consumed by the existing
+// published-article Tomos Write handoff. No changes to the handoff script.
+if (substr_count($fixedSource, 'class="basic-page editable-result"') !== 2) {
+    throw new RuntimeException('both fixed-page cards must be discoverable by the existing Write button handler');
+}
+foreach ([
+    'renderBasicPageWriteButton($token, Tomos\\PostBasicPage::HOME, $publicBasePath);',
+    'renderBasicPageWriteButton($token, Tomos\\PostBasicPage::ABOUT, $publicBasePath);',
+] as $needle) {
+    if (strpos($fixedSource, $needle) === false) {
+        throw new RuntimeException('fixed page Write button is missing: ' . $needle);
+    }
+}
+$writeHelperStart = strpos($source, 'function renderBasicPageWriteButton(');
+$writeHelperEnd = strpos($source, 'function renderBasicPageDownloadButton(', $writeHelperStart === false ? 0 : $writeHelperStart);
+if ($writeHelperStart === false || $writeHelperEnd === false) {
+    throw new RuntimeException('fixed page Write source helper is missing');
+}
+$writeHelper = substr($source, $writeHelperStart, $writeHelperEnd - $writeHelperStart);
+foreach ([
+    'Tomos\\PostBasicPage::canonicalContentPath($type)',
+    'name="action" value="download_published_markdown"',
+    'name="_token"',
+    'name="content_path"',
+    'tomos-write-edit',
+    'data-return-url=',
+    '/post/?section=upload',
+] as $needle) {
+    if (strpos($writeHelper, $needle) === false) {
+        throw new RuntimeException('fixed page must use existing published article handoff: ' . $needle);
+    }
+}
+if (strpos($source, '->list($query, $year, $page, 50, true)') === false) {
+    throw new RuntimeException('published article tab must exclude fixed pages before pagination');
+}
+
+$uiCss = file_get_contents(dirname(__DIR__) . '/post/assets/tomos-post-ui.css');
+if (!is_string($uiCss) || strpos($uiCss, '.page-list-tabs a[aria-current="page"]') === false) {
+    throw new RuntimeException('page list selected tab style is missing');
+}
+
 foreach (['.result a,.editable-result a{overflow-wrap:anywhere;word-break:break-word}.editable-result{min-width:0}'] as $needle) {
     if (strpos($renderPage, $needle) === false) {
         throw new RuntimeException('published result URL wrapping styles are missing: ' . $needle);

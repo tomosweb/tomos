@@ -24,7 +24,7 @@ final class PostPublished
     /**
      * @return array{ok:bool,error:string,items:array<int,array<string,mixed>>,years:string[],query:string,year:string,page:int,total:int,total_pages:int}
      */
-    public function list(string $query = '', string $year = '', int $page = 1, int $perPage = 50): array
+    public function list(string $query = '', string $year = '', int $page = 1, int $perPage = 50, bool $articlesOnly = false): array
     {
         $query = trim($query);
         $terms = $this->terms($query);
@@ -33,6 +33,12 @@ final class PostPublished
 
         try {
             $pages = $this->loadPages();
+            if ($articlesOnly) {
+                $pages = array_values(array_filter(
+                    $pages,
+                    static fn ($page): bool => !PostBasicPage::isProtectedContentPath((string) ($page['path'] ?? ''))
+                ));
+            }
         } catch (\Throwable $exception) {
             return [
                 'ok' => false,

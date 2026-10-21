@@ -230,21 +230,6 @@ final class NavigationBuilder
 
     public function folderPageList(array $pages, string $folder, int $currentPage = 1, int $perPage = 30): string
     {
-        return $this->folderPageListWithMode($pages, $folder, $currentPage, $perPage, false);
-    }
-
-    public function folderPageListStatic(array $pages, string $folder, int $currentPage = 1, int $perPage = 30): string
-    {
-        return $this->folderPageListWithMode($pages, $folder, $currentPage, $perPage, true);
-    }
-
-    private function folderPageListWithMode(
-        array $pages,
-        string $folder,
-        int $currentPage,
-        int $perPage,
-        bool $staticPagination
-    ): string {
         $folder = trim(str_replace('\\', '/', $folder), '/');
         if ($folder === '' || $perPage < 1) {
             return '';
@@ -280,22 +265,18 @@ final class NavigationBuilder
         }
         $html .= '</ul>';
         if ($totalPages > 1) {
-            $html .= $this->folderPagination($folder, $currentPage, $totalPages, $staticPagination);
+            $html .= $this->folderPagination($folder, $currentPage, $totalPages);
         }
         $html .= '</section>';
 
         return $html;
     }
 
-    private function folderPagination(
-        string $folder,
-        int $currentPage,
-        int $totalPages,
-        bool $staticPagination = false
-    ): string {
+    private function folderPagination(string $folder, int $currentPage, int $totalPages): string
+    {
         $html = '<nav class="folder-pagination" aria-label="記事一覧のページ">';
         if ($currentPage > 1) {
-            $html .= $this->paginationLink($folder, $currentPage - 1, '前へ', 'folder-pagination-prev', 'prev', $staticPagination);
+            $html .= $this->paginationLink($folder, $currentPage - 1, '前へ', 'folder-pagination-prev', 'prev');
         } else {
             $html .= '<span class="folder-pagination-prev is-disabled" aria-disabled="true">前へ</span>';
         }
@@ -317,7 +298,7 @@ final class NavigationBuilder
             if ($pageNumber === $currentPage) {
                 $html .= '<span aria-current="page">' . $pageNumber . '</span>';
             } else {
-                $html .= $this->paginationLink($folder, $pageNumber, (string) $pageNumber, '', '', $staticPagination);
+                $html .= $this->paginationLink($folder, $pageNumber, (string) $pageNumber);
             }
             $html .= '</li>';
             $previousPage = $pageNumber;
@@ -325,7 +306,7 @@ final class NavigationBuilder
         $html .= '</ol>';
 
         if ($currentPage < $totalPages) {
-            $html .= $this->paginationLink($folder, $currentPage + 1, '次へ', 'folder-pagination-next', 'next', $staticPagination);
+            $html .= $this->paginationLink($folder, $currentPage + 1, '次へ', 'folder-pagination-next', 'next');
         } else {
             $html .= '<span class="folder-pagination-next is-disabled" aria-disabled="true">次へ</span>';
         }
@@ -339,18 +320,13 @@ final class NavigationBuilder
         int $page,
         string $label,
         string $class = '',
-        string $rel = '',
-        bool $staticPagination = false
+        string $rel = ''
     ): string {
         $segments = array_values(array_filter(explode('/', $folder), 'strlen'));
         $internalUrl = '/' . implode('/', array_map('rawurlencode', $segments)) . '/';
         $href = Security::publicUrl($internalUrl, $this->publicBasePath);
         if ($page > 1) {
-            if ($staticPagination) {
-                $href = rtrim($href, '/') . '/page/' . $page . '/';
-            } else {
-                $href .= '?page=' . $page;
-            }
+            $href .= '?page=' . $page;
         }
 
         $attributes = $class !== '' ? ' class="' . $this->escape($class) . '"' : '';
