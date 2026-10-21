@@ -16,7 +16,6 @@ foreach ([
     'ImageReferenceIndex' => 'ImageReferenceIndex.php',
     'ImageDeletionRetryQueue' => 'ImageDeletionRetryQueue.php',
     'LinkAliasIndex' => 'LinkAliasIndex.php',
-    'PageCatalogBuilder' => 'PageCatalogBuilder.php',
     'MetadataIndex' => 'MetadataIndex.php',
     'PostUploadTempStore' => 'PostUploadTempStore.php',
     'PostBasicPage' => 'PostBasicPage.php',

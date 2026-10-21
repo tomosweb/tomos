@@ -13,6 +13,10 @@ if ($fromRef === '') {
     $fromRef = 'refs/tomos-public/v' . $fromVersion;
 }
 require_once $root . '/tools/UpdateFileSet.php';
+if ($targetVersion === '1.1.11') {
+    require_once $root . '/tools/check-v1.1.11-scope.php';
+    checkV111Scope($root, $fromRef);
+}
 // The caller provides the formally released public baseline explicitly.
 $runtimeFiles = UpdateFileSet::fromGitDiff($root, $fromRef, 'HEAD');
 if (!in_array('VERSION', $runtimeFiles, true)) {
@@ -89,6 +93,9 @@ try {
         }
         $manifestPaths = array_keys(is_array($manifest['files'] ?? null) ? $manifest['files'] : []);
         sort($manifestPaths);
+        if ($targetVersion === '1.1.11') {
+            checkV111Zip($zip, $root);
+        }
         $expectedPaths = UpdateFileSet::packagePaths($runtimeFiles);
         if (in_array('core/required-installed-files.txt', $runtimeFiles, true)) {
             $expectedPaths[] = 'core/updater-pending/required-installed-files.txt';

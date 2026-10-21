@@ -1,3 +1,20 @@
+## v1.1.11 - Release Candidate（2026-10-21準備）
+
+### UI / Improved
+
+- 投稿画面の原稿作成ツール案内を、Tomos Write・Tomos Workspace・Obsidianの3ボタンに統一しました。
+- 「公開済み」を「ページ一覧」に改め、「公開済み記事」と「固定ページ」のタブ切り替えを追加しました。
+- `index.md`（トップページ）と`about.md`（About）を固定ページタブにまとめ、従来のMarkdownダウンロード・ページ確認を残しました。
+- 固定ページにも「Tomos Writeで編集」を設置し、公開済み記事の既存編集連携で更新できるようにしました。
+- 公開済み記事タブから固定ページの重複を除き、検索・件数・ページング・公開年も通常記事だけを数えます。
+
+### Compatibility / Update
+
+- Tomos Write通信プロトコル・受け渡しAPI・画像処理・更新競合確認は変更しません。
+- v1.1.10からv1.1.11への署名付きTomos Updateを準備します。
+- `config.php`、`content/`、uploads、サイト固有Theme、cache/storage/trashなどの運用データを保護します。
+- 配布範囲の承認、Release Gate・実ブラウザ試験・正式配布物検証が完了するまでは正式公開しません。
+
 ## v1.1.10 - 2026-10-08
 
 ### Fixed / Improved

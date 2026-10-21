@@ -47,6 +47,21 @@ assertSame(true, (bool) $result['items'][2]['protected'], 'home must be marked p
 assertSame(false, (bool) $result['items'][1]['protected'], 'ordinary article must not be protected');
 assertSame(['京都'], $result['items'][1]['tags'], 'tags must be exposed');
 
+$articles = $published->list('', '', 1, 2, true);
+assertTrue($articles['ok'], 'articles-only published list must load');
+assertSame(3, $articles['total'], 'articles-only total must exclude the two fixed pages');
+assertSame(2, $articles['total_pages'], 'articles-only pagination must use article counts');
+assertSame(['invalid-date.md', 'new.md'], array_column($articles['items'], 'path'), 'articles-only page one must retain sorted ordinary articles');
+$articlesLast = $published->list('', '', 2, 2, true);
+assertSame(['notes/old.md'], array_column($articlesLast['items'], 'path'), 'articles-only page two must not contain fixed pages');
+$articlesYear = $published->list('', '2026', 1, 50, true);
+assertSame(['new.md'], array_column($articlesYear['items'], 'path'), 'articles-only year filter must exclude home');
+$fixedSearch = $published->list('index.md', '', 1, 50, true);
+assertSame(0, $fixedSearch['total'], 'fixed page must not reappear through article search');
+assertSame([], array_column($fixedSearch['items'], 'path'), 'article search results must exclude protected pages');
+assertSame(true, $published->isPublishedPath('index.md'), 'home must remain eligible for existing Write handoff');
+assertSame(true, $published->isPublishedPath('about.md'), 'about must remain eligible for existing Write handoff');
+
 $search = $published->list('京都', '', 1, 50);
 assertSame(['new.md'], array_column($search['items'], 'path'), 'search_text must be searchable');
 $titleSearch = $published->list('Old Article', '', 1, 50);
