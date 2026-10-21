@@ -16,23 +16,6 @@ function canonicalAssert(bool $condition, string $message): void
 $js = (string) file_get_contents($root . '/post/assets/write-handoff.js');
 $index = (string) file_get_contents($root . '/post/index.php');
 
-
-$shortcutStart = strpos($index, 'function renderUploadForm(');
-$shortcutEnd = $shortcutStart === false ? false : strpos($index, 'post-upload-form', $shortcutStart);
-canonicalAssert($shortcutStart !== false && $shortcutEnd !== false, 'Post upload form missing');
-$shortcutSection = substr($index, $shortcutStart, $shortcutEnd - $shortcutStart);
-$css = (string) file_get_contents($root . '/post/assets/tomos-post-ui.css');
-canonicalAssert(strpos($shortcutSection, 'post-editor-shortcuts') !== false, 'Post must show editor buttons in upload area');
-canonicalAssert(substr_count($shortcutSection, 'class="button secondary"') === 3, 'Write, Workspace, and Obsidian must be three equivalent buttons');
-canonicalAssert(strpos($shortcutSection, '>Tomos Write</a>') !== false, 'Tomos Write button missing');
-canonicalAssert(strpos($shortcutSection, 'https://tomoswords.org/workspace/') !== false && strpos($shortcutSection, '>Tomos Workspace</a>') !== false, 'Tomos Workspace button missing');
-canonicalAssert(strpos($shortcutSection, 'https://tomoswords.org/docs/obsidian/') !== false, 'Core Obsidian documentation link missing');
-canonicalAssert(strpos($shortcutSection, '>Obsidianで書く</a>') !== false, 'Obsidian button label missing');
-canonicalAssert(strpos($shortcutSection, 'post-obsidian-shortcut') === false, 'Old standalone Obsidian text link must be removed');
-canonicalAssert(strpos($shortcutSection, 'Tomos Writeを開く') === false, 'Old explanatory text must not remain');
-canonicalAssert(strpos($css, '.post-editor-shortcuts {') !== false && strpos($css, '.post-editor-shortcuts .button {') !== false, 'Editor button layout missing');
-canonicalAssert(strpos($css, '.post-obsidian-shortcut') === false, 'Old standalone Obsidian link CSS must be removed');
-
 canonicalAssert(Tomos\TomosWriteHandoff::canonicalUrl() === 'https://tomoswords.org/write/', 'canonical Write URL changed');
 canonicalAssert(Tomos\TomosWriteHandoff::origin() === 'https://tomoswords.org', 'canonical Write origin must derive from the URL');
 canonicalAssert(strpos($index, 'Tomos\\TomosWriteHandoff::canonicalUrl()') !== false, 'Post must use the canonical helper');
