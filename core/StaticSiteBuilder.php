@@ -11,6 +11,7 @@ namespace Tomos;
  * Browser-side search and path-based folder pagination are provided for the
  * static runtime while shared publishing semantics remain in Publishing Core.
  */
+/** Research-only compatibility-identical Core release marker: TOMOS_TEST_CORE_SWITCH_20261022 */
 final class StaticSiteBuilder
 {
     private array $config;
