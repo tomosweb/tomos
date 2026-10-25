@@ -10,11 +10,13 @@ final class PasskeyManagementService
 {
     private PasskeyEnvironment $environment;
     private PasskeyCredentialStore $store;
+    private bool $protectLastCredential;
 
-    public function __construct(PasskeyEnvironment $environment, PasskeyCredentialStore $store)
+    public function __construct(PasskeyEnvironment $environment, PasskeyCredentialStore $store, array $config = [])
     {
         $this->environment = $environment;
         $this->store = $store;
+        $this->protectLastCredential = (string) ($config['security']['post_login_mode'] ?? 'both') === 'passkey_only';
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -45,9 +47,25 @@ final class PasskeyManagementService
 
     public function delete(string $credentialId): void
     {
-        $this->loadOwned($credentialId);
-        if (!$this->store->delete($credentialId)) {
-            throw new RuntimeException('パスキーを削除できませんでした。');
+        // Serialize management deletes so two simultaneous requests cannot
+        // each remove a different credential and leave passkey-only sites locked out.
+        $lockPath = $this->store->storageDirectory() . DIRECTORY_SEPARATOR . '.management.lock';
+        $lock = @fopen($lockPath, 'c');
+        if (!is_resource($lock) || !@flock($lock, LOCK_EX)) {
+            if (is_resource($lock)) fclose($lock);
+            throw new RuntimeException('パスキーの管理ロックを取得できませんでした。');
+        }
+        try {
+            $this->loadOwned($credentialId);
+            if ($this->protectLastCredential && count($this->all()) <= 1) {
+                throw new RuntimeException('パスキー専用モードでは最後のパスキーを削除できません。');
+            }
+            if (!$this->store->delete($credentialId)) {
+                throw new RuntimeException('パスキーを削除できませんでした。');
+            }
+        } finally {
+            @flock($lock, LOCK_UN);
+            fclose($lock);
         }
     }
 
