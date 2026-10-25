@@ -9,6 +9,7 @@ final class PostAuthRememberToken
     public const COOKIE_NAME = 'tomos_post_remember';
     public const LIFETIME_SECONDS = 2592000;
 
+    private array $config;
     private string $dir;
     private string $cookiePath;
     private bool $secure;
@@ -21,6 +22,7 @@ final class PostAuthRememberToken
         ?string $cookiePath = null,
         ?bool $secure = null
     ) {
+        $this->config = $config;
         $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
         $this->dir = rtrim($cacheDir, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR . 'security'
@@ -36,7 +38,7 @@ final class PostAuthRememberToken
     public function restoreSession(): bool
     {
         if (!empty($_SESSION['tomos_post_authenticated'])) {
-            return true;
+            return PostAuthPolicy::isAuthenticated($this->config);
         }
 
         $token = (string) ($_COOKIE[self::COOKIE_NAME] ?? '');
@@ -58,7 +60,11 @@ final class PostAuthRememberToken
             return false;
         }
 
-        $_SESSION['tomos_post_authenticated'] = true;
+        if (!PostAuthPolicy::allowsPassphrase($this->config)) {
+            $this->clearCookie();
+            return false;
+        }
+        PostAuthPolicy::markAuthenticated($this->config, 'passphrase');
         return true;
     }
 
@@ -96,7 +102,7 @@ final class PostAuthRememberToken
             @unlink($this->path(hash('sha256', $token)));
         }
 
-        unset($_SESSION['tomos_post_authenticated']);
+        PostAuthPolicy::clearSession();
         $this->clearCookie();
     }
 
