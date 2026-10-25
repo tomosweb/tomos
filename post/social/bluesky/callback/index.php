@@ -33,8 +33,8 @@ $authenticated = !empty($_SESSION['tomos_post_authenticated']);
 if (!$authenticated && $config !== []) {
     $remember = new Tomos\PostAuthRememberToken($config, $rootDir);
     $remember->restoreSession();
-    $authenticated = !empty($_SESSION['tomos_post_authenticated']);
 }
+$authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
 if (!$authenticated) {
     header('Location: ' . $publicPath('post/security/') . '?return_to=' . rawurlencode('/post/social/bluesky/'));
     exit;

@@ -1,0 +1,973 @@
+[
+  {
+    "test": "apple_music_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_hashtag_facet_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_http_response_limit_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_oauth_htaccess_diagnostics_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_oauth_htaccess_migration_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_oauth_public_endpoint_preparation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_oauth_static_backing_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_oauth_static_response_apache_check.php",
+    "status": "SKIP",
+    "code": 255,
+    "reason": "localhost listener denied by sandbox; endpoint subprocess tests run separately"
+  },
+  {
+    "test": "bluesky_settings_ui_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_thumbnail_orientation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "bluesky_thumbnail_resize_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "config_rename_failure_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "config_write_cas_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "core_wiki_data_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "daily_use_message_http_check.php",
+    "status": "SKIP",
+    "code": 1,
+    "reason": "localhost listener denied by sandbox; endpoint subprocess tests run separately"
+  },
+  {
+    "test": "daily_use_ux_structure_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "date_from_filename_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "derived_index_random_temp_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "distribution_stabilization_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "external_links_article_acceptance_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "external_url_resolver_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "home_news_provider_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "home_news_renderer_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "html_cache_generation_consistency_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "image_fallback_warning_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "image_processing_support_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "image_processor_php85_compatibility_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "inbox_api_cors_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "initial_bundled_theme_policy_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "installer_phase1_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "installer_phase2_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "installer_phase3_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "installer_phase4_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "installer_phase5_check.php",
+    "status": "SKIP",
+    "reason": "signed release candidate fixture unavailable"
+  },
+  {
+    "test": "installer_pointer_validation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_110_virtual_folder_freshness_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_42_published_order_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_52_date_completion_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_53_manual_inbox_draft_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_54_tomos_blog_description_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_56_standard_theme_description_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_58_inbox_preview_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "issue_96_rename_result_filename_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "lab_theme_browser_update_check.php",
+    "status": "SKIP",
+    "code": 1,
+    "reason": "localhost listener denied by sandbox; endpoint subprocess tests run separately"
+  },
+  {
+    "test": "lab_theme_commercial_workflow_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "link_alias_generation_consistency_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "markdown_compatibility_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "markdown_parser_youtube_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "markdown_toc_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "multilingual_foundation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "navigation_settings_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "obsidian_inline_tags_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "page_toc_app_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_authentication_service_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_challenge_store_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_credential_store_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "passkey_distribution_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_environment_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_management_concurrency_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "passkey_management_service_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_password_reset_service_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "passkey_php_compatibility_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_registration_service_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "passkey_runtime_autoload_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_security_navigation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_server_recovery_service_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "passkey_usage_concurrency_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_admin_session_cookie_path_check.php",
+    "status": "SKIP",
+    "code": 1,
+    "reason": "localhost listener denied by sandbox; endpoint subprocess tests run separately"
+  },
+  {
+    "test": "post_auth_policy_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_auth_remember_token_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_auth_return_to_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_auth_wall_browser_update_package_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_auth_wall_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_conflict_manager_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_drafts_management_cache_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_folder_handoff_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_image_submission_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_inbox_api_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_inbox_auto_publish_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_inbox_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_inbox_delete_failure_idempotency_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_inbox_resubmission_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_navigation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_passkey_security_boundary_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_password_hash_updater_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_published_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_published_integration_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_publisher_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_publisher_image_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_rate_limiter_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_rate_limiter_concurrency_check.php",
+    "status": "PASS",
+    "code": 0
+  },
+  {
+    "test": "post_submission_guard_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_submission_preparer_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_update_finalize_notice_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_upload_deferred_social_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_upload_input_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_write_cross_origin_coop_browser_update_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_write_image_handoff_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "post_write_new_article_handoff_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "public_artifact_update_acceptance_check.php",
+    "status": "SKIP",
+    "reason": "live public artifact access excluded"
+  },
+  {
+    "test": "public_metadata_freshness_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "public_update_chain_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "publisher_status_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "release_docs_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "release_transition_check.php",
+    "status": "SKIP",
+    "reason": "explicit released from-version fixture unavailable"
+  },
+  {
+    "test": "release_v111_scope_check.php",
+    "status": "SKIP",
+    "reason": "immutable four-file v1.1.11 release scope; this PR adds authentication runtime"
+  },
+  {
+    "test": "security_csp_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "seo_foundation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "seo_url_regression_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "setup_ui_copy_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "setup_url_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "site_branding_assets_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "site_settings_canonical_entry_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "site_settings_subdirectory_http_check.php",
+    "status": "SKIP",
+    "code": 1,
+    "reason": "localhost listener denied by sandbox; endpoint subprocess tests run separately"
+  },
+  {
+    "test": "social_post_upload_hook_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "social_publishing_service_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "spotify_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "standard_theme_navigation_api_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_asset_contract_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_developer_preview_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_folder_pill_navigation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_folder_pill_package_update_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_home_list_navigation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_package_deployment_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_package_http_check.php",
+    "status": "SKIP",
+    "code": 1,
+    "reason": "localhost listener denied by sandbox; endpoint subprocess tests run separately"
+  },
+  {
+    "test": "theme_package_rollback_failure_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_package_upload_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_requires_tomos_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_settings_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_settings_writer_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_template_pagination_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "theme_update_candidate_reset_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "tomos_message_recurrence_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_apply_rename_rollback_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_download_staging_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_index_only_self_update_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_integrity_rollback_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_legacy_browser_bootstrap_check.php",
+    "status": "SKIP",
+    "reason": "historical baseline not available locally"
+  },
+  {
+    "test": "update_lock_self_update_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_missing_runtime_directory_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_package_builder_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_package_downloader_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_pending_runtime_rollback_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_pending_runtime_security_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_phase1d_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_protected_target_consistency_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_recovery_manifest_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_release_provider_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_runtime_parity_check.php",
+    "status": "SKIP",
+    "reason": "historical baseline not available locally"
+  },
+  {
+    "test": "update_self_update_bundle_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_self_update_no_proc_open_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "update_theme_rules_migration_check.php",
+    "status": "SKIP",
+    "reason": "historical baseline not available locally"
+  },
+  {
+    "test": "update_v063_transition_matrix_check.php",
+    "status": "SKIP",
+    "reason": "historical baseline not available locally"
+  },
+  {
+    "test": "update_v073_to_v090_migration_check.php",
+    "status": "SKIP",
+    "reason": "immutable historical fixture not relevant to PR114"
+  },
+  {
+    "test": "update_v090_migration_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "url_namespace_regression_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "verify_published_install_assets_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "virtual_folder_app_e2e_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "virtual_folder_index_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "virtual_folder_title_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "virtual_folder_transition_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "write_handoff_canonical_contract_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "write_handoff_popup_activation_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "write_handoff_return_receiver_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "write_handoff_size_contract_check.php",
+    "status": "PASS",
+    "code": 0,
+    "reason": ""
+  },
+  {
+    "test": "write_handoff_subdirectory_http_check.php",
+    "status": "SKIP",
+    "code": 1,
+    "reason": "localhost listener denied by sandbox; endpoint subprocess tests run separately"
+  }
+]

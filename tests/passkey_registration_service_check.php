@@ -106,6 +106,16 @@ try {
         $service->complete($session, [], 'duplicate');
     }, 'duplicate credential must be rejected');
 
+    file_put_contents($tmp . '/config.php', "<?php return ['security'=>['post_auth_epoch'=>'old']];");
+    $service->authorizeAfterPassphrase($session);
+    $service->begin($session);
+    file_put_contents($tmp . '/config.php', "<?php return ['security'=>['post_login_mode'=>'passkey_only','post_auth_epoch'=>'new']];");
+    assertThrows(function () use ($service, &$session): void {
+        $service->begin($session);
+    }, 'rotated registration grant cannot begin');
+    assertThrows(function () use ($service, &$session): void {
+        $service->complete($session, [], 'stale grant');
+    }, 'rotated registration grant cannot complete');
     echo "passkey_registration_service_check: OK\n";
 } finally {
     removeTree($tmp);

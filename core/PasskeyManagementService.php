@@ -6,15 +6,19 @@ namespace Tomos;
 
 use RuntimeException;
 
+require_once __DIR__ . '/PostAuthPolicy.php';
+
 final class PasskeyManagementService
 {
     private PasskeyEnvironment $environment;
     private PasskeyCredentialStore $store;
+    private array $config;
 
-    public function __construct(PasskeyEnvironment $environment, PasskeyCredentialStore $store)
+    public function __construct(PasskeyEnvironment $environment, PasskeyCredentialStore $store, array $config = [])
     {
         $this->environment = $environment;
         $this->store = $store;
+        $this->config = $config;
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -28,6 +32,13 @@ final class PasskeyManagementService
 
     /** @return array<string,mixed> */
     public function rename(string $credentialId, string $label): array
+    {
+        return $this->store->withManagementLock(function () use ($credentialId, $label): array {
+            return $this->renameUnlocked($credentialId, $label);
+        });
+    }
+
+    private function renameUnlocked(string $credentialId, string $label): array
     {
         $record = $this->loadOwned($credentialId);
         $label = trim($label);
@@ -45,10 +56,17 @@ final class PasskeyManagementService
 
     public function delete(string $credentialId): void
     {
-        $this->loadOwned($credentialId);
-        if (!$this->store->delete($credentialId)) {
-            throw new RuntimeException('パスキーを削除できませんでした。');
-        }
+        $this->store->withManagementLock(function () use ($credentialId): void {
+            $this->loadOwned($credentialId);
+            // Reload after acquiring the same lock used by login-mode changes.
+            $config = $this->store->currentConfig($this->config);
+            if (!PostAuthPolicy::allowsPassphrase($config) && count($this->all()) <= 1) {
+                throw new RuntimeException('パスキー専用モードでは最後のパスキーを削除できません。');
+            }
+            if (!$this->store->delete($credentialId)) {
+                throw new RuntimeException('パスキーを削除できませんでした。');
+            }
+        });
     }
 
     /** @return array<string,mixed> */

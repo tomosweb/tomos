@@ -7,11 +7,6 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
 
-if (empty($_SESSION['tomos_post_authenticated'])) {
-    http_response_code(404);
-    exit;
-}
-
 $rootDir = dirname(__DIR__, 3);
 $configPath = $rootDir . '/config.php';
 $config = is_file($configPath) ? require $configPath : [];
@@ -23,6 +18,11 @@ spl_autoload_register(static function (string $class) use ($rootDir): void {
     $file = $rootDir . '/core/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) require_once $file;
 });
+
+if (!Tomos\PostAuthPolicy::isAuthenticated($config)) {
+    http_response_code(404);
+    exit;
+}
 
 $fileName = (string) ($_GET['file'] ?? '');
 $imageName = strtolower((string) ($_GET['image'] ?? ''));

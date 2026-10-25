@@ -86,8 +86,8 @@ if ($api !== '') {
 
         if ($api === 'complete') {
             $credential = $authentication->complete($_SESSION, $payload);
+            Tomos\PostAuthPolicy::markAuthenticated($config, 'passkey');
             if (session_status() === PHP_SESSION_ACTIVE) {
-                session_regenerate_id(true);
                 $authRemember->refreshSessionCookiePath();
             }
             jsonResponse([
@@ -123,12 +123,9 @@ $postUrl = '/' . trim($basePath, '/') . '/post/';
 $postUrl = preg_replace('#/+#', '/', $postUrl);
 $registerUrl = '/' . trim($basePath, '/') . '/post/passkey/register/';
 $registerUrl = preg_replace('#/+#', '/', $registerUrl);
-$securityUrl = '/' . trim($basePath, '/') . '/post/security/';
-$securityUrl = preg_replace('#/+#', '/', $securityUrl);
 $hasReturnTo = array_key_exists('return_to', $_GET);
 $returnTo = $hasReturnTo ? Tomos\PostAuthReturnTo::normalize($_GET['return_to'] ?? null) : null;
 $returnUrl = $returnTo !== null ? Tomos\PostAuthReturnTo::url($returnTo, $basePath) : $postUrl;
-$securityReturnUrl = $returnTo !== null ? $securityUrl . '?return_to=' . rawurlencode($returnTo) : $securityUrl;
 $forgotUrl = '/' . trim($basePath, '/') . ($credentials === [] ? '/post/passkey/recovery/' : '/post/passkey/password-reset/');
 $forgotUrl = preg_replace('#/+#', '/', $forgotUrl);
 ?><!doctype html>
@@ -136,7 +133,7 @@ $forgotUrl = preg_replace('#/+#', '/', $forgotUrl);
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>パスキーで開く - Tomos Post</title>
+<title>Tomos Postを開く</title>
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}button,.button{display:inline-block;padding:.75rem 1rem;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;cursor:pointer}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.ok{color:#166534}.ng{color:#991b1b}.hint{color:#666}
 </style>
@@ -145,20 +142,19 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </head>
 <body class="post-standalone">
 <main class="wrap">
-<h1>パスキーで開く</h1>
-<p>登録済みパスキーで認証します。管理用合言葉認証は従来どおり利用できます。</p>
+<h1>Tomos Postを開く</h1>
+<p>登録済みのパスキーで認証します。</p>
 
 <?php if (empty($status['available'])): ?>
 <div class="result ng"><p>この環境ではパスキー認証を利用できません。</p></div>
 <?php elseif ($credentials === []): ?>
-<div class="result"><p>登録済みパスキーがありません。</p><p><a class="button" href="<?= htmlspecialchars((string) $registerUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉が分かる場合はパスキーを登録</a></p><p><a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉も忘れた場合はTomos Postを復旧</a></p></div>
+<div class="result"><p>登録済みパスキーがありません。</p><?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?><p><a class="button" href="<?= htmlspecialchars((string) $registerUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉が分かる場合はパスキーを登録</a></p><?php endif; ?><p><a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉も忘れた場合はTomos Postを復旧</a></p></div>
 <?php else: ?>
-<p class="hint">登録済み: <?= count($credentials) ?> 件</p>
 <button id="login-button" type="button">パスキーで開く</button>
 <?php endif; ?>
 
 <p id="result" role="status" aria-live="polite"></p>
-<p><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a> <a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">合言葉を忘れた場合</a></p>
+<p><?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a><?php endif; ?> <a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">合言葉を忘れた場合</a></p>
 
 <script>
 (() => {
@@ -235,7 +231,6 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
   });
 })();
 </script>
-<?= tomosPostReturnLink((string) $securityReturnUrl, 'セキュリティへ戻る') ?>
 </main>
 </body>
 </html>

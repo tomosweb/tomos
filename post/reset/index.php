@@ -67,8 +67,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $newConfig['features']['post'] = true;
             $newConfig['security']['post_password_hash'] = Tomos\PostPassword::hash($newPassword);
+            // Explicit server-owner recovery: when the administrator proves write
+            // access via post-reset.enable, restore the passphrase login route.
+            if (Tomos\PostAuthPolicy::mode($config) === Tomos\PostAuthPolicy::PASSKEY_ONLY) {
+                $newConfig['security']['post_login_mode'] = Tomos\PostAuthPolicy::BOTH;
+            }
+            $newConfig['security']['post_auth_epoch'] = bin2hex(random_bytes(16));
 
-            if (Tomos\ConfigWriter::write($configPath, $newConfig, $rootDir)) {
+            if (Tomos\ConfigWriter::write($configPath, Tomos\ConfigWriter::expectUnchangedSource($config, $newConfig), $rootDir)) {
                 $config = $newConfig;
                 (new Tomos\PostAuthRememberToken($config, $rootDir))->invalidateAll();
                 $_SESSION['tomos_post_reset_token'] = bin2hex(random_bytes(32));
@@ -129,7 +135,7 @@ h1{color:var(--tomos-text);font-size:1.8rem;margin:0 0 0.5rem}.notice{background
 
     if ($newPassword !== '') {
         echo '<div class="success">';
-        echo '<p>新しい管理用合言葉を作成しました。</p>';
+        echo '<p>新しい管理用合言葉を作成しました。パスキー専用設定だった場合は、サーバー管理者による復旧として合言葉ログインへ切り替わっています。</p>';
         echo '<p>この合言葉は、記事ファイルを投稿する時に必要です。あとから画面では確認できません。安全な場所に控えてください。</p>';
         echo '<p>新しい管理用合言葉:</p><p class="secret"><code>' . e($newPassword) . '</code></p>';
         echo '<p>安全のため、サーバー上の <code>post-reset.enable</code> を削除してください。</p>';

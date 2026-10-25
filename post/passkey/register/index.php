@@ -74,6 +74,7 @@ $registration = new Tomos\PasskeyRegistrationService($environment, $store, $chal
 
 $api = (string) ($_GET['api'] ?? '');
 if ($api !== '') {
+    Tomos\PostAuthPolicy::isAuthenticated($config);
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         jsonResponse(['ok' => false, 'message' => 'POST request required.'], 405);
     }
@@ -83,21 +84,46 @@ if ($api !== '') {
 
     try {
         if ($api === 'authorize') {
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+                if (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+                    jsonResponse(['ok' => false, 'message' => 'パスキーで再認証してください。'], 403);
+                }
+                $registration->authorizeAfterPassphrase($_SESSION, 300);
+                $_SESSION['tomos_passkey_registration_epoch'] = (string) ($config['security']['post_auth_epoch'] ?? '');
+                jsonResponse(['ok' => true, 'authorized_for_seconds' => 300]);
+            }
             $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
             $passphrase = (string) ($payload['post_password'] ?? '');
-            if ($postPasswordHash === '' || $passphrase === '' || !password_verify($passphrase, $postPasswordHash)) {
+            $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+            $limit = $rateLimiter->checkAuthAllowed();
+            if (!$limit->allowed) {
+                jsonResponse(['ok' => false, 'message' => $limit->message], 429);
+            }
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+                jsonResponse(['ok' => false, 'message' => 'パスキー専用設定では管理用合言葉による登録を利用できません。'], 403);
+            }
+            if ($postPasswordHash === '' || $passphrase === '' || !Tomos\PostPassword::verify($passphrase, $postPasswordHash)) {
+                $rateLimiter->recordFailure();
                 jsonResponse(['ok' => false, 'message' => '管理用合言葉が正しくありません。'], 403);
             }
+            $rateLimiter->clearFailures();
             $registration->authorizeAfterPassphrase($_SESSION, 300);
+            $_SESSION['tomos_passkey_registration_epoch'] = (string) ($config['security']['post_auth_epoch'] ?? '');
             jsonResponse(['ok' => true, 'authorized_for_seconds' => 300]);
         }
 
         if ($api === 'options') {
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config) && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+                jsonResponse(['ok' => false, 'message' => 'パスキーで再認証してください。'], 403);
+            }
             $options = $registration->begin($_SESSION);
             jsonResponse(['ok' => true, 'publicKey' => $options['public_key']]);
         }
 
         if ($api === 'complete') {
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config) && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+                jsonResponse(['ok' => false, 'message' => 'パスキーで再認証してください。'], 403);
+            }
             $label = trim((string) ($payload['label'] ?? ''));
             $credential = $registration->complete($_SESSION, $payload, $label);
             jsonResponse([
@@ -150,8 +176,13 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </div>
 <?php else: ?>
 <form id="authorize-form">
+<?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <label for="post_password">管理用合言葉を再入力</label>
 <input id="post_password" name="post_password" type="password" autocomplete="current-password" required>
+<?php else: ?>
+<p>新しいパスキーの登録には、直近のパスキー認証が必要です。</p>
+<a class="button" href="<?= htmlspecialchars($postUrl . 'passkey/login/?return_to=' . rawurlencode('/post/passkey/register/'), ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証</a>
+<?php endif; ?>
 <button type="submit">登録を許可する</button>
 </form>
 

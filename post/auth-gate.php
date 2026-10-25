@@ -25,6 +25,7 @@ if ($authenticated && $action === 'logout') {
     return;
 }
 
+$authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
 if ($authenticated) {
     return;
 }
@@ -43,6 +44,10 @@ $returnTo = $hasWriteImportReturn && !array_key_exists('return_to', $_GET)
         : null);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        http_response_code(403);
+        exit;
+    }
     $token = (string) ($_POST['_token'] ?? '');
     if ($token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
         $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
@@ -56,7 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
             $errors[] = '管理用合言葉が正しくありません。';
         } else {
             $rateLimiter->clearFailures();
-            $_SESSION['tomos_post_authenticated'] = true;
+            Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
+            $authRemember->refreshSessionCookiePath();
             if ((string) ($_POST['remember_post_auth'] ?? '') === '1') {
                 $authRemember->rememberCurrentBrowser();
             }
@@ -68,6 +74,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
             exit;
         }
     }
+}
+
+if (Tomos\PostAuthPolicy::mode($config) === Tomos\PostAuthPolicy::PASSKEY_ONLY
+    && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $destination = Tomos\Security::publicUrl('/post/passkey/login/', $publicBasePath);
+    if ($returnTo !== null) {
+        $destination .= '?return_to=' . rawurlencode($returnTo);
+    }
+    header('Location: ' . $destination, true, 302);
+    exit;
 }
 
 renderAuthGate($config, $errors, $warnings, $returnTo);
@@ -177,6 +193,7 @@ function renderAuthGate(array $config, array $errors, array $warnings, ?string $
         echo '</section>';
     }
 
+    if (Tomos\PostAuthPolicy::allowsPassphrase($config)) {
     echo '<section class="method">';
     echo '<h2>管理用合言葉</h2>';
     echo '<form method="post" action="' . htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') . '">';
@@ -191,6 +208,7 @@ function renderAuthGate(array $config, array $errors, array $warnings, ?string $
     echo '<div class="actions"><button type="submit">開く</button></div>';
     echo '</form>';
     echo '</section>';
+    }
     echo '</div>';
     echo '</main></body></html>';
 }

@@ -112,6 +112,8 @@ final class PasskeyPasswordResetService
 
         $ttlSeconds = max(1, min(600, $ttlSeconds));
         $session[self::AUTHORIZED_UNTIL_KEY] = $this->now + $ttlSeconds;
+        $config = $this->store->currentConfig([]);
+        $session['tomos_passkey_password_reset_epoch'] = (string) ($config['security']['post_auth_epoch'] ?? '');
         $session[PasskeyAuthenticationService::AUTHENTICATED_AT_KEY] = $this->now;
 
         return $this->store->load($credentialId) ?? $record;
@@ -136,10 +138,11 @@ final class PasskeyPasswordResetService
             throw new RuntimeException('管理用合言葉のハッシュを作成できませんでした。');
         }
 
-        $this->updater->update($hash);
+        $this->updater->update($hash, (string) ($session['tomos_passkey_password_reset_epoch'] ?? ''));
 
         unset(
             $session[self::AUTHORIZED_UNTIL_KEY],
+            $session['tomos_passkey_password_reset_epoch'],
             $session[PasskeyAuthenticationService::AUTHENTICATED_AT_KEY],
             $session[PasskeyRegistrationService::AUTHORIZED_UNTIL_KEY]
         );

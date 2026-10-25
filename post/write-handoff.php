@@ -44,7 +44,7 @@ if ($config === [] || empty($config['features']['post'])) {
     handoffResponse(['ok' => false, 'message' => 'Tomos Postを利用できません。'], 503);
 }
 
-if (empty($_SESSION['tomos_post_authenticated'])) {
+if (!Tomos\PostAuthPolicy::isAuthenticated($config)) {
     handoffResponse(['ok' => false, 'message' => 'Tomos Postの認証が必要です。公開済み一覧を開き直してください。'], 403);
 }
 

@@ -81,6 +81,23 @@ try {
     $restored->invalidateAll();
     assertSame([], glob($restored->storageDirectory() . DIRECTORY_SEPARATOR . '*.json') ?: [], 'password change must invalidate every remembered token');
 
+    // Even if a stale remember-token file survives cleanup, a mode change
+    // must not permit it to establish a new session.
+    $_SESSION = [];
+    $_COOKIE = [];
+    $epochConfig = $config;
+    $epochConfig['security']['post_auth_epoch'] = 'new-epoch';
+    \Tomos\PostAuthPolicy::markAuthenticated($epochConfig, 'passphrase');
+    $epochToken = new PostAuthRememberToken($epochConfig, $tmp, $now + 20, '/local-tomos/post/', false);
+    assertTrue($epochToken->rememberCurrentBrowser(), 'epoch-bound token must be created');
+    $_SESSION = [];
+    assertTrue($epochToken->restoreSession(), 'same-epoch remembered token restores session');
+    $_SESSION = [];
+    $rotatedEpoch = $epochConfig;
+    $rotatedEpoch['security']['post_auth_epoch'] = 'rotated-again';
+    $oldToken = new PostAuthRememberToken($rotatedEpoch, $tmp, $now + 30, '/local-tomos/post/', false);
+    assertSame(false, $oldToken->restoreSession(), 'old-epoch token must be rejected even if its file exists');
+
     echo "post_auth_remember_token_check: OK\n";
 } finally {
     removeTree($tmp);

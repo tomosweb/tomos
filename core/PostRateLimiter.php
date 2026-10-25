@@ -66,24 +66,28 @@ final class PostRateLimiter
 
     public function recordFailure(): void
     {
-        $state = $this->load();
-        $failures = $this->recentFailures($state);
-        $failures[] = $this->now;
-        $state['failures'] = $failures;
+        $this->withStateLock(function (): void {
+            $state = $this->load();
+            $failures = $this->recentFailures($state);
+            $failures[] = $this->now;
+            $state['failures'] = $failures;
 
-        if (count($failures) >= self::FAILURE_LIMIT) {
-            $state['blocked_until'] = $this->now + self::BLOCK_SECONDS;
-        }
+            if (count($failures) >= self::FAILURE_LIMIT) {
+                $state['blocked_until'] = $this->now + self::BLOCK_SECONDS;
+            }
 
-        $this->save($state);
+            $this->save($state);
+        });
     }
 
     public function clearFailures(): void
     {
-        $state = $this->load();
-        $state['failures'] = [];
-        $state['blocked_until'] = 0;
-        $this->save($state);
+        $this->withStateLock(function (): void {
+            $state = $this->load();
+            $state['failures'] = [];
+            $state['blocked_until'] = 0;
+            $this->save($state);
+        });
     }
 
     public function checkResetAllowed(): PostRateLimitResult
@@ -99,9 +103,11 @@ final class PostRateLimiter
 
     public function recordResetAttempt(): void
     {
-        $state = $this->load();
-        $state['last_reset_at'] = $this->now;
-        $this->save($state);
+        $this->withStateLock(function (): void {
+            $state = $this->load();
+            $state['last_reset_at'] = $this->now;
+            $this->save($state);
+        });
     }
 
     private function isBlocked(array &$state): bool
@@ -109,11 +115,6 @@ final class PostRateLimiter
         $blockedUntil = (int) ($state['blocked_until'] ?? 0);
         if ($blockedUntil > $this->now) {
             return true;
-        }
-
-        if ($blockedUntil !== 0) {
-            $state['blocked_until'] = 0;
-            $this->save($state);
         }
 
         return false;
@@ -168,7 +169,23 @@ final class PostRateLimiter
             return;
         }
 
-        @file_put_contents($this->path, $json . "\n", LOCK_EX);
+        $tmp = $this->path . '.tmp-' . bin2hex(random_bytes(6));
+        if (@file_put_contents($tmp, $json . "\n", LOCK_EX) === false || !@rename($tmp, $this->path)) {
+            @unlink($tmp);
+            throw new \RuntimeException('認証試行の記録を保存できませんでした。');
+        }
+        @chmod($this->path, 0600);
+    }
+
+    private function withStateLock(callable $callback): void
+    {
+        if (!$this->ensureDirectory($this->dir)) throw new \RuntimeException('認証試行の記録を準備できませんでした。');
+        $lock = @fopen($this->path . '.lock', 'c');
+        if (!is_resource($lock)) throw new \RuntimeException('認証試行のロックを取得できませんでした。');
+        @chmod($this->path . '.lock', 0600);
+        if (!@flock($lock, LOCK_EX)) { fclose($lock); throw new \RuntimeException('認証試行のロックを取得できませんでした。'); }
+        try { $callback(); }
+        finally { @flock($lock, LOCK_UN); fclose($lock); }
     }
 
     private function defaultState(): array
@@ -178,6 +195,18 @@ final class PostRateLimiter
             'blocked_until' => 0,
             'last_reset_at' => 0,
         ];
+    }
+
+    private function ensureDirectory(string $path): bool
+    {
+        clearstatcache(true, $path);
+        if (is_dir($path)) return true;
+        $parent = dirname($path);
+        if ($parent === $path || !$this->ensureDirectory($parent)) return false;
+        // Create one level at a time; recursive mkdir races on older PHP.
+        if (@mkdir($path, 0700)) return true;
+        clearstatcache(true, $path);
+        return is_dir($path);
     }
 
     private function maybeCleanup(): void

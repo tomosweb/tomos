@@ -36,6 +36,15 @@ try {
     assertContains('// keep this comment', $updated, 'comments must be preserved');
     assertContains("'other' => 'keep-me'", $updated, 'unrelated config must be preserved');
 
+    $loaded = require $configPath;
+    $epoch = $loaded['security']['post_auth_epoch'] ?? '';
+    if (strlen($epoch) !== 32) throw new RuntimeException('password reset must introduce auth epoch');
+    $updater->update('$2y$10$SECONDHASH', $epoch);
+    $loaded = require $configPath;
+    if (($loaded['security']['post_auth_epoch'] ?? '') === $epoch) throw new RuntimeException('existing epoch must rotate');
+    assertThrows(function () use ($updater, $epoch): void {
+        $updater->update('$2y$10$STALEHASH', $epoch);
+    }, 'stale reset authorization must fail');
     file_put_contents($configPath, "<?php return ['security' => ['other' => 'x']];\n");
     assertThrows(function () use ($updater, $newHash): void {
         $updater->update($newHash);

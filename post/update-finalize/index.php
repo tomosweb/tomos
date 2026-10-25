@@ -38,6 +38,7 @@ $pending = $selfUpdate->hasPendingUpdate();
 $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
+Tomos\PostAuthPolicy::isAuthenticated($config);
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $token = (string) ($_POST['_token'] ?? '');
@@ -45,6 +46,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $errors[] = '画面の有効期限が切れました。再読み込みしてください。';
     } elseif ($postPasswordHash === '') {
         $errors[] = '管理用合言葉が設定されていません。Tomos Postの設定を確認してください。';
+    } elseif (empty($_SESSION['tomos_post_authenticated']) && !Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        $errors[] = 'Tomos Postでパスキー認証を行ってください。';
     } elseif (empty($_SESSION['tomos_post_authenticated'])) {
         $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
         $limit = $rateLimiter->checkAuthAllowed();
@@ -55,7 +58,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $errors[] = '管理用合言葉が正しくありません。';
         } else {
             $rateLimiter->clearFailures();
-            $_SESSION['tomos_post_authenticated'] = true;
+            Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
+            $authRemember->refreshSessionCookiePath();
             if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$authRemember->rememberCurrentBrowser()) {
                 $warnings[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
             }
@@ -128,12 +132,16 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <p>更新の仕上げが残っています。<br>「更新を完了する」を押してください。</p>
 <form method="post">
 <input type="hidden" name="_token" value="<?= h((string) $_SESSION['tomos_updater_finalize_token']) ?>">
-<?php if (empty($_SESSION['tomos_post_authenticated'])): ?>
+<?php if (empty($_SESSION['tomos_post_authenticated']) && Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <label for="post_password">管理用合言葉</label>
 <input id="post_password" name="post_password" type="password" autocomplete="current-password" required>
 <label><input name="remember_post_auth" type="checkbox" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
 <?php endif; ?>
+<?php if (Tomos\PostAuthPolicy::isAuthenticated($config) || Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <button type="submit">更新を完了する</button>
+<?php else: ?>
+<p><a href="<?= h(Tomos\Security::publicUrl('/post/passkey/login/', $publicBasePath) . '?return_to=' . rawurlencode('/post/update-finalize/')) ?>">パスキーで認証</a></p>
+<?php endif; ?>
 </form>
 <?php else: ?>
 <p>Tomosの更新が完了しました。</p>

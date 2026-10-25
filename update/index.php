@@ -28,6 +28,7 @@ $uiCssUrl = Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicB
 $updateUrl = Tomos\Security::publicUrl('/update/', $publicBasePath);
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
+Tomos\PostAuthPolicy::isAuthenticated($config);
 
 if (empty($_SESSION['tomos_update_token'])) {
     $_SESSION['tomos_update_token'] = bin2hex(random_bytes(32));
@@ -186,7 +187,8 @@ renderUpdatePage(
     $updateUrl,
     $postUrl,
     $uiCssUrl,
-    !empty($_SESSION['tomos_post_authenticated'])
+    !empty($_SESSION['tomos_post_authenticated']),
+    $config
 );
 
 function renderUpdatePage(
@@ -201,7 +203,8 @@ function renderUpdatePage(
     string $updateUrl,
     string $postUrl,
     string $uiCssUrl,
-    bool $authenticated
+    bool $authenticated,
+    array $config
 ): void {
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
@@ -264,7 +267,7 @@ function renderUpdatePage(
             echo '<p class="version-path"><strong>' . e($currentVersion) . ' → ' . e((string) $releaseInfo['next_version']) . '</strong></p>';
             echo '<form method="post" action="' . e($updateUrl) . '" onsubmit="this.querySelector(\'button\').disabled=true">';
             echo '<input type="hidden" name="action" value="inspect_online"><input type="hidden" name="_token" value="' . e($token) . '">';
-            renderUpdateAuthFields($authenticated, 'online_post_password');
+            renderUpdateAuthFields($authenticated, $config, 'online_post_password');
             echo '<div class="actions"><button type="submit">更新内容を確認</button></div></form>';
         } else {
             echo '<p>現在利用できるオンライン更新はありません。</p>';
@@ -274,7 +277,7 @@ function renderUpdatePage(
         echo '<form method="post" enctype="multipart/form-data" action="' . e($updateUrl) . '">';
         echo '<input type="hidden" name="action" value="inspect"><input type="hidden" name="_token" value="' . e($token) . '">';
         echo '<label for="update_zip">更新ZIPを選択</label><input id="update_zip" type="file" name="update_zip" accept=".zip,application/zip" required>';
-        renderUpdateAuthFields($authenticated);
+        renderUpdateAuthFields($authenticated, $config);
         $manualButtonClass = is_array($releaseInfo) && !empty($releaseInfo['update_available']) ? ' secondary' : '';
         echo '<div class="actions"><button type="submit" class="' . $manualButtonClass . '">更新内容を確認</button></div></form></section>';
     }
@@ -294,6 +297,9 @@ function authenticateUpdatePost(array $config, string $rootDir, Tomos\PostAuthRe
     if (!empty($_SESSION['tomos_post_authenticated'])) {
         return null;
     }
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        return 'Tomos Postでパスキー認証を行ってください。';
+    }
     $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
     $limit = $rateLimiter->checkAuthAllowed();
     if (!$limit->allowed) {
@@ -304,16 +310,23 @@ function authenticateUpdatePost(array $config, string $rootDir, Tomos\PostAuthRe
         return '管理用合言葉が正しくありません。';
     }
     $rateLimiter->clearFailures();
-    $_SESSION['tomos_post_authenticated'] = true;
+    Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
+    $authRemember->refreshSessionCookiePath();
     if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$authRemember->rememberCurrentBrowser()) {
         return '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
     }
     return null;
 }
 
-function renderUpdateAuthFields(bool $authenticated, string $fieldId = 'post_password'): void
+function renderUpdateAuthFields(bool $authenticated, array $config, string $fieldId = 'post_password'): void
 {
     if ($authenticated) {
+        return;
+    }
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        $basePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+        $passkeyUrl = Tomos\Security::publicUrl('/post/passkey/login/', $basePath);
+        echo '<p><a class="button" href="' . e($passkeyUrl . '?return_to=' . rawurlencode('/update/')) . '">パスキーで認証</a></p>';
         return;
     }
     echo '<label for="' . e($fieldId) . '">管理用合言葉</label><input id="' . e($fieldId) . '" type="password" name="post_password" autocomplete="current-password" required>';

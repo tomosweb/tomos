@@ -73,8 +73,6 @@ $passwordResetUrl = '/' . trim($basePath, '/') . '/post/passkey/password-reset/'
 $passwordResetUrl = preg_replace('#/+#', '/', $passwordResetUrl);
 $postUrl = '/' . trim($basePath, '/') . '/post/';
 $postUrl = preg_replace('#/+#', '/', $postUrl);
-$securityUrl = '/' . trim($basePath, '/') . '/post/security/';
-$securityUrl = preg_replace('#/+#', '/', $securityUrl);
 
 $download = (string) ($_GET['download'] ?? '');
 if ($download !== '') {
@@ -386,7 +384,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
   });
 })();
 </script>
-<?= tomosPostReturnLink((string) $securityUrl, 'セキュリティへ戻る') ?>
+<?= tomosPostReturnLink((string) $postUrl, 'Tomos Postを開く') ?>
 </main>
 </body>
 </html>

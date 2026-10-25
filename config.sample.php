@@ -63,6 +63,8 @@ return [
         'hide_error_detail' => true,
         'content_security_policy' => true,
         'post_password_hash' => '',
+        'post_login_mode' => 'both',
+        'post_auth_epoch' => '',
         'inbox_api_token_hash' => '',
         // Trusted browser-based Publisher origins. The official Tomos Workspace
         // origin is also allowed when an existing config has an older allowlist.

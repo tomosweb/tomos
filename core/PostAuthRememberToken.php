@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . '/PostAuthPolicy.php';
+
 final class PostAuthRememberToken
 {
     public const COOKIE_NAME = 'tomos_post_remember';
     public const LIFETIME_SECONDS = 2592000;
 
+    private array $config;
     private string $dir;
     private string $cookiePath;
     private bool $secure;
@@ -21,6 +24,7 @@ final class PostAuthRememberToken
         ?string $cookiePath = null,
         ?bool $secure = null
     ) {
+        $this->config = $config;
         $cacheDir = (string) (($config['paths']['cache_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'cache'));
         $this->dir = rtrim($cacheDir, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR . 'security'
@@ -36,7 +40,7 @@ final class PostAuthRememberToken
     public function restoreSession(): bool
     {
         if (!empty($_SESSION['tomos_post_authenticated'])) {
-            return true;
+            return PostAuthPolicy::isAuthenticated($this->config);
         }
 
         $token = (string) ($_COOKIE[self::COOKIE_NAME] ?? '');
@@ -58,13 +62,23 @@ final class PostAuthRememberToken
             return false;
         }
 
-        $_SESSION['tomos_post_authenticated'] = true;
+        $expectedEpoch = (string) ($this->config['security']['post_auth_epoch'] ?? '');
+        $recordEpoch = (string) ($record['auth_epoch'] ?? '');
+        if (($expectedEpoch !== '' && !hash_equals($expectedEpoch, $recordEpoch))
+            || !PostAuthPolicy::allowsPassphrase($this->config)
+        ) {
+            $this->clearCookie();
+            return false;
+        }
+        PostAuthPolicy::markAuthenticated($this->config, 'passphrase');
+        $this->refreshSessionCookiePath();
         return true;
     }
 
     public function rememberCurrentBrowser(): bool
     {
-        if (empty($_SESSION['tomos_post_authenticated']) || !$this->ensureDir()) {
+        if (!PostAuthPolicy::isAuthenticated($this->config)
+            || !PostAuthPolicy::allowsPassphrase($this->config) || !$this->ensureDir()) {
             return false;
         }
 
@@ -75,6 +89,10 @@ final class PostAuthRememberToken
             'created_at' => $this->now,
             'expires_at' => $this->now + self::LIFETIME_SECONDS,
         ];
+        $epoch = (string) ($this->config['security']['post_auth_epoch'] ?? '');
+        if ($epoch !== '') {
+            $record['auth_epoch'] = $epoch;
+        }
 
         if (!$this->write($tokenHash, $record)) {
             return false;
@@ -96,7 +114,7 @@ final class PostAuthRememberToken
             @unlink($this->path(hash('sha256', $token)));
         }
 
-        unset($_SESSION['tomos_post_authenticated']);
+        PostAuthPolicy::clearSession();
         $this->clearCookie();
     }
 

@@ -17,14 +17,21 @@ final class PostPasswordHashUpdater
         $this->configPath = $this->rootDir . DIRECTORY_SEPARATOR . 'config.php';
     }
 
-    public function update(string $passwordHash): void
+    public function update(string $passwordHash, ?string $expectedEpoch = null): void
     {
         if ($passwordHash === '' || strlen($passwordHash) > 1024) {
             throw new RuntimeException('管理用合言葉のハッシュを作成できませんでした。');
         }
 
         try {
-            ConfigWriteLock::run($this->rootDir, function () use ($passwordHash): void {
+            ConfigWriteLock::run($this->rootDir, function () use ($passwordHash, $expectedEpoch): void {
+                if ($expectedEpoch !== null) {
+                    if (function_exists('opcache_invalidate')) @opcache_invalidate($this->configPath, true);
+                    $current = require $this->configPath;
+                    if (!is_array($current) || !hash_equals($expectedEpoch, (string) ($current['security']['post_auth_epoch'] ?? ''))) {
+                        throw new RuntimeException('認証設定が変更されました。もう一度認証してください。');
+                    }
+                }
                 $this->updateUnlocked($passwordHash);
             });
         } catch (RuntimeException $exception) {
@@ -42,6 +49,22 @@ final class PostPasswordHashUpdater
         }
 
         $tokens = token_get_all($source);
+        $epoch = bin2hex(random_bytes(16));
+        $epochMatches = 0;
+        for ($i = 0; $i < count($tokens); $i++) {
+            $token = $tokens[$i];
+            if (!is_array($token) || $token[0] !== T_CONSTANT_ENCAPSED_STRING
+                || !in_array($token[1], ["'post_auth_epoch'", '"post_auth_epoch"'], true)) continue;
+            $arrow = $this->nextSignificantTokenIndex($tokens, $i + 1);
+            if ($arrow === null || !is_array($tokens[$arrow]) || $tokens[$arrow][0] !== T_DOUBLE_ARROW) continue;
+            $value = $this->nextSignificantTokenIndex($tokens, $arrow + 1);
+            if ($value === null || !is_array($tokens[$value]) || $tokens[$value][0] !== T_CONSTANT_ENCAPSED_STRING) {
+                throw new RuntimeException('認証世代の設定を確認できませんでした。');
+            }
+            $tokens[$value][1] = var_export($epoch, true);
+            $epochMatches++;
+        }
+        if ($epochMatches > 1) throw new RuntimeException('認証世代の設定が重複しています。');
         $matches = 0;
         $count = count($tokens);
 
@@ -71,6 +94,9 @@ final class PostPasswordHashUpdater
                 : str_replace(['\\', '"', '$'], ['\\\\', '\\"', '\\$'], $passwordHash);
 
             $tokens[$valueIndex][1] = $quote . $escapedHash . $quote;
+            if ($epochMatches === 0) {
+                $tokens[$i][1] = "'post_auth_epoch' => " . var_export($epoch, true) . ",\n        " . $tokens[$i][1];
+            }
             $matches++;
         }
 
