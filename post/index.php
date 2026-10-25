@@ -77,6 +77,7 @@ if ($postPasswordHash === '') {
 
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
+Tomos\PostAuthPolicy::isAuthenticated($config);
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['return_to']) && !empty($_SESSION['tomos_post_authenticated'])) {
     header('Location: ' . Tomos\PostAuthReturnTo::url($returnTo, (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''))));
     exit;
@@ -755,10 +756,13 @@ function authenticatePostRequest(
     string $postPasswordHash,
     array &$warnings
 ): string {
-    if ($rememberToken->restoreSession()) {
+    if ($rememberToken->restoreSession() && Tomos\PostAuthPolicy::isAuthenticated($config)) {
         return '';
     }
 
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        return 'パスキーで認証してください。';
+    }
     $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
     $limit = $rateLimiter->checkAuthAllowed();
     if (!$limit->allowed) {
@@ -771,7 +775,7 @@ function authenticatePostRequest(
     }
 
     $rateLimiter->clearFailures();
-    $_SESSION['tomos_post_authenticated'] = true;
+    Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
     if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$rememberToken->rememberCurrentBrowser()) {
         $warnings[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
     }
