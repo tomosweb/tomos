@@ -15,8 +15,9 @@ final class PostAuthPolicy
 
     public static function mode(array $config): string
     {
-        return ($config['security']['post_login_mode'] ?? '') === self::PASSKEY_ONLY
-            ? self::PASSKEY_ONLY : self::BOTH;
+        $mode = (string) ($config['security']['post_login_mode'] ?? self::BOTH);
+        // Unknown explicit values must never silently re-enable passphrase access.
+        return $mode === self::BOTH ? self::BOTH : self::PASSKEY_ONLY;
     }
 
     public static function allowsPassphrase(array $config): bool
