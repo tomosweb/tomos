@@ -62,7 +62,11 @@ final class PostAuthRememberToken
             return false;
         }
 
-        if (!PostAuthPolicy::allowsPassphrase($this->config)) {
+        $expectedEpoch = (string) ($this->config['security']['post_auth_epoch'] ?? '');
+        $recordEpoch = (string) ($record['auth_epoch'] ?? '');
+        if (($expectedEpoch !== '' && !hash_equals($expectedEpoch, $recordEpoch))
+            || !PostAuthPolicy::allowsPassphrase($this->config)
+        ) {
             $this->clearCookie();
             return false;
         }
@@ -83,6 +87,10 @@ final class PostAuthRememberToken
             'created_at' => $this->now,
             'expires_at' => $this->now + self::LIFETIME_SECONDS,
         ];
+        $epoch = (string) ($this->config['security']['post_auth_epoch'] ?? '');
+        if ($epoch !== '') {
+            $record['auth_epoch'] = $epoch;
+        }
 
         if (!$this->write($tokenHash, $record)) {
             return false;
