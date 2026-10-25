@@ -49,8 +49,8 @@ if ($config !== []) {
     $remember = new Tomos\PostAuthRememberToken($config, $rootDir);
     if (!$authenticated) {
         $remember->restoreSession();
-        $authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
     }
+    $authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'passphrase_auth') {
