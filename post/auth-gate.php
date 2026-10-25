@@ -75,6 +75,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
     }
 }
 
+if (Tomos\PostAuthPolicy::mode($config) === Tomos\PostAuthPolicy::PASSKEY_ONLY
+    && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $destination = Tomos\Security::publicUrl('/post/passkey/login/', $publicBasePath);
+    if ($returnTo !== null) {
+        $destination .= '?return_to=' . rawurlencode($returnTo);
+    }
+    header('Location: ' . $destination, true, 302);
+    exit;
+}
+
 renderAuthGate($config, $errors, $warnings, $returnTo);
 exit;
 
