@@ -39,6 +39,7 @@ $publicPath = static function (string $path) use ($basePath): string {
     }
     return preg_replace('#/+#', '/', $prefix . '/' . ltrim($path, '/')) ?: '/';
 };
+$obsidianView = (string) ($_GET['view'] ?? '') === 'obsidian';
 $hasReturnTo = array_key_exists('return_to', $_GET) || array_key_exists('return_to', $_POST);
 $returnTo = $hasReturnTo ? Tomos\PostAuthReturnTo::normalize($_GET['return_to'] ?? $_POST['return_to'] ?? null) : null;
 $returnToField = '';
@@ -73,6 +74,16 @@ if ($config !== []) {
         $remember->restoreSession();
     }
     $authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
+}
+if ($obsidianView && !$authenticated) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        http_response_code(403);
+        exit;
+    }
+    $loginUrl = Tomos\PostAuthPolicy::allowsPassphrase($config)
+        ? $publicPath('post/security/') : $publicPath('post/passkey/login/');
+    header('Location: ' . $loginUrl . '?return_to=' . rawurlencode('/post/obsidian/'));
+    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'change_passphrase') {
@@ -149,7 +160,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'issue_inbox_api_token' && $authenticated) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'issue_inbox_api_token' && !$obsidianView) {
+    $errors[] = '投稿用トークンは「設定」→「連携」→「Obsidian」から発行してください。';
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'issue_inbox_api_token' && $obsidianView && $authenticated) {
     $token = (string) ($_POST['_token'] ?? '');
     if ($token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
         $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
@@ -231,10 +245,8 @@ if (!empty($status['available'])) {
 }
 
 $hasPasskey = $credentials !== [];
-$passkeyUrl = $publicPath('post/passkey/login/');
-if ($returnTo !== null) {
-    $passkeyUrl .= '?return_to=' . rawurlencode($returnTo);
-}
+$passkeyUrl = $publicPath('post/passkey/login/') . '?return_to='
+    . rawurlencode($returnTo ?? ($obsidianView ? '/post/obsidian/' : '/post/security/'));
 $forgotUrl = $hasPasskey
     ? $publicPath('post/passkey/password-reset/')
     : $publicPath('post/passkey/recovery/');
@@ -257,16 +269,16 @@ function verifyTokenIssuePassphrase(array $config, string $rootDir): bool
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>セキュリティ - Tomos Post</title>
+<title><?= $obsidianView ? 'Obsidian投稿用トークン' : 'セキュリティ' ?> - Tomos Post</title>
 <style>
-body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}.card{border-top:1px solid #ddd;padding:1.2rem 0}.card:first-of-type{border-top:0}.button,button{display:inline-block;padding:.7rem 1rem;margin:.2rem .35rem .2rem 0;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;font:inherit;cursor:pointer}.primary{font-weight:700}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.hint{color:#666}input[type=password]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem;font:inherit}.remember-auth{display:flex;gap:.5rem;align-items:flex-start;margin:.6rem 0 1rem}.remember-auth input{margin-top:.35rem}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}.card{border-top:1px solid #ddd;padding:1.2rem 0}.card:first-of-type{border-top:0}.button,button{display:inline-block;padding:.7rem 1rem;margin:.2rem .35rem .2rem 0;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;font:inherit;cursor:pointer}.primary{font-weight:700}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.hint{color:#666}input[type=password]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem;font:inherit}.remember-auth{display:flex;gap:.5rem;align-items:flex-start;margin:.6rem 0 1rem}.remember-auth input{margin-top:.35rem}.passphrase-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1rem}.passphrase-actions button{font-size:.9em}
 </style>
 <link rel="stylesheet" href="../assets/tomos-post-security.css">
 <link rel="stylesheet" href="../assets/tomos-post-ui.css">
 </head>
 <body class="post-standalone">
 <main class="wrap security-page">
-<header class="page-heading"><h1><?= tomosPostIcon('security') ?><span>セキュリティ</span></h1><p class="hint">認証、パスキー、API関連</p></header>
+<header class="page-heading"><h1><?= tomosPostIcon($obsidianView ? 'edit' : 'security') ?><span><?= $obsidianView ? 'Obsidian投稿用トークン' : 'セキュリティ' ?></span></h1><p class="hint"><?= $obsidianView ? 'ObsidianからTomosへHTTPS投稿するための専用トークンです。' : '認証、パスキー、管理用合言葉' ?></p></header>
 
 <?php foreach ($messages as $message): ?>
 <div class="result"><p><?= htmlspecialchars((string) $message, ENT_QUOTES, 'UTF-8') ?></p></div>
@@ -275,21 +287,21 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <div class="result"><p><?= htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8') ?></p></div>
 <?php endforeach; ?>
 
-<?php if ($issuedInboxApiToken !== ''): ?>
+<?php if ($obsidianView && $issuedInboxApiToken !== ''): ?>
 <div class="result">
 <p>この投稿用トークンは今回だけ表示されます。</p>
 <pre style="white-space:pre-wrap;word-break:break-all;user-select:all;"><?= htmlspecialchars($issuedInboxApiToken, ENT_QUOTES, 'UTF-8') ?></pre>
 </div>
 <?php endif; ?>
 
-<?php if ($authenticated && !$hasPasskey && !empty($status['available'])): ?>
+<?php if (!$obsidianView && $authenticated && !$hasPasskey && !empty($status['available'])): ?>
 <section class="card security-section">
 <h2>パスキーを設定しましょう</h2>
 <p>パスキーを登録すると、Face ID・Touch IDや端末の画面ロックでTomos Postを開けます。</p>
 <a class="button primary" href="<?= htmlspecialchars($publicPath('post/passkey/register/'), ENT_QUOTES, 'UTF-8') ?>">最初のパスキーを登録</a>
 </section>
 <?php endif; ?>
-<?php if ($authenticated): ?>
+<?php if (!$obsidianView && $authenticated): ?>
 <section class="card security-section">
 <h2>ログイン方法</h2>
 <?php if (empty($status['available'])): ?>
@@ -324,18 +336,27 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php elseif (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config) && !empty($status['available'])): ?>
 <p><a class="button" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証</a></p>
 <?php endif; ?>
+<p class="hint">安全な合言葉を自動入力します。必要なら変更できます（1文字以上・4096バイト以内）。</p>
 <label for="new_passphrase">新しい管理用合言葉</label>
 <input id="new_passphrase" name="new_passphrase" type="password" autocomplete="new-password" required>
+<div class="passphrase-actions">
+<button id="generate-button" type="button">別の合言葉を生成</button>
+<button id="show-button" type="button" aria-pressed="false">合言葉を表示</button>
+<button id="copy-button" type="button">合言葉をコピー</button>
+</div>
 <label for="confirm_passphrase">新しい合言葉（確認）</label>
 <input id="confirm_passphrase" name="confirm_passphrase" type="password" autocomplete="new-password" required>
+<p class="hint"><strong>変更前に合言葉をコピーし、パスワード管理アプリなどへ保存してください。</strong>変更後は確認できません。</p>
 <button type="submit">管理用合言葉を変更</button>
 </form>
 </section>
+<?php endif; ?>
+<?php if ($obsidianView && $authenticated): ?>
 <section class="card security-section">
 <h2><?= tomosPostIcon('edit') ?><span>Obsidian投稿用トークン</span></h2>
-<p class="hint">ObsidianからTomosへHTTPS投稿するための専用トークンです。再発行すると以前のトークンは無効になります。</p>
+<p class="hint">再発行すると以前のトークンは無効になります。</p>
 <?php if ($hasPasskey && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
-<p><a class="button" href="<?= htmlspecialchars($publicPath('post/passkey/login/') . '?return_to=' . rawurlencode('/post/security/'), ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証してトークン発行を有効にする</a></p>
+<p><a class="button" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証してトークン発行を有効にする</a></p>
 <?php else: ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="issue_inbox_api_token">
@@ -350,6 +371,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </section>
 <?php endif; ?>
 
+<?php if (!$obsidianView): ?>
 <?php if (empty($status['available'])): ?>
 <div class="result"><p>この環境ではパスキー機能を利用できません。パスキー専用モードの場合は、サーバー管理者による復旧が必要です。</p></div>
 <?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
@@ -415,8 +437,58 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 </section>
 <?php endif; ?>
-
-<?= tomosPostReturnLink($settingsUrl) ?>
+<?php endif; ?>
+<script>
+(() => {
+  const password = document.getElementById('new_passphrase');
+  const confirmation = document.getElementById('confirm_passphrase');
+  const generateButton = document.getElementById('generate-button');
+  const showButton = document.getElementById('show-button');
+  const copyButton = document.getElementById('copy-button');
+  if (!password || !confirmation) return;
+  const generate = () => {
+    if (!window.crypto || typeof window.crypto.getRandomValues !== 'function') return null;
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    const cutoff = Math.floor(256 / alphabet.length) * alphabet.length;
+    const chars = [];
+    while (chars.length < 24) {
+      const bytes = new Uint8Array(32);
+      window.crypto.getRandomValues(bytes);
+      for (const byte of bytes) {
+        if (byte >= cutoff) continue;
+        chars.push(alphabet[byte % alphabet.length]);
+        if (chars.length === 24) break;
+      }
+    }
+    return 'tms-' + (chars.join('').match(/.{4}/g) || []).join('-');
+  };
+  const fill = () => {
+    const value = generate();
+    if (!value) return false;
+    password.value = value;
+    confirmation.value = value;
+    return true;
+  };
+  fill();
+  if (generateButton) generateButton.addEventListener('click', fill);
+  if (showButton) showButton.addEventListener('click', () => {
+    const visible = password.type === 'password';
+    password.type = visible ? 'text' : 'password';
+    showButton.textContent = visible ? '合言葉を隠す' : '合言葉を表示';
+    showButton.setAttribute('aria-pressed', visible ? 'true' : 'false');
+  });
+  if (copyButton) copyButton.addEventListener('click', async () => {
+    try {
+      if (!password.value || !navigator.clipboard || !navigator.clipboard.writeText) throw new Error('copy unavailable');
+      await navigator.clipboard.writeText(password.value);
+      alert('コピーしました。パスワード管理アプリなどへ保存してください。');
+    } catch (_) {
+      alert('コピーできませんでした。合言葉を表示し、手動で保存してください。');
+    }
+  });
+})();
+</script>
+<?= tomosPostReturnLink($settingsUrl, $obsidianView ? '設定へ戻る' : 'Tomos Postへ戻る') ?>
 </main>
 </body>
 </html>

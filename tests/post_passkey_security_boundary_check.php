@@ -85,6 +85,10 @@ try {
    boundaryAssert($r['status']===403 && empty($r['session']['tomos_post_authenticated']),$path.' passphrase bypass');
   }
  }
+ $r=endpointBoundary('post/obsidian/index.php',[],['_token'=>'csrf','action'=>'issue_inbox_api_token']);
+ boundaryAssert($r['status']===302 || $r['status']===403,'anonymous Obsidian token page must require auth');
+ $obsidianPage=endpointBoundary('post/obsidian/index.php',$passkey,[],[],[],'GET');
+ boundaryAssert(strpos($obsidianPage['body'],'Obsidian投稿用トークン')!==false,'Obsidian integration token page renders for passkey session');
  $r=endpointBoundary('post/index.php',[],[],[],[],'GET');
  boundaryAssert($r['status']===302,'passkey-only entry redirect');
  foreach (['options','complete','authorize'] as $api) {
@@ -180,7 +184,7 @@ try {
  } else {
   boundaryAssert(strpos($securityPage['body'],'パスキーで再認証')!==false,'supported environment retains passkey reauthentication');
  }
- $r=endpointBoundary('post/security/index.php',$r['session'],['_token'=>$r['session']['tomos_post_token'],'action'=>'issue_inbox_api_token']);
+ $r=endpointBoundary('post/obsidian/index.php',$r['session'],['_token'=>$r['session']['tomos_post_token'],'action'=>'issue_inbox_api_token']);
  $changed=require $root.'/config.php';boundaryAssert($changed['security']['inbox_api_token_hash']===$apiHash,'token issue requires reauthentication even without passkey');
  for ($i=0;$i<5;$i++) {
   $r=endpointBoundary('post/passkey/register/index.php',[],['_token'=>'csrf','post_password'=>'wrong'],['api'=>'authorize'],[],'POST',['REMOTE_ADDR'=>'127.0.0.2']);

@@ -1403,12 +1403,14 @@ function renderSettingsHomeSection(string $token, array $config, string $returnT
     $analyticsUrl = Tomos\Security::publicUrl('/post/analytics/', $publicBasePath);
     $themeUrl = Tomos\Security::publicUrl('/post/theme/', $publicBasePath);
     $socialUrl = Tomos\Security::publicUrl('/post/social/bluesky/', $publicBasePath);
+    $obsidianUrl = Tomos\Security::publicUrl('/post/obsidian/', $publicBasePath);
     if (!$authenticated) {
         $siteSettingsUrl = $securityUrl . '?return_to=' . rawurlencode('/post/site-settings.php');
         $navigationUrl = $securityUrl . '?return_to=' . rawurlencode('/post/navigation/');
         $analyticsUrl = $securityUrl . '?return_to=' . rawurlencode('/post/analytics/');
         $themeUrl = $securityUrl . '?return_to=' . rawurlencode('/post/theme/');
         $socialUrl = $securityUrl . '?return_to=' . rawurlencode('/post/social/bluesky/');
+        $obsidianUrl = $securityUrl . '?return_to=' . rawurlencode('/post/obsidian/');
     }
 
     echo '<h2 id="post-settings">設定</h2>';
@@ -1417,22 +1419,23 @@ function renderSettingsHomeSection(string $token, array $config, string $returnT
         echo '<div class="notice"><strong>認証が必要です。</strong><p>管理用合言葉で認証すると、要求された管理画面へ移動します。</p></div>';
     }
     $groups = [
+        ['Tomos', [
+            [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', 'Tomos本体の更新'],
+            [$securityUrl, 'セキュリティ', '認証、パスキー、管理用合言葉'],
+        ]],
         ['サイト', [
             [$siteSettingsUrl, 'サイト設定', 'サイト名、説明、言語、タイムゾーン、サイト画像、RSS、Sitemap'],
             [$navigationUrl, 'ナビゲーション', 'サイトナビゲーションの構成、並べ替え、表示状態'],
             [$themeUrl, 'テーマ', '公開サイトのデザイン'],
         ]],
         ['連携', [
+            [$obsidianUrl, 'Obsidian', '投稿用トークンの発行・再発行'],
             [$socialUrl, 'Bluesky', 'Bluesky接続・投稿設定'],
             [$analyticsUrl, 'Google Analytics', 'アクセス解析'],
         ]],
-        ['Tomos', [
-            [$securityUrl, 'セキュリティ', '認証、パスキー、API関連'],
-            [Tomos\Security::publicUrl('/update/', $publicBasePath), 'Tomos Update', 'Tomos本体の更新'],
-        ]],
     ];
     $groupIcons = ['サイト' => 'site', '連携' => 'bluesky', 'Tomos' => 'settings'];
-    $linkIcons = ['サイト設定' => 'site', 'ナビゲーション' => 'navigation', 'テーマ' => 'theme', 'Bluesky' => 'bluesky', 'Google Analytics' => 'analytics', 'セキュリティ' => 'security', 'Tomos Update' => 'update'];
+    $linkIcons = ['サイト設定' => 'site', 'ナビゲーション' => 'navigation', 'テーマ' => 'theme', 'Obsidian' => 'edit', 'Bluesky' => 'bluesky', 'Google Analytics' => 'analytics', 'セキュリティ' => 'security', 'Tomos Update' => 'update'];
     foreach ($groups as [$groupLabel, $links]) {
         echo '<section class="settings-group"><h3>' . tomosPostIcon($groupIcons[$groupLabel] ?? 'settings') . '<span>' . e($groupLabel) . '</span></h3>';
         foreach ($links as [$url, $label, $description]) {

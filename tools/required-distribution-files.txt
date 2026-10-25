@@ -126,6 +126,7 @@ post/assets/tomos-post-security.css
 post/assets/tomos-post-image-preprocessor.js
 post/assets/tomos-message-mark.png
 post/security/index.php
+post/obsidian/index.php
 post/passkey/login/index.php
 post/passkey/manage/index.php
 post/passkey/register/index.php
