@@ -6,17 +6,19 @@ namespace Tomos;
 
 use RuntimeException;
 
+require_once __DIR__ . '/PostAuthPolicy.php';
+
 final class PasskeyManagementService
 {
     private PasskeyEnvironment $environment;
     private PasskeyCredentialStore $store;
-    private bool $protectLastCredential;
+    private array $config;
 
     public function __construct(PasskeyEnvironment $environment, PasskeyCredentialStore $store, array $config = [])
     {
         $this->environment = $environment;
         $this->store = $store;
-        $this->protectLastCredential = (string) ($config['security']['post_login_mode'] ?? 'both') === 'passkey_only';
+        $this->config = $config;
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -30,6 +32,13 @@ final class PasskeyManagementService
 
     /** @return array<string,mixed> */
     public function rename(string $credentialId, string $label): array
+    {
+        return $this->store->withManagementLock(function () use ($credentialId, $label): array {
+            return $this->renameUnlocked($credentialId, $label);
+        });
+    }
+
+    private function renameUnlocked(string $credentialId, string $label): array
     {
         $record = $this->loadOwned($credentialId);
         $label = trim($label);
@@ -47,26 +56,17 @@ final class PasskeyManagementService
 
     public function delete(string $credentialId): void
     {
-        // Serialize management deletes so two simultaneous requests cannot
-        // each remove a different credential and leave passkey-only sites locked out.
-        $lockPath = $this->store->storageDirectory() . DIRECTORY_SEPARATOR . '.management.lock';
-        $lock = @fopen($lockPath, 'c');
-        if (!is_resource($lock) || !@flock($lock, LOCK_EX)) {
-            if (is_resource($lock)) fclose($lock);
-            throw new RuntimeException('パスキーの管理ロックを取得できませんでした。');
-        }
-        try {
+        $this->store->withManagementLock(function () use ($credentialId): void {
             $this->loadOwned($credentialId);
-            if ($this->protectLastCredential && count($this->all()) <= 1) {
+            // Reload after acquiring the same lock used by login-mode changes.
+            $config = $this->store->currentConfig($this->config);
+            if (!PostAuthPolicy::allowsPassphrase($config) && count($this->all()) <= 1) {
                 throw new RuntimeException('パスキー専用モードでは最後のパスキーを削除できません。');
             }
             if (!$this->store->delete($credentialId)) {
                 throw new RuntimeException('パスキーを削除できませんでした。');
             }
-        } finally {
-            @flock($lock, LOCK_UN);
-            fclose($lock);
-        }
+        });
     }
 
     /** @return array<string,mixed> */

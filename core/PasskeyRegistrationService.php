@@ -35,6 +35,8 @@ final class PasskeyRegistrationService
     {
         $ttlSeconds = max(1, min(600, $ttlSeconds));
         $session[self::AUTHORIZED_UNTIL_KEY] = $this->now + $ttlSeconds;
+        $config = $this->store->currentConfig([]);
+        $session['tomos_passkey_registration_epoch'] = (string) ($config['security']['post_auth_epoch'] ?? '');
     }
 
     /**
@@ -72,6 +74,13 @@ final class PasskeyRegistrationService
      * @return array<string,mixed>
      */
     public function complete(array &$session, array $payload, string $label = ''): array
+    {
+        return $this->store->withManagementLock(function () use (&$session, $payload, $label): array {
+            return $this->completeUnlocked($session, $payload, $label);
+        });
+    }
+
+    private function completeUnlocked(array &$session, array $payload, string $label): array
     {
         $this->assertReady($session);
         $challenge = $this->challenges->consume($session, 'register');
@@ -116,6 +125,10 @@ final class PasskeyRegistrationService
         }
         if ((int) ($session[self::AUTHORIZED_UNTIL_KEY] ?? 0) < $this->now) {
             throw new RuntimeException('Passphrase re-authentication is required before passkey registration.');
+        }
+        $config = $this->store->currentConfig([]);
+        if (!hash_equals((string) ($config['security']['post_auth_epoch'] ?? ''), (string) ($session['tomos_passkey_registration_epoch'] ?? ''))) {
+            throw new RuntimeException('認証設定が変更されました。もう一度認証してください。');
         }
     }
 

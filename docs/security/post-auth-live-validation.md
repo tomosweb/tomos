@@ -57,3 +57,57 @@ GitHub Actionsの実行可否に依存しない。**本番公開、mainマージ
 
 Chat内のGitHubコード閲覧とローカル静的テストだけでは、Face ID/Touch IDの実動作、さくら実機でのCookie・PHPセッション・更新挙動をPASSにできない。
 人間がサーバーの検証サイトへ試験物を配置し、実端末で試験する工程を必須とする。
+
+## PR #114 ローカル再検証後の検証候補（2026-10-25）
+
+**実サーバーへ未接続。E01–E16は全件 NOT RUN。公開不可。**
+調査元HEADは `22ffd740e246446a4aa89bbbd162c5b682d0640a`、mainは `324065aa446dd0f1f96a314da3db786dfb3474d8`。
+修正後のローカル結果は `post-auth-local-review-20261025.md` と `post-auth-local-results.json` を参照。
+このセッションではGitHub書き込みが承認ポリシーneverで拒否されたため、修正はまだPR HEADに含まれない。元HEADだけを配置して検証を始めないこと。
+
+### 配置する候補
+
+`bash tools/build-post-security-validation.sh` で次の一組を生成する。実行はローカルのみ。公式署名鍵・ネットワーク・現行サイトの設定は使用しない。
+
+| ファイル | 用途 |
+| --- | --- |
+| `tomos-pr114-validation.zip` | 隔離サイトの新規設置用。VERSION `1.1.12-pr114.1`、検証専用のUpdate公開鍵を内包 |
+| `tomos-pr114-update-validation.zip` | 上記サイト専用。`1.1.12-pr114.1` → `1.1.12-pr114.2`。更新本体と仕上げを試す署名付きZIP |
+| `validation-public-key.pem` | ZIPの組合せ確認用の公開鍵。秘密鍵はビルド終了時に削除 |
+| `SHA256SUMS` | 上記3ファイルのハッシュ |
+
+これらは正式バージョンでも既存サイト向けアップデートでもない。既存サイトのUpdate公開鍵を検証鍵に置き換えない。公式配布・本番上書き・オンライン更新カタログへの掲載は禁止。
+
+1. ZIPとSHA256SUMSを照合する。別ビルドの新規設置ZIPと更新ZIPを混ぜない（検証鍵が毎回変わる）。
+2. さくらに新規の隔離ディレクトリとHTTPSの検証URLを用意する。本番と設定・記事・保存領域を共有しない。Cookieの混在を避けるため専用ホストを優先する。
+3. 新規設置ZIPを空のディレクトリへ展開する。`config.php` は検証サイトのsetupで新規作成する。本番からconfig.php・記事・パスキーJSON・APIトークンをコピーしない。
+4. iPhone SafariとmacOS Safariで、URL・HTTPS・PHP・OpenSSL・mbstring・VERSION・候補ハッシュを記録する。機密値は記録しない。
+5. 通常モードで合言葉ログインし、セキュリティ画面から検証用パスキーを2件登録する。MacとiPhoneで同一同期パスキーが共有される場合は「2台」を「2件」と数えず、管理一覧の件数を確認する。
+6. E01–E16を実施する。モード切替前に別ブラウザの合言葉セッション、30日記憶Cookie、登録許可取得済みのタブを準備し、切替後に失効を確認する。再認証から301秒待つ試験も行う。
+7. E06は表示確認だけで済ませない。通常モード時のフォームのaction・CSRF・Cookieを検証サイトで控え、切替後にブラウザ開発ツールまたはローカルHTTPクライアントから直接POSTする。拒否後に保護画面へアクセスし、認証成立や設定変更がないことを確認する。Cookie・CSRF・合言葉は報告に貼らない。
+8. E09では別々のログイン済みブラウザから別の2件を同時削除する。最後の1件が残ること、通常モードから専用モードへの切替と削除を重ねても0件にならないことを確認する。
+9. E14ではパスキー専用モードのまま `/update/` へ進み、同じ一組の更新ZIPを手動選択する。「更新内容を確認」→「更新」→Tomos Postの更新仕上げを実施し、VERSIONが `1.1.12-pr114.2` になることを確認する。途中の再認証が元画面へ戻ること、完了後も専用モード・投稿・APIトークンが保たれることを確認する。
+10. E16の依存停止は検証サイト内だけで行い、テスト直後に復元する。E10の `post-reset.enable` も必ず削除する。復旧は意図的なサーバー所有者操作であり、専用モードの通常ログイン経路とは区別する。
+
+### 実機結果記入欄
+
+全項目で、日時・端末OS/Safari版・PHP版・対象ローカル修正コミット・候補ハッシュ・画面遷移・再検証結果を別途記録する。
+
+| ID | iPhone Safari | macOS Safari | さくら・HTTPS・Cookie | 判定・証跡 |
+| --- | --- | --- | --- | --- |
+| E01 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E02 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E03 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E04 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E05 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E06 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E07 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E08 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E09 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E10 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E11 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E12 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E13 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E14 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E15 | NOT RUN | NOT RUN | NOT RUN | 未接続 |
+| E16 | NOT RUN | NOT RUN | NOT RUN | 未接続 |

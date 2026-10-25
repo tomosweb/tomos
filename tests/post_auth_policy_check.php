@@ -51,4 +51,15 @@ checkPolicy(!PostAuthPolicy::recentlyVerifiedPasskey($only), 'stale verification
 PostAuthPolicy::clearSession();
 checkPolicy(!PostAuthPolicy::isAuthenticated($only), 'logout clears session');
 
+// An anonymous registration grant must not survive a generation rotation.
+$_SESSION = ['tomos_passkey_registration_authorized_until' => time() + 300,
+    'tomos_passkey_registration_epoch' => 'epoch-a'];
+PostAuthPolicy::isAuthenticated($only);
+checkPolicy(!isset($_SESSION['tomos_passkey_registration_authorized_until']), 'anonymous stale registration grant revoked');
+PostAuthPolicy::markAuthenticated($only, 'passkey');
+$_SESSION['tomos_passkey_authenticated_at'] = time() + 1;
+checkPolicy(!PostAuthPolicy::recentlyVerifiedPasskey($only), 'future verification rejected');
+$_SESSION['tomos_passkey_authenticated_at'] = time() - 301;
+checkPolicy(!PostAuthPolicy::recentlyVerifiedPasskey($only), '301-second verification rejected');
+PostAuthPolicy::clearSession();
 echo "post_auth_policy_check: OK\n";

@@ -9,10 +9,12 @@ final class PasskeyCredentialStore
     public const SCHEMA_VERSION = 1;
 
     private string $dir;
+    private string $rootDir;
 
     /** @param array<string,mixed> $config */
     public function __construct(array $config, string $rootDir)
     {
+        $this->rootDir = $rootDir;
         $storageDir = (string) (($config['paths']['storage_dir'] ?? '') ?: ($rootDir . DIRECTORY_SEPARATOR . 'storage'));
         $this->dir = rtrim($storageDir, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR . 'security'
@@ -22,6 +24,33 @@ final class PasskeyCredentialStore
     public function storageDirectory(): string
     {
         return $this->dir;
+    }
+
+    public function currentConfig(array $fallback): array
+    {
+        $path = $this->rootDir . DIRECTORY_SEPARATOR . 'config.php';
+        if (!is_file($path)) return $fallback;
+        clearstatcache(true, $path);
+        if (function_exists('opcache_invalidate')) @opcache_invalidate($path, true);
+        $config = require $path;
+        if (!is_array($config)) throw new \RuntimeException('設定を読み込めませんでした。');
+        return $config;
+    }
+
+    /** Serialize mode changes, deletes, renames and usage writes. */
+    public function withManagementLock(callable $callback)
+    {
+        if (!$this->ensureDir()) throw new \RuntimeException('パスキー保存領域を準備できませんでした。');
+        $path = $this->dir . DIRECTORY_SEPARATOR . '.management.lock';
+        $lock = @fopen($path, 'c');
+        if (!is_resource($lock)) throw new \RuntimeException('パスキーの管理ロックを取得できませんでした。');
+        @chmod($path, 0600);
+        if (!@flock($lock, LOCK_EX)) {
+            fclose($lock);
+            throw new \RuntimeException('パスキーの管理ロックを取得できませんでした。');
+        }
+        try { return $callback(); }
+        finally { @flock($lock, LOCK_UN); fclose($lock); }
     }
 
     /** @param array<string,mixed> $credential */
@@ -93,6 +122,15 @@ final class PasskeyCredentialStore
     }
 
     public function updateUsage(string $credentialId, int $signCount, ?int $lastUsedAt = null): bool
+    {
+        try {
+            return $this->withManagementLock(function () use ($credentialId, $signCount, $lastUsedAt): bool {
+                return $this->updateUsageUnlocked($credentialId, $signCount, $lastUsedAt);
+            });
+        } catch (\RuntimeException $exception) { return false; }
+    }
+
+    private function updateUsageUnlocked(string $credentialId, int $signCount, ?int $lastUsedAt): bool
     {
         if ($signCount < 0 || !$this->validCredentialId($credentialId) || !$this->ensureDir()) {
             return false;
@@ -216,8 +254,9 @@ final class PasskeyCredentialStore
 
     private function ensureDir(): bool
     {
-        if (!is_dir($this->dir) && !@mkdir($this->dir, 0700, true) && !is_dir($this->dir)) {
-            return false;
+        if (!is_dir($this->dir) && !@mkdir($this->dir, 0700, true)) {
+            clearstatcache(true, $this->dir);
+            if (!is_dir($this->dir)) return false;
         }
         @chmod($this->dir, 0700);
 

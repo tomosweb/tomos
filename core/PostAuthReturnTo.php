@@ -10,6 +10,11 @@ final class PostAuthReturnTo
 
     /** @var array<string, string> */
     private const ALLOWED_ROUTES = [
+        '/post/security/' => '/post/security/',
+        '/post/passkey/manage/' => '/post/passkey/manage/',
+        '/post/passkey/register/' => '/post/passkey/register/',
+        '/post/update-finalize/' => '/post/update-finalize/',
+        '/update/' => '/update/',
         '/post/theme/' => '/post/theme/',
         '/post/site-settings.php' => '/post/site-settings.php',
         '/post/navigation/' => '/post/navigation/',

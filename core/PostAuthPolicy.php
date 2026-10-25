@@ -27,10 +27,17 @@ final class PostAuthPolicy
 
     public static function isAuthenticated(array $config): bool
     {
+        $epoch = (string) ($config['security']['post_auth_epoch'] ?? '');
+        // Registration authorization may exist without a logged-in Post session.
+        // Revoke it too when another browser rotates the authentication generation.
+        if (isset($_SESSION['tomos_passkey_registration_authorized_until'])
+            && !hash_equals($epoch, (string) ($_SESSION['tomos_passkey_registration_epoch'] ?? ''))
+        ) {
+            unset($_SESSION['tomos_passkey_registration_authorized_until'], $_SESSION['tomos_passkey_registration_epoch']);
+        }
         if (empty($_SESSION['tomos_post_authenticated'])) {
             return false;
         }
-        $epoch = (string) ($config['security']['post_auth_epoch'] ?? '');
         $sessionEpoch = (string) ($_SESSION['tomos_post_auth_epoch'] ?? '');
         if (($epoch !== '' && !hash_equals($epoch, $sessionEpoch))
             || (!self::allowsPassphrase($config)
@@ -48,6 +55,12 @@ final class PostAuthPolicy
             || ($method === 'passphrase' && !self::allowsPassphrase($config))
         ) {
             throw new \RuntimeException('この認証方式は現在利用できません。');
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+        if ($method !== 'passkey') {
+            unset($_SESSION['tomos_passkey_authenticated_at']);
         }
         $_SESSION['tomos_post_authenticated'] = true;
         $_SESSION['tomos_post_auth_method'] = $method;
@@ -70,7 +83,9 @@ final class PostAuthPolicy
             $_SESSION['tomos_post_auth_epoch'],
             $_SESSION['tomos_passkey_authenticated_at'],
             $_SESSION['tomos_passkey_registration_authorized_until'],
-            $_SESSION['tomos_passkey_password_reset_authorized_until']
+            $_SESSION['tomos_passkey_registration_epoch'],
+            $_SESSION['tomos_passkey_password_reset_authorized_until'],
+            $_SESSION['tomos_passkey_password_reset_epoch']
         );
     }
 }

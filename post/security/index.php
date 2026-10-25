@@ -130,7 +130,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
         $newConfig['security']['post_login_mode'] = $nextMode;
         $newConfig['security']['post_auth_epoch'] = bin2hex(random_bytes(16));
         $newConfig = Tomos\ConfigWriter::expectUnchangedSource($config, $newConfig);
-        if (Tomos\ConfigWriter::write($configPath, $newConfig, $rootDir)) {
+        $modeStore = new Tomos\PasskeyCredentialStore($config, $rootDir);
+        try {
+            $saved = $modeStore->withManagementLock(static function () use ($nextMode, $config, $rootDir, $configPath, $newConfig): bool {
+                if ($nextMode === Tomos\PostAuthPolicy::PASSKEY_ONLY && !passkeyExistsForCurrentSite($config, $rootDir)) return false;
+                return Tomos\ConfigWriter::write($configPath, $newConfig, $rootDir);
+            });
+        } catch (Throwable $exception) { $saved = false; }
+        if ($saved) {
             (new Tomos\PostAuthRememberToken($newConfig, $rootDir))->invalidateAll();
             $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
             $config = $newConfig;
@@ -148,6 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
         $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
     } elseif (passkeyExistsForCurrentSite($config, $rootDir) && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
         $errors[] = '投稿用トークンを発行するには、パスキーで再認証してください。';
+    } elseif (!passkeyExistsForCurrentSite($config, $rootDir) && !verifyTokenIssuePassphrase($config, $rootDir)) {
+        $errors[] = '投稿用トークンを発行するには、現在の管理用合言葉で再認証してください。';
     } else {
         try {
             $issuedInboxApiToken = bin2hex(random_bytes(32));
@@ -230,6 +239,18 @@ $forgotUrl = $hasPasskey
     : $publicPath('post/passkey/recovery/');
 $token = (string) $_SESSION['tomos_post_token'];
 $settingsUrl = $publicPath('post/?section=settings');
+function verifyTokenIssuePassphrase(array $config, string $rootDir): bool
+{
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) return false;
+    $limiter = new Tomos\PostRateLimiter($config, $rootDir, (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    if (!$limiter->checkAuthAllowed()->allowed) return false;
+    if (!Tomos\PostPassword::verify((string) ($_POST['current_passphrase'] ?? ''), (string) ($config['security']['post_password_hash'] ?? ''))) {
+        $limiter->recordFailure();
+        return false;
+    }
+    $limiter->clearFailures();
+    return true;
+}
 ?><!doctype html>
 <html lang="ja">
 <head>
@@ -311,6 +332,10 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php else: ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="issue_inbox_api_token">
+<?php if (!$hasPasskey): ?>
+<label for="token_current_passphrase">現在の管理用合言葉</label>
+<input id="token_current_passphrase" name="current_passphrase" type="password" autocomplete="current-password" required>
+<?php endif; ?>
 <input type="hidden" name="_token" value="<?= htmlspecialchars((string) ($_SESSION['tomos_post_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 <button type="submit">投稿用トークンを発行・再発行</button>
 </form>
@@ -319,7 +344,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 
 <?php if (empty($status['available'])): ?>
-<div class="result"><p>この環境ではパスキー機能を利用できません。管理用合言葉によるTomos Post認証は引き続き利用できます。</p></div>
+<div class="result"><p>この環境ではパスキー機能を利用できません。パスキー専用モードの場合は、サーバー管理者による復旧が必要です。</p></div>
 <?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="passphrase_auth">

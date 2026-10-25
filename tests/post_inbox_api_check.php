@@ -18,7 +18,7 @@ $token = 'test-' . bin2hex(random_bytes(16));
 $config = [
     'site' => ['url' => 'https://example.test/', 'timezone' => 'Asia/Tokyo'],
     'paths' => ['content_dir' => $content, 'cache_dir' => $cache, 'inbox_dir' => $inboxPath],
-    'security' => ['inbox_api_token_hash' => Tomos\PostPassword::hash($token)],
+    'security' => ['inbox_api_token_hash' => Tomos\PostPassword::hash($token), 'post_login_mode' => 'passkey_only', 'post_auth_epoch' => 'rotated'],
 ];
 $api = new Tomos\PostInboxApi(new Tomos\PostInbox($config, $root), $config);
 $https = ['HTTPS' => 'on', 'SERVER_PORT' => '443'];

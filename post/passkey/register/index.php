@@ -89,6 +89,7 @@ if ($api !== '') {
                     jsonResponse(['ok' => false, 'message' => 'パスキーで再認証してください。'], 403);
                 }
                 $registration->authorizeAfterPassphrase($_SESSION, 300);
+                $_SESSION['tomos_passkey_registration_epoch'] = (string) ($config['security']['post_auth_epoch'] ?? '');
                 jsonResponse(['ok' => true, 'authorized_for_seconds' => 300]);
             }
             $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
@@ -107,15 +108,22 @@ if ($api !== '') {
             }
             $rateLimiter->clearFailures();
             $registration->authorizeAfterPassphrase($_SESSION, 300);
+            $_SESSION['tomos_passkey_registration_epoch'] = (string) ($config['security']['post_auth_epoch'] ?? '');
             jsonResponse(['ok' => true, 'authorized_for_seconds' => 300]);
         }
 
         if ($api === 'options') {
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config) && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+                jsonResponse(['ok' => false, 'message' => 'パスキーで再認証してください。'], 403);
+            }
             $options = $registration->begin($_SESSION);
             jsonResponse(['ok' => true, 'publicKey' => $options['public_key']]);
         }
 
         if ($api === 'complete') {
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config) && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+                jsonResponse(['ok' => false, 'message' => 'パスキーで再認証してください。'], 403);
+            }
             $label = trim((string) ($payload['label'] ?? ''));
             $credential = $registration->complete($_SESSION, $payload, $label);
             jsonResponse([

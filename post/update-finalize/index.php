@@ -139,7 +139,7 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <?php if (Tomos\PostAuthPolicy::isAuthenticated($config) || Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <button type="submit">更新を完了する</button>
 <?php else: ?>
-<p><a href="<?= h(Tomos\Security::publicUrl('/post/passkey/login/', $publicBasePath)) ?>">パスキーで認証してから戻る</a></p>
+<p><a href="<?= h(Tomos\Security::publicUrl('/post/passkey/login/', $publicBasePath) . '?return_to=' . rawurlencode('/post/update-finalize/')) ?>">パスキーで認証</a></p>
 <?php endif; ?>
 </form>
 <?php else: ?>

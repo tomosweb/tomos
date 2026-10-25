@@ -76,7 +76,8 @@ final class PostAuthRememberToken
 
     public function rememberCurrentBrowser(): bool
     {
-        if (empty($_SESSION['tomos_post_authenticated']) || !$this->ensureDir()) {
+        if (!PostAuthPolicy::isAuthenticated($this->config)
+            || !PostAuthPolicy::allowsPassphrase($this->config) || !$this->ensureDir()) {
             return false;
         }
 

@@ -323,7 +323,7 @@ function renderUpdateAuthFields(bool $authenticated, array $config, string $fiel
     if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
         $basePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
         $passkeyUrl = Tomos\Security::publicUrl('/post/passkey/login/', $basePath);
-        echo '<p><a class="button" href="' . e($passkeyUrl) . '">パスキーで認証してから戻る</a></p>';
+        echo '<p><a class="button" href="' . e($passkeyUrl . '?return_to=' . rawurlencode('/update/')) . '">パスキーで認証</a></p>';
         return;
     }
     echo '<label for="' . e($fieldId) . '">管理用合言葉</label><input id="' . e($fieldId) . '" type="password" name="post_password" autocomplete="current-password" required>';

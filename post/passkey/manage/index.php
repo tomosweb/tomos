@@ -166,7 +166,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php if ($authenticated && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
 <p><a class="button" href="<?= e($publicPath('post/passkey/login/')) ?>?return_to=<?= rawurlencode('/post/passkey/manage/') ?>">パスキーで再認証して削除を有効にする</a></p>
 <?php endif; ?>
-<p>Tomos Postで使用する登録済みパスキーの名称変更と削除を行います。管理用合言葉による認証は、パスキーをすべて削除しても引き続き利用できます。</p>
+<p>Tomos Postで使用する登録済みパスキーの名称変更と削除を行います。パスキー専用モードでは、最後の1件は削除できません。</p>
 
 <?php foreach ($messages as $message): ?>
 <div class="result ok"><p><?= e((string) $message) ?></p></div>

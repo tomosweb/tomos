@@ -88,7 +88,6 @@ if ($api !== '') {
             $credential = $authentication->complete($_SESSION, $payload);
             Tomos\PostAuthPolicy::markAuthenticated($config, 'passkey');
             if (session_status() === PHP_SESSION_ACTIVE) {
-                session_regenerate_id(true);
                 $authRemember->refreshSessionCookiePath();
             }
             jsonResponse([
@@ -152,7 +151,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php if (empty($status['available'])): ?>
 <div class="result ng"><p>この環境ではパスキー認証を利用できません。</p></div>
 <?php elseif ($credentials === []): ?>
-<div class="result"><p>登録済みパスキーがありません。</p><p><a class="button" href="<?= htmlspecialchars((string) $registerUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉が分かる場合はパスキーを登録</a></p><p><a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉も忘れた場合はTomos Postを復旧</a></p></div>
+<div class="result"><p>登録済みパスキーがありません。</p><?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?><p><a class="button" href="<?= htmlspecialchars((string) $registerUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉が分かる場合はパスキーを登録</a></p><?php endif; ?><p><a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉も忘れた場合はTomos Postを復旧</a></p></div>
 <?php else: ?>
 <p class="hint">登録済み: <?= count($credentials) ?> 件</p>
 <button id="login-button" type="button">パスキーで開く</button>

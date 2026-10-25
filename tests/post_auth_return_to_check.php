@@ -32,4 +32,9 @@ check(PostAuthReturnTo::url('/post/?write_import=1&session=0123456789abcdef01234
 check(PostAuthReturnTo::normalize('/post/?write_import=1&session=0123456789abcdef0123456789abcdef&next=https://example.com/') === '/post/?section=settings', 'handoff route must reject extra query parameters');
 check(PostAuthReturnTo::normalize('/post/?write_import=1&session=../security') === '/post/?section=settings', 'handoff route must reject unsafe session identifiers');
 
+foreach (['/post/security/', '/post/passkey/manage/', '/post/passkey/register/', '/update/', '/post/update-finalize/'] as $route) {
+    check(PostAuthReturnTo::normalize($route) === $route, 'reauthentication return route ' . $route);
+    check(PostAuthReturnTo::url($route, '/sub') === '/sub' . $route, 'subdirectory reauthentication route ' . $route);
+}
+
 echo "post_auth_return_to_check: safe allowlist, auth handoff preservation, fallback, open redirect, and subdirectory URL checks passed\n";
