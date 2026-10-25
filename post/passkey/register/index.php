@@ -83,6 +83,13 @@ if ($api !== '') {
 
     try {
         if ($api === 'authorize') {
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+                if (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+                    jsonResponse(['ok' => false, 'message' => 'パスキーで再認証してください。'], 403);
+                }
+                $registration->authorizeAfterPassphrase($_SESSION, 300);
+                jsonResponse(['ok' => true, 'authorized_for_seconds' => 300]);
+            }
             $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
             $passphrase = (string) ($payload['post_password'] ?? '');
             $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
@@ -160,8 +167,13 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </div>
 <?php else: ?>
 <form id="authorize-form">
+<?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <label for="post_password">管理用合言葉を再入力</label>
 <input id="post_password" name="post_password" type="password" autocomplete="current-password" required>
+<?php else: ?>
+<p>新しいパスキーの登録には、直近のパスキー認証が必要です。</p>
+<a class="button" href="<?= htmlspecialchars($postUrl . 'passkey/login/?return_to=' . rawurlencode('/post/passkey/register/'), ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証</a>
+<?php endif; ?>
 <button type="submit">登録を許可する</button>
 </form>
 
