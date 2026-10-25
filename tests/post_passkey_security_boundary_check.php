@@ -68,6 +68,16 @@ $passkey=['tomos_post_authenticated'=>true,'tomos_post_auth_method'=>'passkey','
 try {
  $updatePage=endpointBoundary('update/index.php',[],[],[],[],'GET');
  boundaryAssert(strpos($updatePage['body'],'return_to=%2Fupdate%2F')!==false,'Update GET renders passkey return link without warnings');
+ $loginPage=endpointBoundary('post/passkey/login/index.php',[],[],['return_to'=>'/post/security/'],[],'GET');
+ boundaryAssert($loginPage['status']===200,'passkey login entry renders');
+ boundaryAssert(strpos($loginPage['body'],'<title>Tomos Postを開く</title>')!==false,'login document title is Tomos Post');
+ boundaryAssert(strpos($loginPage['body'],'<h1>Tomos Postを開く</h1>')!==false,'login heading shows user goal');
+ boundaryAssert(strpos($loginPage['body'],'登録済みのパスキーで認証します。')!==false,'login explanation is concise');
+ boundaryAssert(strpos($loginPage['body'],'登録済み:')===false,'login hides credential count');
+ boundaryAssert(strpos($loginPage['body'],'セキュリティへ戻る')===false,'login hides inappropriate return link');
+ boundaryAssert(strpos($loginPage['body'],'合言葉を忘れた場合')!==false,'login keeps recovery link');
+ boundaryAssert(strpos($loginPage['body'],'管理用合言葉で開く')===false,'passkey-only login hides password fallback');
+ boundaryAssert(strpos($loginPage['body'],'/sub/post/security/')!==false,'reauthentication return_to remains functional');
  foreach (['post/index.php'=>'auth_gate_login','post/security/index.php'=>'passphrase_auth',
     'post/passkey/manage/index.php'=>'passphrase_auth'] as $path=>$action) {
   foreach ([[],$legacy,$stale] as $session) {
@@ -155,6 +165,9 @@ try {
  }
  // Normal-mode login must continue to work and rotate the PHP session ID.
  $both=$config;$both['security']['post_login_mode']='both';saveBoundaryConfig($both);
+ $bothLoginPage=endpointBoundary('post/passkey/login/index.php',[],[],[],[],'GET');
+ boundaryAssert(strpos($bothLoginPage['body'],'<h1>Tomos Postを開く</h1>')!==false,'both mode keeps main login heading');
+ boundaryAssert(strpos($bothLoginPage['body'],'管理用合言葉で開く')!==false,'both mode still allows password login');
  $r=endpointBoundary('post/index.php',[],['_token'=>'csrf','action'=>'auth_gate_login','post_password'=>'boundary-pass']);
  boundaryAssert(!empty($r['session']['tomos_post_authenticated']) && $r['sid']!==$r['original_sid'],'normal login and session rotation');
  $securityPage=endpointBoundary('post/security/index.php',$r['session'],[],[],[],'GET');
