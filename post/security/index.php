@@ -306,16 +306,21 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <section class="card security-section">
 <h2><?= tomosPostIcon('edit') ?><span>Obsidian投稿用トークン</span></h2>
 <p class="hint">ObsidianからTomosへHTTPS投稿するための専用トークンです。再発行すると以前のトークンは無効になります。</p>
+<?php if ($hasPasskey && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
+<p><a class="button" href="<?= htmlspecialchars($publicPath('post/passkey/login/') . '?return_to=' . rawurlencode('/post/security/'), ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証してトークン発行を有効にする</a></p>
+<?php else: ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="issue_inbox_api_token">
 <input type="hidden" name="_token" value="<?= htmlspecialchars((string) ($_SESSION['tomos_post_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 <button type="submit">投稿用トークンを発行・再発行</button>
 </form>
+<?php endif; ?>
 </section>
 <?php endif; ?>
 
 <?php if (empty($status['available'])): ?>
 <div class="result"><p>この環境ではパスキー機能を利用できません。管理用合言葉によるTomos Post認証は引き続き利用できます。</p></div>
+<?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="passphrase_auth">
 <input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
@@ -325,6 +330,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
 <button type="submit">管理用合言葉で認証</button>
 </form>
+<?php endif; ?>
 <?php else: ?>
 <div class="result">
 <p>登録済みパスキー: <?= count($credentials) ?> 件</p>
@@ -339,6 +345,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php elseif ($hasPasskey): ?>
 <p class="hint">パスキーを管理するには、先にTomos Postへ認証してください。</p>
 <a class="button primary" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで認証</a>
+<?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="passphrase_auth">
 <input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
@@ -348,8 +355,10 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
 <button type="submit">管理用合言葉で認証</button>
 </form>
+<?php endif; ?>
 <?php else: ?>
 <p class="hint">まだパスキーは登録されていません。管理用合言葉で認証すると、この画面から最初のパスキーを登録できます。</p>
+<?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="passphrase_auth">
 <input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
@@ -359,6 +368,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
 <button type="submit">管理用合言葉で認証</button>
 </form>
+<?php endif; ?>
 <?php endif; ?>
 </section>
 
