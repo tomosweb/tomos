@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
 
 $environment = new Tomos\PasskeyEnvironment($config);
 $store = new Tomos\PasskeyCredentialStore($config, $rootDir);
-$management = new Tomos\PasskeyManagementService($environment, $store);
+$management = new Tomos\PasskeyManagementService($environment, $store, $config);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') !== 'passphrase_auth') {
     if (!$authenticated) {
