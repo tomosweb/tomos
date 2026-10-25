@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tomos;
 
+require_once __DIR__ . '/PostAuthPolicy.php';
+
 final class PostAuthRememberToken
 {
     public const COOKIE_NAME = 'tomos_post_remember';
