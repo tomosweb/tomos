@@ -28,6 +28,7 @@ $uiCssUrl = Tomos\Security::publicUrl('/post/assets/tomos-post-ui.css', $publicB
 $updateUrl = Tomos\Security::publicUrl('/update/', $publicBasePath);
 $authRemember = new Tomos\PostAuthRememberToken($config, $rootDir);
 $authRemember->restoreSession();
+Tomos\PostAuthPolicy::isAuthenticated($config);
 
 if (empty($_SESSION['tomos_update_token'])) {
     $_SESSION['tomos_update_token'] = bin2hex(random_bytes(32));
@@ -294,6 +295,9 @@ function authenticateUpdatePost(array $config, string $rootDir, Tomos\PostAuthRe
     if (!empty($_SESSION['tomos_post_authenticated'])) {
         return null;
     }
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        return 'Tomos Postでパスキー認証を行ってください。';
+    }
     $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, clientIp());
     $limit = $rateLimiter->checkAuthAllowed();
     if (!$limit->allowed) {
@@ -304,7 +308,7 @@ function authenticateUpdatePost(array $config, string $rootDir, Tomos\PostAuthRe
         return '管理用合言葉が正しくありません。';
     }
     $rateLimiter->clearFailures();
-    $_SESSION['tomos_post_authenticated'] = true;
+    Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
     if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$authRemember->rememberCurrentBrowser()) {
         return '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
     }
