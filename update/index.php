@@ -187,7 +187,8 @@ renderUpdatePage(
     $updateUrl,
     $postUrl,
     $uiCssUrl,
-    !empty($_SESSION['tomos_post_authenticated'])
+    !empty($_SESSION['tomos_post_authenticated']),
+    $config
 );
 
 function renderUpdatePage(
@@ -202,7 +203,8 @@ function renderUpdatePage(
     string $updateUrl,
     string $postUrl,
     string $uiCssUrl,
-    bool $authenticated
+    bool $authenticated,
+    array $config
 ): void {
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
@@ -309,6 +311,7 @@ function authenticateUpdatePost(array $config, string $rootDir, Tomos\PostAuthRe
     }
     $rateLimiter->clearFailures();
     Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
+    $authRemember->refreshSessionCookiePath();
     if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$authRemember->rememberCurrentBrowser()) {
         return '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
     }

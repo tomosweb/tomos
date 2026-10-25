@@ -59,6 +59,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } else {
             $rateLimiter->clearFailures();
             Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
+            $authRemember->refreshSessionCookiePath();
             if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && !$authRemember->rememberCurrentBrowser()) {
                 $warnings[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
             }

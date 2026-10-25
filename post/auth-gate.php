@@ -62,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth_gate_login') {
         } else {
             $rateLimiter->clearFailures();
             Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
+            $authRemember->refreshSessionCookiePath();
             if ((string) ($_POST['remember_post_auth'] ?? '') === '1') {
                 $authRemember->rememberCurrentBrowser();
             }

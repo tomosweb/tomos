@@ -14,7 +14,7 @@ function removeBoundary(string $p): void {
 }
 function boundaryAssert(bool $yes,string $why): void { if (!$yes) throw new RuntimeException($why); }
 foreach (['core','post','update','themes','config.sample.php'] as $p) copyBoundary($source.'/'.$p,$root.'/'.$p);
-foreach (['content','cache','storage'] as $p) if (!is_dir($root.'/'.$p)) mkdir($root.'/'.$p,0700,true);
+foreach (['content','cache','storage','storage/update-tmp','storage/update-backups','storage/update-logs'] as $p) if (!is_dir($root.'/'.$p)) mkdir($root.'/'.$p,0700,true);
 $config=require $root.'/config.sample.php';
 $config['site']['url']='https://example.com/sub';
 $config['site']['base_path']=$config['site']['public_base_path']='/sub';
@@ -66,6 +66,8 @@ $stale=['tomos_post_authenticated'=>true,'tomos_post_auth_method'=>'passkey','to
 $passkey=['tomos_post_authenticated'=>true,'tomos_post_auth_method'=>'passkey','tomos_post_auth_epoch'=>'current',
  'tomos_passkey_authenticated_at'=>time()];
 try {
+ $updatePage=endpointBoundary('update/index.php',[],[],[],[],'GET');
+ boundaryAssert(strpos($updatePage['body'],'return_to=%2Fupdate%2F')!==false,'Update GET renders passkey return link without warnings');
  foreach (['post/index.php'=>'auth_gate_login','post/security/index.php'=>'passphrase_auth',
     'post/passkey/manage/index.php'=>'passphrase_auth'] as $path=>$action) {
   foreach ([[],$legacy,$stale] as $session) {

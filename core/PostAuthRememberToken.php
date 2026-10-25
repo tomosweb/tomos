@@ -71,6 +71,7 @@ final class PostAuthRememberToken
             return false;
         }
         PostAuthPolicy::markAuthenticated($this->config, 'passphrase');
+        $this->refreshSessionCookiePath();
         return true;
     }
 
