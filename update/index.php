@@ -265,7 +265,7 @@ function renderUpdatePage(
             echo '<p class="version-path"><strong>' . e($currentVersion) . ' → ' . e((string) $releaseInfo['next_version']) . '</strong></p>';
             echo '<form method="post" action="' . e($updateUrl) . '" onsubmit="this.querySelector(\'button\').disabled=true">';
             echo '<input type="hidden" name="action" value="inspect_online"><input type="hidden" name="_token" value="' . e($token) . '">';
-            renderUpdateAuthFields($authenticated, 'online_post_password');
+            renderUpdateAuthFields($authenticated, $config, 'online_post_password');
             echo '<div class="actions"><button type="submit">更新内容を確認</button></div></form>';
         } else {
             echo '<p>現在利用できるオンライン更新はありません。</p>';
@@ -275,7 +275,7 @@ function renderUpdatePage(
         echo '<form method="post" enctype="multipart/form-data" action="' . e($updateUrl) . '">';
         echo '<input type="hidden" name="action" value="inspect"><input type="hidden" name="_token" value="' . e($token) . '">';
         echo '<label for="update_zip">更新ZIPを選択</label><input id="update_zip" type="file" name="update_zip" accept=".zip,application/zip" required>';
-        renderUpdateAuthFields($authenticated);
+        renderUpdateAuthFields($authenticated, $config);
         $manualButtonClass = is_array($releaseInfo) && !empty($releaseInfo['update_available']) ? ' secondary' : '';
         echo '<div class="actions"><button type="submit" class="' . $manualButtonClass . '">更新内容を確認</button></div></form></section>';
     }
@@ -315,9 +315,15 @@ function authenticateUpdatePost(array $config, string $rootDir, Tomos\PostAuthRe
     return null;
 }
 
-function renderUpdateAuthFields(bool $authenticated, string $fieldId = 'post_password'): void
+function renderUpdateAuthFields(bool $authenticated, array $config, string $fieldId = 'post_password'): void
 {
     if ($authenticated) {
+        return;
+    }
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        $basePath = (string) (($config['site']['public_base_path'] ?? '') ?: ($config['site']['base_path'] ?? ''));
+        $passkeyUrl = Tomos\Security::publicUrl('/post/passkey/login/', $basePath);
+        echo '<p><a class="button" href="' . e($passkeyUrl) . '">パスキーで認証してから戻る</a></p>';
         return;
     }
     echo '<label for="' . e($fieldId) . '">管理用合言葉</label><input id="' . e($fieldId) . '" type="password" name="post_password" autocomplete="current-password" required>';
