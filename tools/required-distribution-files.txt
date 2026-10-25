@@ -38,6 +38,7 @@ core/required-installed-files.txt
 core/InitialBundledThemes.php
 core/PostBasicPage.php
 core/PostAuthRememberToken.php
+core/PostAuthPolicy.php
 core/PostAuthReturnTo.php
 core/PostSubmissionGuard.php
 core/PostRateLimiter.php
