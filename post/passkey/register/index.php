@@ -74,6 +74,7 @@ $registration = new Tomos\PasskeyRegistrationService($environment, $store, $chal
 
 $api = (string) ($_GET['api'] ?? '');
 if ($api !== '') {
+    Tomos\PostAuthPolicy::isAuthenticated($config);
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         jsonResponse(['ok' => false, 'message' => 'POST request required.'], 405);
     }
