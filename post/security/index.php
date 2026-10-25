@@ -75,6 +75,45 @@ if ($config !== []) {
     $authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'change_passphrase') {
+    $token = (string) ($_POST['_token'] ?? '');
+    $current = (string) ($_POST['current_passphrase'] ?? '');
+    $new = (string) ($_POST['new_passphrase'] ?? '');
+    $confirmation = (string) ($_POST['confirm_passphrase'] ?? '');
+    if (!$authenticated || $token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
+        $errors[] = '再認証してから操作してください。';
+    } elseif ($new === '' || strlen($new) > 4096 || !hash_equals($new, $confirmation)) {
+        $errors[] = '新しい管理用合言葉と確認入力を確認してください。';
+    } else {
+        $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        $limit = $rateLimiter->checkAuthAllowed();
+        if (!$limit->allowed) {
+            $errors[] = $limit->message;
+        } elseif (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config) && (!Tomos\PostAuthPolicy::allowsPassphrase($config) || !Tomos\PostPassword::verify($current, (string) ($config['security']['post_password_hash'] ?? '')))) {
+            $rateLimiter->recordFailure();
+            $errors[] = '現在の合言葉またはパスキー再認証を確認できませんでした。';
+        } else {
+            $rateLimiter->clearFailures();
+            try {
+                (new Tomos\PostPasswordHashUpdater($rootDir))->update(Tomos\PostPassword::hash($new));
+                $updatedConfig = require $configPath;
+                $updatedConfig['security']['post_auth_epoch'] = bin2hex(random_bytes(16));
+                $updatedConfig = Tomos\ConfigWriter::expectUnchangedSource(require $configPath, $updatedConfig);
+                if (!Tomos\ConfigWriter::write($configPath, $updatedConfig, $rootDir)) {
+                    throw new RuntimeException('認証セッションの更新に失敗しました。');
+                }
+                (new Tomos\PostAuthRememberToken($updatedConfig, $rootDir))->invalidateAll();
+                $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+                $authenticated = false;
+                $config = $updatedConfig;
+                $messages[] = '管理用合言葉を変更しました。もう一度認証してください。';
+            } catch (Throwable $exception) {
+                $errors[] = '管理用合言葉の変更を完了できませんでした。';
+            }
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'change_login_mode') {
     $token = (string) ($_POST['_token'] ?? '');
     $nextMode = (string) ($_POST['login_mode'] ?? '');
@@ -235,6 +274,25 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <button type="submit">ログイン方法を保存</button>
 </form>
 <?php endif; ?>
+</section>
+<section class="card security-section">
+<h2>管理用合言葉を変更</h2>
+<p class="hint">パスキーで直近に認証済みの場合は現在の合言葉の入力を省略できます。</p>
+<form method="post" autocomplete="off">
+<input type="hidden" name="action" value="change_passphrase">
+<input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
+<?php if (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config) && Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
+<label for="current_passphrase">現在の管理用合言葉</label>
+<input id="current_passphrase" name="current_passphrase" type="password" autocomplete="current-password" required>
+<?php elseif (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
+<p><a class="button" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証</a></p>
+<?php endif; ?>
+<label for="new_passphrase">新しい管理用合言葉</label>
+<input id="new_passphrase" name="new_passphrase" type="password" autocomplete="new-password" required>
+<label for="confirm_passphrase">新しい合言葉（確認）</label>
+<input id="confirm_passphrase" name="confirm_passphrase" type="password" autocomplete="new-password" required>
+<button type="submit">管理用合言葉を変更</button>
+</form>
 </section>
 <section class="card security-section">
 <h2><?= tomosPostIcon('edit') ?><span>Obsidian投稿用トークン</span></h2>
