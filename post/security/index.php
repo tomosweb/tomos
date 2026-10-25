@@ -258,6 +258,13 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </div>
 <?php endif; ?>
 
+<?php if ($authenticated && !$hasPasskey && !empty($status['available'])): ?>
+<section class="card security-section">
+<h2>パスキーを設定しましょう</h2>
+<p>パスキーを登録すると、Face ID・Touch IDや端末の画面ロックでTomos Postを開けます。</p>
+<a class="button primary" href="<?= htmlspecialchars($publicPath('post/passkey/register/'), ENT_QUOTES, 'UTF-8') ?>">最初のパスキーを登録</a>
+</section>
+<?php endif; ?>
 <?php if ($authenticated): ?>
 <section class="card security-section">
 <h2>ログイン方法</h2>
