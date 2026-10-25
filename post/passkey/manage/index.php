@@ -178,6 +178,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php if (!$authenticated): ?>
 <div class="result">
 <p>パスキーを管理するにはTomos Postへの認証が必要です。</p>
+<?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <form method="post" action="">
 <input type="hidden" name="action" value="passphrase_auth">
 <input type="hidden" name="_token" value="<?= e($token) ?>">
@@ -186,6 +187,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <label class="remember-auth"><input type="checkbox" name="remember_post_auth" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
 <button type="submit">管理用合言葉で認証</button>
 </form>
+<?php endif; ?>
 <?php if ($store->all() !== []): ?>
 <p><a class="button" href="<?= e($publicPath('post/passkey/login/')) ?>">パスキーで認証</a></p>
 <?php endif; ?>
