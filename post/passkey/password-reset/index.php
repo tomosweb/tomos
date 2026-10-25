@@ -76,7 +76,10 @@ if ($api !== '') {
         }
         if ($api === 'verify') {
             $reset->completeReauthentication($_SESSION, $payload, 300);
-            if (session_status() === PHP_SESSION_ACTIVE) session_regenerate_id(true);
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_regenerate_id(true);
+                $remember->refreshSessionCookiePath();
+            }
             jsonResponse(['ok'=>true,'authorized_for_seconds'=>300]);
         }
         if ($api === 'reset') {
@@ -88,7 +91,10 @@ if ($api !== '') {
             $remember->invalidateAll();
             unset($_SESSION['tomos_passkey_challenges']);
             $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
-            if (session_status() === PHP_SESSION_ACTIVE) session_regenerate_id(true);
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_regenerate_id(true);
+                $remember->refreshSessionCookiePath();
+            }
             jsonResponse(['ok'=>true,'message'=>'管理用合言葉を再設定しました。']);
         }
         jsonResponse(['ok'=>false,'message'=>'処理を確認できませんでした。'], 404);

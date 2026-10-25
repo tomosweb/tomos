@@ -24,4 +24,9 @@ checkResetUi(strpos($reset, 'セキュリティへ戻る') === false, 'password-
 checkResetUi(strpos($recovery, "tomosPostReturnLink((string) \$postUrl, 'Tomos Postを開く')") !== false, 'recovery link must return to Post');
 checkResetUi(strpos($recovery, 'セキュリティへ戻る') === false, 'recovery shows improper back link');
 checkResetUi(strpos($service, 'strlen($newPassphrase) > 4096') !== false, 'UI byte limit must agree with service');
+// Both reauthentication and successful reset rotate the PHP session ID.
+// A subdirectory installation requires the replacement cookie to use Tomos Post's path.
+checkResetUi(substr_count($reset, '$remember->refreshSessionCookiePath();') === 2,
+    'both password-reset session rotations must refresh the Post cookie path');
+
 echo "post_passkey_password_reset_ui_check: PASS\n";
