@@ -105,7 +105,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') !
                     );
                     $messages[] = 'パスキーの名称を更新しました。';
                 } elseif ($action === 'delete') {
-                    $management->delete((string) ($_POST['credential_id'] ?? ''));
+                    if (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+                        throw new RuntimeException('パスキーを削除するには、先にパスキーで再認証してください。');
+                    }
+                    $targetId = (string) ($_POST['credential_id'] ?? '');
+                    $existing = $management->all();
+                    if (Tomos\PostAuthPolicy::mode($config) === Tomos\PostAuthPolicy::PASSKEY_ONLY
+                        && count($existing) <= 1
+                    ) {
+                        throw new RuntimeException('パスキー専用モードでは最後のパスキーを削除できません。');
+                    }
+                    $management->delete($targetId);
                     $messages[] = 'パスキーを削除しました。';
                 } else {
                     $errors[] = '操作を確認できませんでした。';
@@ -153,6 +163,9 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <body class="post-standalone">
 <main class="wrap">
 <h1>パスキー管理</h1>
+<?php if ($authenticated && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
+<p><a class="button" href="<?= e($publicPath('post/passkey/login/')) ?>?return_to=<?= rawurlencode('/post/passkey/manage/') ?>">パスキーで再認証して削除を有効にする</a></p>
+<?php endif; ?>
 <p>Tomos Postで使用する登録済みパスキーの名称変更と削除を行います。管理用合言葉による認証は、パスキーをすべて削除しても引き続き利用できます。</p>
 
 <?php foreach ($messages as $message): ?>
