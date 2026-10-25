@@ -159,7 +159,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 
 <p id="result" role="status" aria-live="polite"></p>
-<p><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a> <a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">合言葉を忘れた場合</a></p>
+<p><?php if (Tomos\PostAuthPolicy::allowsPassphrase($config)): ?><a class="button" href="<?= htmlspecialchars((string) $postUrl, ENT_QUOTES, 'UTF-8') ?>">管理用合言葉で開く</a><?php endif; ?> <a class="button" href="<?= htmlspecialchars((string) $forgotUrl, ENT_QUOTES, 'UTF-8') ?>">合言葉を忘れた場合</a></p>
 
 <script>
 (() => {
