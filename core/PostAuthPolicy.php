@@ -55,7 +55,7 @@ final class PostAuthPolicy
 
     public static function recentlyVerifiedPasskey(array $config, int $seconds = 300): bool
     {
-        $at = (int) ($_SESSION[PasskeyAuthenticationService::AUTHENTICATED_AT_KEY] ?? 0);
+        $at = (int) ($_SESSION['tomos_passkey_authenticated_at'] ?? 0);
         return self::isAuthenticated($config)
             && (string) ($_SESSION['tomos_post_auth_method'] ?? '') === 'passkey'
             && $at > 0 && $at <= time() && time() - $at <= $seconds;
@@ -67,9 +67,9 @@ final class PostAuthPolicy
             $_SESSION['tomos_post_authenticated'],
             $_SESSION['tomos_post_auth_method'],
             $_SESSION['tomos_post_auth_epoch'],
-            $_SESSION[PasskeyAuthenticationService::AUTHENTICATED_AT_KEY],
-            $_SESSION[PasskeyRegistrationService::AUTHORIZED_UNTIL_KEY],
-            $_SESSION[PasskeyPasswordResetService::AUTHORIZED_UNTIL_KEY]
+            $_SESSION['tomos_passkey_authenticated_at'],
+            $_SESSION['tomos_passkey_registration_authorized_until'],
+            $_SESSION['tomos_passkey_password_reset_authorized_until']
         );
     }
 }
