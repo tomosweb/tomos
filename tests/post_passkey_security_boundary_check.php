@@ -157,6 +157,16 @@ try {
  $both=$config;$both['security']['post_login_mode']='both';saveBoundaryConfig($both);
  $r=endpointBoundary('post/index.php',[],['_token'=>'csrf','action'=>'auth_gate_login','post_password'=>'boundary-pass']);
  boundaryAssert(!empty($r['session']['tomos_post_authenticated']) && $r['sid']!==$r['original_sid'],'normal login and session rotation');
+ $securityPage=endpointBoundary('post/security/index.php',$r['session'],[],[],[],'GET');
+ if (PHP_VERSION_ID < 80000) {
+  boundaryAssert(strpos($securityPage['body'],'ログイン方法を変更できません')!==false,'PHP 7.4 explains unavailable login settings');
+  boundaryAssert(strpos($securityPage['body'],'パスキーで再認証')===false,'PHP 7.4 hides unavailable passkey reauthentication');
+  boundaryAssert(strpos($securityPage['body'],'name="login_mode"')===false,'PHP 7.4 hides login mode controls');
+  boundaryAssert(strpos($securityPage['body'],'name="current_passphrase"')!==false && strpos($securityPage['body'],'name="new_passphrase"')!==false,'PHP 7.4 retains passphrase settings');
+  boundaryAssert(strpos($securityPage['body'],'value="issue_inbox_api_token"')!==false,'PHP 7.4 retains posting token settings');
+ } else {
+  boundaryAssert(strpos($securityPage['body'],'パスキーで再認証')!==false,'supported environment retains passkey reauthentication');
+ }
  $r=endpointBoundary('post/security/index.php',$r['session'],['_token'=>$r['session']['tomos_post_token'],'action'=>'issue_inbox_api_token']);
  $changed=require $root.'/config.php';boundaryAssert($changed['security']['inbox_api_token_hash']===$apiHash,'token issue requires reauthentication even without passkey');
  for ($i=0;$i<5;$i++) {

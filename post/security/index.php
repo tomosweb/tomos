@@ -292,6 +292,9 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php if ($authenticated): ?>
 <section class="card security-section">
 <h2>ログイン方法</h2>
+<?php if (empty($status['available'])): ?>
+<p>この環境ではパスキーを利用できないため、ログイン方法を変更できません。パスキーの利用にはPHP 8.0以上などの動作要件を満たす必要があります。</p>
+<?php else: ?>
 <p>ログイン方式の変更には、5分以内のパスキー再認証が必要です。</p>
 <?php if (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
 <a class="button primary" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証</a>
@@ -305,17 +308,20 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <button type="submit">ログイン方法を保存</button>
 </form>
 <?php endif; ?>
+<?php endif; ?>
 </section>
 <section class="card security-section">
 <h2>管理用合言葉を変更</h2>
+<?php if (!empty($status['available'])): ?>
 <p class="hint">パスキーで直近に認証済みの場合は現在の合言葉の入力を省略できます。</p>
+<?php endif; ?>
 <form method="post" autocomplete="off">
 <input type="hidden" name="action" value="change_passphrase">
 <input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
 <?php if (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config) && Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <label for="current_passphrase">現在の管理用合言葉</label>
 <input id="current_passphrase" name="current_passphrase" type="password" autocomplete="current-password" required>
-<?php elseif (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
+<?php elseif (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config) && !empty($status['available'])): ?>
 <p><a class="button" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証</a></p>
 <?php endif; ?>
 <label for="new_passphrase">新しい管理用合言葉</label>
