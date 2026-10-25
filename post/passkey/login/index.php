@@ -147,7 +147,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <body class="post-standalone">
 <main class="wrap">
 <h1>パスキーで開く</h1>
-<p>登録済みパスキーで認証します。管理用合言葉認証は従来どおり利用できます。</p>
+<p>登録済みパスキーでTomos Postに認証します。</p>
 
 <?php if (empty($status['available'])): ?>
 <div class="result ng"><p>この環境ではパスキー認証を利用できません。</p></div>
