@@ -85,9 +85,19 @@ if ($api !== '') {
         if ($api === 'authorize') {
             $postPasswordHash = (string) ($config['security']['post_password_hash'] ?? '');
             $passphrase = (string) ($payload['post_password'] ?? '');
-            if ($postPasswordHash === '' || $passphrase === '' || !password_verify($passphrase, $postPasswordHash)) {
+            $rateLimiter = new Tomos\PostRateLimiter($config, $rootDir, (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+            $limit = $rateLimiter->checkAuthAllowed();
+            if (!$limit->allowed) {
+                jsonResponse(['ok' => false, 'message' => $limit->message], 429);
+            }
+            if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+                jsonResponse(['ok' => false, 'message' => 'パスキー専用設定では管理用合言葉による登録を利用できません。'], 403);
+            }
+            if ($postPasswordHash === '' || $passphrase === '' || !Tomos\PostPassword::verify($passphrase, $postPasswordHash)) {
+                $rateLimiter->recordFailure();
                 jsonResponse(['ok' => false, 'message' => '管理用合言葉が正しくありません。'], 403);
             }
+            $rateLimiter->clearFailures();
             $registration->authorizeAfterPassphrase($_SESSION, 300);
             jsonResponse(['ok' => true, 'authorized_for_seconds' => 300]);
         }
