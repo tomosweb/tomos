@@ -49,11 +49,15 @@ if ($config !== []) {
     $remember = new Tomos\PostAuthRememberToken($config, $rootDir);
     if (!$authenticated) {
         $remember->restoreSession();
-        $authenticated = !empty($_SESSION['tomos_post_authenticated']);
+        $authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'passphrase_auth') {
+    if (!Tomos\PostAuthPolicy::allowsPassphrase($config)) {
+        http_response_code(403);
+        exit;
+    }
     $token = (string) ($_POST['_token'] ?? '');
     if ($token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
         $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
@@ -68,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
             $errors[] = '管理用合言葉が正しくありません。';
         } else {
             $rateLimiter->clearFailures();
-            $_SESSION['tomos_post_authenticated'] = true;
+            Tomos\PostAuthPolicy::markAuthenticated($config, 'passphrase');
             $authenticated = true;
             if ((string) ($_POST['remember_post_auth'] ?? '') === '1' && $remember instanceof Tomos\PostAuthRememberToken && !$remember->rememberCurrentBrowser()) {
                 $messages[] = '認証には成功しましたが、このブラウザに30日間の認証情報を保存できませんでした。';
