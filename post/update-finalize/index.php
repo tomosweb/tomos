@@ -131,12 +131,16 @@ button{margin-top:18px;padding:10px 18px;border:0;border-radius:6px;background:#
 <p>更新の仕上げが残っています。<br>「更新を完了する」を押してください。</p>
 <form method="post">
 <input type="hidden" name="_token" value="<?= h((string) $_SESSION['tomos_updater_finalize_token']) ?>">
-<?php if (empty($_SESSION['tomos_post_authenticated'])): ?>
+<?php if (empty($_SESSION['tomos_post_authenticated']) && Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <label for="post_password">管理用合言葉</label>
 <input id="post_password" name="post_password" type="password" autocomplete="current-password" required>
 <label><input name="remember_post_auth" type="checkbox" value="1"> このブラウザで30日間、合言葉の入力を省略する</label>
 <?php endif; ?>
+<?php if (Tomos\PostAuthPolicy::isAuthenticated($config) || Tomos\PostAuthPolicy::allowsPassphrase($config)): ?>
 <button type="submit">更新を完了する</button>
+<?php else: ?>
+<p><a href="<?= h(Tomos\Security::publicUrl('/post/passkey/login/', $publicBasePath)) ?>">パスキーで認証してから戻る</a></p>
+<?php endif; ?>
 </form>
 <?php else: ?>
 <p>Tomosの更新が完了しました。</p>
