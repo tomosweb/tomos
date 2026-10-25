@@ -46,6 +46,22 @@ if ($returnTo !== null) {
     $returnToField = '<input type="hidden" name="return_to" value="' . htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') . '">';
 }
 
+function passkeyExistsForCurrentSite(array $config, string $rootDir): bool
+{
+    try {
+        $environment = new Tomos\PasskeyEnvironment($config);
+        if (!$environment->isAvailable()) return false;
+        $rpId = $environment->rpId();
+        $store = new Tomos\PasskeyCredentialStore($config, $rootDir);
+        foreach ($store->all() as $record) {
+            if ((string) ($record['rp_id'] ?? '') === $rpId) return true;
+        }
+    } catch (Throwable $exception) {
+        return false;
+    }
+    return false;
+}
+
 $messages = [];
 $errors = [];
 $issuedInboxApiToken = '';
@@ -57,6 +73,34 @@ if ($config !== []) {
         $remember->restoreSession();
     }
     $authenticated = Tomos\PostAuthPolicy::isAuthenticated($config);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'change_login_mode') {
+    $token = (string) ($_POST['_token'] ?? '');
+    $nextMode = (string) ($_POST['login_mode'] ?? '');
+    if (!$authenticated || $token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
+        $errors[] = '再認証してから操作してください。';
+    } elseif (!in_array($nextMode, [Tomos\PostAuthPolicy::BOTH, Tomos\PostAuthPolicy::PASSKEY_ONLY], true)) {
+        $errors[] = '認証方式を確認できませんでした。';
+    } elseif (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+        $errors[] = '認証方式の変更前にパスキーで再認証してください。';
+    } elseif ($nextMode === Tomos\PostAuthPolicy::PASSKEY_ONLY && !passkeyExistsForCurrentSite($config, $rootDir)) {
+        $errors[] = '登録済みパスキーが必要です。';
+    } else {
+        $newConfig = $config;
+        $newConfig['security']['post_login_mode'] = $nextMode;
+        $newConfig['security']['post_auth_epoch'] = bin2hex(random_bytes(16));
+        $newConfig = Tomos\ConfigWriter::expectUnchangedSource($config, $newConfig);
+        if (Tomos\ConfigWriter::write($configPath, $newConfig, $rootDir)) {
+            (new Tomos\PostAuthRememberToken($newConfig, $rootDir))->invalidateAll();
+            $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
+            $config = $newConfig;
+            $authenticated = false;
+            $messages[] = 'ログイン方式を変更しました。新しい設定で再認証してください。';
+        } else {
+            $errors[] = '設定を保存できませんでした。再度お試しください。';
+        }
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'issue_inbox_api_token' && $authenticated) {
@@ -176,6 +220,22 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 
 <?php if ($authenticated): ?>
+<section class="card security-section">
+<h2>ログイン方法</h2>
+<p>ログイン方式の変更には、5分以内のパスキー再認証が必要です。</p>
+<?php if (!Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
+<a class="button primary" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証</a>
+<?php else: ?>
+<form method="post">
+<input type="hidden" name="action" value="change_login_mode">
+<input type="hidden" name="_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
+<label><input type="radio" name="login_mode" value="both" <?= Tomos\PostAuthPolicy::mode($config) === 'both' ? 'checked' : '' ?>> 合言葉とパスキー</label>
+<label><input type="radio" name="login_mode" value="passkey_only" <?= Tomos\PostAuthPolicy::mode($config) === 'passkey_only' ? 'checked' : '' ?>> パスキーのみ（合言葉ログインを禁止）</label>
+<p class="hint">パスキーを失った場合は、サーバー管理者による復旧が必要です。別のパスキーの登録も推奨します。</p>
+<button type="submit">ログイン方法を保存</button>
+</form>
+<?php endif; ?>
+</section>
 <section class="card security-section">
 <h2><?= tomosPostIcon('edit') ?><span>Obsidian投稿用トークン</span></h2>
 <p class="hint">ObsidianからTomosへHTTPS投稿するための専用トークンです。再発行すると以前のトークンは無効になります。</p>
