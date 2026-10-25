@@ -86,6 +86,7 @@ if ($api !== '') {
 
         if ($api === 'complete') {
             $credential = $authentication->complete($_SESSION, $payload);
+            Tomos\PostAuthPolicy::markAuthenticated($config, 'passkey');
             if (session_status() === PHP_SESSION_ACTIVE) {
                 session_regenerate_id(true);
                 $authRemember->refreshSessionCookiePath();
