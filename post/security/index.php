@@ -95,10 +95,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
         } else {
             $rateLimiter->clearFailures();
             try {
-                (new Tomos\PostPasswordHashUpdater($rootDir))->update(Tomos\PostPassword::hash($new));
-                $updatedConfig = require $configPath;
+                $updatedConfig = $config;
+                $updatedConfig['security']['post_password_hash'] = Tomos\PostPassword::hash($new);
                 $updatedConfig['security']['post_auth_epoch'] = bin2hex(random_bytes(16));
-                $updatedConfig = Tomos\ConfigWriter::expectUnchangedSource(require $configPath, $updatedConfig);
+                $updatedConfig = Tomos\ConfigWriter::expectUnchangedSource($config, $updatedConfig);
                 if (!Tomos\ConfigWriter::write($configPath, $updatedConfig, $rootDir)) {
                     throw new RuntimeException('認証セッションの更新に失敗しました。');
                 }
@@ -146,12 +146,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
     $token = (string) ($_POST['_token'] ?? '');
     if ($token === '' || !hash_equals((string) ($_SESSION['tomos_post_token'] ?? ''), $token)) {
         $errors[] = 'フォームの有効期限が切れました。画面を再読み込みしてください。';
+    } elseif (passkeyExistsForCurrentSite($config, $rootDir) && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)) {
+        $errors[] = '投稿用トークンを発行するには、パスキーで再認証してください。';
     } else {
         try {
             $issuedInboxApiToken = bin2hex(random_bytes(32));
             $newConfig = $config;
             $newConfig['security']['inbox_api_token_hash'] = Tomos\PostPassword::hash($issuedInboxApiToken);
-            if (!Tomos\ConfigWriter::write($configPath, $newConfig, $rootDir)) {
+            if (!Tomos\ConfigWriter::write($configPath, Tomos\ConfigWriter::expectUnchangedSource($config, $newConfig), $rootDir)) {
                 $issuedInboxApiToken = '';
                 $errors[] = '投稿用トークンを保存できませんでした。';
             } else {
