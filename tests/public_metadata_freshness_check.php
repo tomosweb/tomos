@@ -101,14 +101,41 @@ try {
     }
 
     $schemaFile = $cacheDir . DIRECTORY_SEPARATOR . 'index' . DIRECTORY_SEPARATOR . 'metadata-schema.txt';
-    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '4') {
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '5') {
         failCheck('Public metadata refresh must persist the current cache schema marker.');
     }
 
     file_put_contents($schemaFile, "2\n");
     PublicMetadataFreshener::ensure($config);
-    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '4') {
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '5') {
         failCheck('An older public metadata schema marker must force a refresh.');
+    }
+
+    // Simulate an unchanged article with a pre-fix cached image-alt description.
+    $imageFile = $contentDir . '/news/image.md';
+    $imageMarkdown = "---\ntitle: Image\n---\n![IMG6383](photo.jpg)\n\n本文\n";
+    file_put_contents($imageFile, $imageMarkdown);
+    $imagePages = $index->rebuild();
+    foreach ($imagePages as &$imagePage) {
+        if ($imagePage['path'] === 'news/image.md') {
+            $imagePage['description'] = 'IMG6383';
+            $imagePage['excerpt'] = 'IMG6383';
+        }
+    }
+    unset($imagePage);
+    $index->save($imagePages);
+    file_put_contents($schemaFile, "4\n");
+    if ($index->loadFresh() === null) {
+        failCheck('Legacy image-alt fixture must otherwise appear fresh.');
+    }
+    PublicMetadataFreshener::ensure($config);
+    $imagePages = $index->loadFresh();
+    $imagePage = array_values(array_filter($imagePages ?? [], static fn(array $page): bool => $page['path'] === 'news/image.md'))[0] ?? [];
+    if (($imagePage['description'] ?? null) !== '本文' || ($imagePage['excerpt'] ?? null) !== '本文') {
+        failCheck('Schema upgrade must remove image alt from cached descriptions and excerpts.');
+    }
+    if (file_get_contents($imageFile) !== $imageMarkdown) {
+        failCheck('Refreshing derived metadata must not modify article Markdown.');
     }
 
     $indexedMtime = filemtime($bFile);
@@ -140,7 +167,7 @@ try {
     if (in_array('B', $rebuiltTitles, true) || !in_array('C', $rebuiltTitles, true)) {
         failCheck('Missing cache schema marker must force rebuild even when file stats are unchanged.');
     }
-    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '4') {
+    if (!is_file($schemaFile) || trim((string) file_get_contents($schemaFile)) !== '5') {
         failCheck('Schema-forced rebuild must restore the current cache schema marker.');
     }
 
