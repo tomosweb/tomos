@@ -362,7 +362,8 @@ final class FrontMatterParser
     private function stripInlineMarkdown(string $text): string
     {
         $text = preg_replace('/`([^`]+)`/', '$1', $text) ?? $text;
-        $text = preg_replace('/!\[([^\]]*)\]\([^)]+\)/', '$1', $text) ?? $text;
+        // Image alt text describes media; it is not article prose.
+        $text = preg_replace('/!\[([^\]]*)\]\([^)]+\)/', '', $text) ?? $text;
         $text = preg_replace('/\[([^\]]+)\]\([^)]+\)/', '$1', $text) ?? $text;
         $text = preg_replace('/^\s*>\s*/u', '', $text) ?? $text;
         $text = preg_replace('/^\s*[-*+]\s+/u', '', $text) ?? $text;
