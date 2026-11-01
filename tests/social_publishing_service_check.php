@@ -147,6 +147,28 @@ $automatic = $service->publishArticle(
 socialAssert($automatic->status === SocialPublishResult::SUCCESS, 'automatic post must succeed');
 socialAssert($provider->lastText === "B\n\nFirst paragraph.", 'automatic text must use title and first description');
 
+$imageFirst = $service->publishArticle(
+    'news/image-first.md',
+    'https://example.test/news/image-first',
+    "---\ntitle: 銀座屋の焼き魚\nsocial:\n  - bluesky\n---\n![IMG6383](images/fish.jpg)\n天満駅前の立ち飲み「銀座屋」の日替わりメニューに焼き魚があったら頼むことが多い。\n"
+);
+socialAssert($imageFirst->status === SocialPublishResult::SUCCESS, 'image-first article must publish');
+socialAssert($provider->lastText === "銀座屋の焼き魚\n\n天満駅前の立ち飲み「銀座屋」の日替わりメニューに焼き魚があったら頼むことが多い。", 'image alt must not leak into automatic Bluesky text');
+
+$inlineImage = $parser->excerptFromMarkdown("本文の前 ![PHOTO](photo.jpg) 本文の後");
+socialAssert($inlineImage === '本文の前 本文の後', 'inline image alt must not enter excerpt');
+
+$endingImage = $parser->excerptFromMarkdown("本文 ![LAST](last.jpg)");
+socialAssert($endingImage === '本文', 'trailing image alt must not enter excerpt');
+
+$explicitDescription = $service->publishArticle(
+    'news/explicit-description.md',
+    'https://example.test/news/explicit-description',
+    "---\ntitle: Explicit\ndescription: 指定した説明\nsocial:\n  - bluesky\n---\n![IMG6383](photo.jpg)\n本文\n"
+);
+socialAssert($explicitDescription->status === SocialPublishResult::SUCCESS, 'explicit description article must publish');
+socialAssert($provider->lastText === "Explicit\n\n指定した説明", 'explicit description must remain unchanged');
+
 $longTitle = str_repeat('あ', 400);
 $autoLong = $service->publishArticle(
     'news/c.md',
