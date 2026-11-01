@@ -110,7 +110,10 @@ final class FrontMatterParser
                 continue;
             }
 
-            $parts[] = $this->stripInlineMarkdown($line);
+            $part = $this->stripInlineMarkdown($line, true);
+            if ($part !== '') {
+                $parts[] = $part;
+            }
         }
 
         $text = trim(preg_replace('/\s+/u', ' ', implode(' ', $parts)) ?? '');
@@ -359,10 +362,11 @@ final class FrontMatterParser
         return $dirname === '.' ? 'index' : $dirname;
     }
 
-    private function stripInlineMarkdown(string $text): string
+    private function stripInlineMarkdown(string $text, bool $excludeImageAlt = false): string
     {
         $text = preg_replace('/`([^`]+)`/', '$1', $text) ?? $text;
-        $text = preg_replace('/!\[([^\]]*)\]\([^)]+\)/', '$1', $text) ?? $text;
+        // Excerpts omit image alt text; heading-derived titles keep their existing behavior.
+        $text = preg_replace('/!\[([^\]]*)\]\([^)]+\)/', $excludeImageAlt ? '' : '$1', $text) ?? $text;
         $text = preg_replace('/\[([^\]]+)\]\([^)]+\)/', '$1', $text) ?? $text;
         $text = preg_replace('/^\s*>\s*/u', '', $text) ?? $text;
         $text = preg_replace('/^\s*[-*+]\s+/u', '', $text) ?? $text;

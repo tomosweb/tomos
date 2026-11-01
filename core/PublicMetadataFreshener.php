@@ -8,7 +8,7 @@ final class PublicMetadataFreshener
 {
     // The generated metadata includes parser-derived descriptions. Bump this
     // whenever metadata semantics change so existing indexes are rebuilt.
-    private const CACHE_SCHEMA = '4';
+    private const CACHE_SCHEMA = '5';
 
     public static function ensure(array $config): void
     {

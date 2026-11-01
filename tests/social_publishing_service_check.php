@@ -147,6 +147,62 @@ $automatic = $service->publishArticle(
 socialAssert($automatic->status === SocialPublishResult::SUCCESS, 'automatic post must succeed');
 socialAssert($provider->lastText === "B\n\nFirst paragraph.", 'automatic text must use title and first description');
 
+$imageFirst = $service->publishArticle(
+    'news/image-first.md',
+    'https://example.test/news/image-first',
+    "---\ntitle: 銀座屋の焼き魚\nsocial:\n  - bluesky\n---\n![IMG6383](images/fish.jpg)\n天満駅前の立ち飲み「銀座屋」の日替わりメニューに焼き魚があったら頼むことが多い。\n"
+);
+socialAssert($imageFirst->status === SocialPublishResult::SUCCESS, 'image-first article must publish');
+socialAssert($provider->lastText === "銀座屋の焼き魚\n\n天満駅前の立ち飲み「銀座屋」の日替わりメニューに焼き魚があったら頼むことが多い。", 'image alt must not leak into automatic Bluesky text');
+
+$inlineImage = $parser->excerptFromMarkdown("本文の前 ![PHOTO](photo.jpg) 本文の後");
+socialAssert($inlineImage === '本文の前 本文の後', 'inline image alt must not enter excerpt');
+
+$endingImage = $parser->excerptFromMarkdown("本文 ![LAST](last.jpg)");
+socialAssert($endingImage === '本文', 'trailing image alt must not enter excerpt');
+
+$explicitDescription = $service->publishArticle(
+    'news/explicit-description.md',
+    'https://example.test/news/explicit-description',
+    "---\ntitle: Explicit\ndescription: 指定した説明\nsocial:\n  - bluesky\n---\n![IMG6383](photo.jpg)\n本文\n"
+);
+socialAssert($explicitDescription->status === SocialPublishResult::SUCCESS, 'explicit description article must publish');
+socialAssert($provider->lastText === "Explicit\n\n指定した説明", 'explicit description must remain unchanged');
+
+// Image-only paragraphs must not hide the first prose paragraph.
+foreach ([
+    "![IMG6383](photo.jpg)\n\n本文\n\n次の段落",
+    "![IMG6383](photo.jpg)\n\n![SECOND](second.jpg)\n\n本文",
+    "![IMG6383](photo.jpg)\n# 見出し\n\n本文",
+] as $index => $body) {
+    $markdown = "---\ntitle: Image paragraph\nsocial:\n  - bluesky\n---\n" . $body;
+    $parsedImage = $parser->parse($markdown);
+    socialAssert($parsedImage['body'] === $body, 'parsing must preserve article body and image alt');
+    $result = $service->publishArticle('news/image-paragraph-' . $index . '.md', 'https://example.test/image-paragraph-' . $index, $markdown);
+    socialAssert($result->status === SocialPublishResult::SUCCESS, 'image paragraph article must publish');
+    socialAssert($provider->lastText === "Image paragraph\n\n本文", 'image-only paragraphs must not suppress prose');
+}
+socialAssert($parser->excerptFromMarkdown('![ONLY](only.jpg)') === '', 'image-only article must have an empty excerpt');
+socialAssert($parser->excerptFromMarkdown('前![IMG](image.jpg)後') === '前後', 'adjacent prose must be preserved');
+socialAssert($parser->excerptFromMarkdown("本文\n\n![LAST](last.jpg)") === '本文', 'later image paragraph must not affect first paragraph');
+socialAssert($parser->excerptFromMarkdown("# 見出し\n\n**本文**と[リンク](https://example.test)と`code`。\n\n次の段落") === '本文とリンクとcode。', 'ordinary Markdown extraction must stay unchanged');
+socialAssert($parser->extractFirstHeading('# 見出し ![TITLE](title.jpg)') === '見出し TITLE', 'heading-derived title must keep its previous image alt behavior');
+$headingMetadata = $parser->buildPageMetadata([], "# ![TITLE](title.jpg)\n\n本文", 'news/heading.md');
+socialAssert($headingMetadata['title'] === 'TITLE', 'image-only heading title must remain unchanged');
+socialAssert($headingMetadata['description'] === '本文', 'shared metadata must exclude images from automatic descriptions');
+
+$customWithImage = $service->publishArticle(
+    'news/custom-with-image.md',
+    'https://example.test/news/custom-with-image',
+    "---\ntitle: Custom\ndescription: 指定した説明\nsocial:\n  - bluesky\nsocial_text: 手動の ![KEEP](manual.jpg) #Tomos\n---\n![IMG6383](photo.jpg)\n\n本文\n",
+    ['social_image_url' => 'https://example.test/photo.jpg', 'social_image_path' => '/tmp/photo.jpg']
+);
+socialAssert($customWithImage->status === SocialPublishResult::SUCCESS, 'custom text with image body must publish');
+socialAssert($provider->lastText === '手動の ![KEEP](manual.jpg) #Tomos', 'explicit social_text must override description and remain unchanged');
+socialAssert($provider->lastContext['page_metadata']['description'] === '指定した説明', 'explicit description must survive shared metadata generation');
+socialAssert($provider->lastContext['social_image_url'] === 'https://example.test/photo.jpg', 'image URL context must remain unchanged');
+socialAssert($provider->lastContext['social_image_path'] === '/tmp/photo.jpg', 'image path context must remain unchanged');
+
 $longTitle = str_repeat('あ', 400);
 $autoLong = $service->publishArticle(
     'news/c.md',
