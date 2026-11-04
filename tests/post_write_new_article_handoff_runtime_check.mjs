@@ -94,6 +94,7 @@ assert.equal(outbound.length, 1, "the first valid probe must receive publish-rea
 assert.equal(outbound[0].targetOrigin, WRITE_ORIGIN);
 assert.equal(outbound[0].message.type, "tomos:publish-ready");
 assert.equal(outbound[0].message.session, session);
+assert.equal(outbound[0].message.capabilities.includes("image-file-handoff"), true);
 
 dispatch(otherSource, envelope({ type: "write:publish-probe" }));
 assert.equal(outbound.length, 1, "a different source must be rejected after source binding");
@@ -122,13 +123,26 @@ assert.equal(outbound[1].message.type, "tomos:publish-ack");
 assert.equal(outbound[1].message.transactionId, "transaction-1");
 assert.equal(outbound[1].targetOrigin, WRITE_ORIGIN);
 
+const images = [{path:"photo.jpg",file:{name:"photo.jpg",size:100,type:"image/jpeg"}}];
+dispatch(writeSource, envelope({
+  type: "write:publish-document",
+  transactionId: "transaction-image",
+  document: { markdown: "![Photo](photo.jpg)", filename: "photo.md" },
+  images,
+}));
+await new Promise((resolve)=>setTimeout(resolve,0));
+assert.equal(importCalls.length, 2, "image payload delivered to importer");
+assert.equal(importCalls[1].options.images, images, "image payload retained");
+assert.equal(outbound[2].message.type, "tomos:publish-processing", "Post acknowledges processing separately from completion");
+assert.equal(outbound[3].message.type, "tomos:publish-ack", "Post ACK only after importer success");
+
 dispatch(writeSource, envelope({
   type: "write:publish-document",
   transactionId: "transaction-2",
   document: { markdown: "a".repeat(1048577), filename: "too-large.md" },
 }));
 await new Promise((resolve) => setTimeout(resolve, 0));
-assert.equal(importCalls.length, 1, "Markdown over 1 MiB must be rejected");
-assert.equal(outbound.length, 2, "over-limit Markdown must not receive an ACK");
+assert.equal(importCalls.length, 2, "Markdown over 1 MiB must be rejected");
+assert.equal(outbound.length, 4, "over-limit Markdown must not receive an ACK");
 
 console.log("post_write_new_article_handoff_runtime_check: listener ordering, source binding, validation, import, ACK, and size checks passed");
