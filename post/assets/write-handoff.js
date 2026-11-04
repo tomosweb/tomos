@@ -16,7 +16,7 @@
   }
 
   const TOMOS_VERSION = document.body?.dataset?.tomosVersion || "unknown";
-  const CAPABILITIES = ["ack", "bounded-retry", "transaction-id", "direct-markdown-import", "diagnostics"];
+  const CAPABILITIES = ["ack", "bounded-retry", "transaction-id", "direct-markdown-import", "image-file-handoff", "diagnostics"];
   const configuredMarkdownMaxBytes = Number(document.body?.dataset?.tomosMarkdownMaxBytes || 0);
   const MAX_MARKDOWN_BYTES = Number.isSafeInteger(configuredMarkdownMaxBytes) && configuredMarkdownMaxBytes > 0
     ? configuredMarkdownMaxBytes
@@ -310,13 +310,26 @@
     if (transactionId) inflightWriteImportTransactions.add(transactionId);
     let accepted = false;
     try {
-      accepted = await Promise.resolve(importer(markdown, filename, { mode: "new", transactionId, session: writeImportSession }));
+      if (message.images !== undefined) {
+        source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-processing", transactionId }), WRITE_ORIGIN);
+      }
+      accepted = await Promise.resolve(importer(markdown, filename, {
+        mode: "new", transactionId, session: writeImportSession,
+        ...(message.images !== undefined ? { images: message.images } : {}),
+      }));
     } catch {
       accepted = false;
     } finally {
       if (transactionId) inflightWriteImportTransactions.delete(transactionId);
     }
-    if (!accepted) return;
+    if (!accepted) {
+      try {
+        source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-reject", transactionId }), WRITE_ORIGIN);
+      } catch {
+        recordDiagnostic("publish rejection notification failed");
+      }
+      return;
+    }
     if (transactionId) processedReturnTransactions.add(transactionId);
     try {
       source.postMessage(returnEnvelope(writeImportSession, { type: "tomos:publish-ack", transactionId }), WRITE_ORIGIN);
