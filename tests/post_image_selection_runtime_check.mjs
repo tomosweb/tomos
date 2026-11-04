@@ -31,8 +31,8 @@ const elements = new Map();
 const get = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
 const requests = [];
 const window = { matchMedia: () => ({matches:false}), crypto: webcrypto, addEventListener() {} };
-vm.runInNewContext(script, { window, document: { body: {dataset:{}}, getElementById: get, createElement: () => new Element() },
-  File, FileReader: class {}, FormData, Uint8Array, Map, Set, Promise, navigator: {},
+vm.runInNewContext(script, { window, document: { body: {dataset:{tomosMarkdownMaxBytes:'1048576'}}, getElementById: get, createElement: () => new Element() },
+  File, FileReader: class {}, FormData, TextEncoder, Uint8Array, Map, Set, Promise, navigator: {},
   fetch: async (url, options) => { requests.push({url, body:options?.body}); return {ok:true, json:async () => ({ok:true, upload_session_id:'session', capabilities:{effective_image_max_bytes:1048576}})}; }
 });
 // No DataTransfer exists in this environment.
@@ -130,4 +130,47 @@ await get('post-upload-form').listeners.submit({preventDefault(){}});
 assert.equal(get('tomos-handoff-markdown').value, `![A](images/${api.state().requiredImages[0].fileName})`);
 api.load('![remote](<https://example.test/photo.jpeg>)');
 assert.equal(api.state().requiredImages.length, 0, 'external angle destinations must not require uploads');
+// Tomos Write's angle destination and Front Matter use the same exact reference.
+api.load(''); // clear any prior submitting state
+let accepted = await window.TomosPostImportMarkdown(
+  '---\nimage: photo.jpg\nsocial:\n  - bluesky\n---\n![Photo](<photo.jpg>)', 'photo.md',
+  { mode:'new', images:[{path:'photo.jpg',file:photo('photo.jpg','photo-one')}] }
+);
+assert.equal(accepted, true, 'angle destination and OGP image must resolve as one image');
+assert.equal(api.state().selectedImages.size, 1);
+assert.equal(api.state().requiredImages[0].fileName, api.state().frontMatterImage.fileName);
+assert.match(get('tomos-handoff-markdown').value, /social:\n  - bluesky/);
+await get('post-upload-form').listeners.submit({preventDefault(){}});
+assert.match(get('tomos-handoff-markdown').value, /!\[Photo\]\(images\/tms-/);
+assert.match(get('tomos-handoff-markdown').value, /image: images\/tms-/);
+
+// Two paths can have the same filename without sharing the image's bytes.
+api.load('');
+accepted = await window.TomosPostImportMarkdown(
+  '![A](<a/photo.jpg>)\n![B](<b/photo.jpg>)', 'two.md',
+  { mode:'new', images:[
+    {path:'a/photo.jpg',file:photo('photo.jpg','first-unique')},
+    {path:'b/photo.jpg',file:photo('photo.jpg','second-unique')}
+  ] }
+);
+assert.equal(accepted, true, 'two equal basenames must not collide');
+assert.equal(api.state().selectedImages.size, 2);
+assert.notEqual(api.state().requiredImages[0].fileName, api.state().requiredImages[1].fileName);
+await get('post-upload-form').listeners.submit({preventDefault(){}});
+assert.equal((get('tomos-handoff-markdown').value.match(/!\[[AB]\]\(images\/tms-/g)||[]).length, 2);
+
+// Reject invalid handoff before replacing an already loaded draft.
+api.load('![Old](old.jpg)');
+const oldReferences = api.state().requiredImages.map(image=>image.sourcePath);
+accepted = await window.TomosPostImportMarkdown(
+  '![Missing](missing.jpg)', 'missing.md', {mode:'new',images:[]}
+);
+assert.equal(accepted, false);
+assert.deepEqual(api.state().requiredImages.map(image=>image.sourcePath),oldReferences);
+accepted = await window.TomosPostImportMarkdown(
+  '![A](a/photo.jpg)', 'wrong.md',
+  {mode:'new',images:[{path:'b/photo.jpg',file:photo('photo.jpg','wrong')}]}
+);
+assert.equal(accepted,false);
+assert.deepEqual(api.state().requiredImages.map(image=>image.sourcePath),oldReferences);
 console.log('post_image_selection_runtime_check: OK');
