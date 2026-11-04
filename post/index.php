@@ -2354,10 +2354,35 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
 
   const MAX_MARKDOWN_BYTES = Number(document.body.dataset.tomosMarkdownMaxBytes || 0);
 
-  window.TomosPostImportMarkdown = (markdown, filename, options = {}) => {
-    if (typeof markdown !== "string" || markdown === "" || !Number.isSafeInteger(MAX_MARKDOWN_BYTES) || MAX_MARKDOWN_BYTES <= 0 || new TextEncoder().encode(markdown).byteLength > MAX_MARKDOWN_BYTES) return false;
+  window.TomosPostImportMarkdown = async (markdown, filename, options = {}) => {
+    if (submitting || typeof markdown !== "string" || markdown === "" || !Number.isSafeInteger(MAX_MARKDOWN_BYTES) || MAX_MARKDOWN_BYTES <= 0 || new TextEncoder().encode(markdown).byteLength > MAX_MARKDOWN_BYTES) return false;
     const newPostHandoff = Boolean(options && options.mode === "new");
     if (newPostHandoff) markdown = stripTomosSourceMetadata(markdown);
+    // Validate the entire image handoff before altering the currently loaded draft.
+    // Match full reference paths, never only basenames; Markdown (<photo.jpg>) and
+    // Front Matter (photo.jpg) refer to the same physical image.
+    const hasHandoffImages = newPostHandoff && Object.prototype.hasOwnProperty.call(options, "images");
+    let handoffImageFiles = null;
+    if (hasHandoffImages) {
+      const items = options.images;
+      if (!Array.isArray(items) || items.length > 5) return false;
+      const localReferences = extractImages(markdown).filter(image => image.kind === "local");
+      const ogpReference = extractFrontMatterLocalImage(markdown);
+      const expected = new Set(localReferences.map(image => imageSourceKey(image.sourcePath)));
+      if (ogpReference) expected.add(imageSourceKey(ogpReference.sourcePath));
+      if (items.length !== expected.size) return false;
+      handoffImageFiles = new Map();
+      for (const entry of items) {
+        if (!entry || typeof entry.path !== "string" || !expected.has(imageSourceKey(entry.path))
+            || handoffImageFiles.has(imageSourceKey(entry.path))
+            || typeof File === "undefined" || !(entry.file instanceof File)
+            || entry.file.size === 0 || entry.file.size > MAX_IMAGE_BYTES
+            || !/\.(?:jpe?g|png|webp|gif)$/i.test(entry.file.name)
+            || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(entry.file.type)
+            || !fileTypeMatchesExtension(entry.file)) return false;
+        handoffImageFiles.set(imageSourceKey(entry.path), entry.file);
+      }
+    }
     const safeFilename = typeof filename === "string" && /^[^/\\]+\.(?:md|markdown|txt)$/i.test(filename) ? filename : "article.md";
     resetImportedMarkdownState();
     importedFilename = safeFilename;
@@ -2395,6 +2420,26 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     // Resolve source metadata before rendering image requirements so an editable handoff
     // never flashes as a new upload and then changes its requirement state.
     renderImageMatches(new Set());
+    if (handoffImageFiles !== null) {
+      // Feed each File into the existing resize, hashing and upload pipeline with
+      // its exact target. This also handles equal filenames in different folders.
+      for (const [path, file] of handoffImageFiles) {
+        const target = requiredImages.find(image => image.kind === "local"
+          && imageSourceKey(image.sourcePath) === path)
+          || (frontMatterImage && imageSourceKey(frontMatterImage.sourcePath) === path ? frontMatterImage : null);
+        if (!target) return false;
+        selectImageFiles([file], target);
+      }
+      try {
+        await imageSelectionTask;
+      } catch {
+        return false;
+      }
+      if (requiredImages.some(image => image.kind === "local"
+            && (!image.fileName || !selectedImages.has(image.fileName)))
+          || (frontMatterImage && (!frontMatterImage.fileName || !selectedImages.has(frontMatterImage.fileName)))
+          || unmatchedImageCount || oversizedImageCount || formatMismatchImageCount) return false;
+    }
     if (sourceMetadataIncomplete) {
       setHandoffNotice("Tomos WriteからMarkdownを受け取りました。");
       setNotice("編集元の情報が不足しています。Tomos Postから原稿をもう一度ダウンロードしてください。", true);
@@ -2409,7 +2454,9 @@ function renderUploadForm(string $token, array $config, string $submissionId): v
     updatePageSelection();
     const folder = extractFolder(markdown);
     if (folder !== null && folder.trim() !== "" && !isUnsafeFolder(folder)) folderInput.value = normalizeFolder(folder);
-    setHandoffNotice("Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。");
+    setHandoffNotice(handoffImageFiles === null
+      ? "Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。"
+      : `Tomos WriteからMarkdownと画像${handoffImageFiles.size}点を受け取りました。内容を確認して投稿してください。`);
     return true;
   };
 
