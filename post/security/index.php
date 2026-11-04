@@ -161,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'issue_inbox_api_token' && !$obsidianView) {
-    $errors[] = '投稿用トークンは「設定」→「連携」→「Obsidian」から発行してください。';
+    $errors[] = '投稿用トークンは「設定」→「連携」→「投稿用トークン」から発行してください。';
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'issue_inbox_api_token' && $obsidianView && $authenticated) {
     $token = (string) ($_POST['_token'] ?? '');
@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') =
                 $errors[] = '投稿用トークンを保存できませんでした。';
             } else {
                 $config = $newConfig;
-                $messages[] = '投稿用トークンを発行しました。この画面を離れる前にObsidianへ設定してください。';
+                $messages[] = '投稿用トークンを発行しました。この画面を離れる前に、利用するTomos Write・Tomos Workspace・Tomos Publisherへ登録してください。';
                 $_SESSION['tomos_post_token'] = bin2hex(random_bytes(32));
             }
         } catch (Throwable $exception) {
@@ -269,7 +269,7 @@ function verifyTokenIssuePassphrase(array $config, string $rootDir): bool
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?= $obsidianView ? 'Obsidian投稿用トークン' : 'セキュリティ' ?> - Tomos Post</title>
+<title><?= $obsidianView ? '投稿用トークン' : 'セキュリティ' ?> - Tomos Post</title>
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}.card{border-top:1px solid #ddd;padding:1.2rem 0}.card:first-of-type{border-top:0}.button,button{display:inline-block;padding:.7rem 1rem;margin:.2rem .35rem .2rem 0;border:1px solid #777;border-radius:.35rem;background:#fff;color:inherit;text-decoration:none;font:inherit;cursor:pointer}.primary{font-weight:700}.result{margin:1rem 0;padding:1rem;background:#f5f5f5}.hint{color:#666}input[type=password]{box-sizing:border-box;width:100%;max-width:36rem;padding:.65rem;margin:.3rem 0 1rem;font:inherit}.remember-auth{display:flex;gap:.5rem;align-items:flex-start;margin:.6rem 0 1rem}.remember-auth input{margin-top:.35rem}.passphrase-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1rem}.passphrase-actions button{font-size:.9em}
 </style>
@@ -278,7 +278,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 </head>
 <body class="post-standalone">
 <main class="wrap security-page">
-<header class="page-heading"><h1><?= tomosPostIcon($obsidianView ? 'edit' : 'security') ?><span><?= $obsidianView ? 'Obsidian投稿用トークン' : 'セキュリティ' ?></span></h1><p class="hint"><?= $obsidianView ? 'ObsidianからTomosへHTTPS投稿するための専用トークンです。' : '認証、パスキー、管理用合言葉' ?></p></header>
+<header class="page-heading"><h1><?= tomosPostIcon($obsidianView ? 'edit' : 'security') ?><span><?= $obsidianView ? '投稿用トークン' : 'セキュリティ' ?></span></h1><p class="hint"><?= $obsidianView ? 'Tomos Write・Tomos Workspace・Tomos Publisherから記事を投稿するための共通トークンです。' : '認証、パスキー、管理用合言葉' ?></p></header>
 
 <?php foreach ($messages as $message): ?>
 <div class="result"><p><?= htmlspecialchars((string) $message, ENT_QUOTES, 'UTF-8') ?></p></div>
@@ -353,8 +353,8 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 <?php endif; ?>
 <?php if ($obsidianView && $authenticated): ?>
 <section class="card security-section">
-<h2><?= tomosPostIcon('edit') ?><span>Obsidian投稿用トークン</span></h2>
-<p class="hint">再発行すると以前のトークンは無効になります。</p>
+<h2><?= tomosPostIcon('edit') ?><span>投稿用トークン</span></h2>
+<p class="hint">投稿用トークンを再発行した場合は、Tomos Write、Tomos Workspace、Tomos Publisherに登録しているトークンも、新しいものに変更してください。</p>
 <?php if ($hasPasskey && !Tomos\PostAuthPolicy::recentlyVerifiedPasskey($config)): ?>
 <p><a class="button" href="<?= htmlspecialchars($passkeyUrl, ENT_QUOTES, 'UTF-8') ?>">パスキーで再認証してトークン発行を有効にする</a></p>
 <?php else: ?>
