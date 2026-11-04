@@ -41,7 +41,7 @@ const windowObject = {
   alert() {},
   TomosPostImportMarkdown: async (markdown, filename, options) => {
     importCalls.push({ markdown, filename, options });
-    return true;
+    return markdown !== "# reject";
   },
 };
 
@@ -138,11 +138,20 @@ assert.equal(outbound[3].message.type, "tomos:publish-ack", "Post ACK only after
 
 dispatch(writeSource, envelope({
   type: "write:publish-document",
+  transactionId: "transaction-reject",
+  document: { markdown: "# reject", filename: "rejected.md" },
+}));
+await new Promise((resolve)=>setTimeout(resolve,0));
+assert.equal(outbound[4].message.type, "tomos:publish-reject", "failed import must never be ACKed");
+assert.equal(outbound[4].message.transactionId, "transaction-reject");
+
+dispatch(writeSource, envelope({
+  type: "write:publish-document",
   transactionId: "transaction-2",
   document: { markdown: "a".repeat(1048577), filename: "too-large.md" },
 }));
 await new Promise((resolve) => setTimeout(resolve, 0));
-assert.equal(importCalls.length, 2, "Markdown over 1 MiB must be rejected");
-assert.equal(outbound.length, 4, "over-limit Markdown must not receive an ACK");
+assert.equal(importCalls.length, 3, "Markdown over 1 MiB must be rejected");
+assert.equal(outbound.length, 5, "over-limit Markdown must not receive an ACK");
 
 console.log("post_write_new_article_handoff_runtime_check: listener ordering, source binding, validation, import, ACK, and size checks passed");
