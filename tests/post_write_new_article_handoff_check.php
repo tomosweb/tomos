@@ -29,7 +29,8 @@ checkNewArticleHandoff(strpos($handoff, 'TomosPostImportMarkdown') !== false, 'P
 checkNewArticleHandoff(strpos($handoff, 'mode: "new"') !== false, 'Direct Write publish handoff must mark the import as a new article');
 checkNewArticleHandoff(strpos($postIndex, 'stripTomosSourceMetadata') !== false, 'New Write handoff must strip editable-source metadata before publishing');
 checkNewArticleHandoff(strpos($postIndex, 'id="tomos-write-handoff-notice" class="success"') !== false, 'Post must expose a prominent Write handoff confirmation');
-checkNewArticleHandoff(strpos($postIndex, 'setHandoffNotice("Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。")') !== false, 'Post must show the new Markdown handoff confirmation prominently');
+checkNewArticleHandoff(strpos($postIndex, 'Tomos WriteからMarkdownを受け取りました。内容を確認して投稿してください。') !== false, 'Post must preserve the Markdown-only handoff confirmation');
+checkNewArticleHandoff(strpos($postIndex, 'Tomos WriteからMarkdownと画像') !== false, 'Post must report image-bearing handoffs separately');
 checkNewArticleHandoff(strpos($postIndex, "PostAuthReturnTo::normalize('/post/?write_import=1&session=") !== false, 'Post must retain a validated import route for login');
 checkNewArticleHandoff(strpos($authGate, "write_import") !== false, 'Login page must carry the direct import route into its form');
 checkNewArticleHandoff(strpos($authReturnTo, "write_import=1&session=") !== false, 'Auth return route must allow only the new import marker and session');
