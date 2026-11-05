@@ -12,7 +12,9 @@ function assertSettings(bool $pass, string $message): void {
 assertSettings(strpos($post, "['Tomos', [") < strpos($post, "['サイト', ["), 'Tomos category must be first');
 assertSettings(strpos($post, "['サイト', [") < strpos($post, "['連携', ["), 'Integration category should follow Site');
 assertSettings(strpos($post, "'Tomos Update',") < strpos($post, "'セキュリティ',"), 'Tomos Update must be before Security');
-assertSettings(strpos($post, "'Obsidian',") !== false, 'Obsidian must appear under integration');
+assertSettings(strpos($post, "'投稿用トークン',") !== false, 'Shared token must appear under integration');
+assertSettings(strpos($post, "'/post/obsidian/'") !== false, 'Dedicated shared token link must keep legacy route');
+assertSettings(strpos($security, "Tomos Write・Tomos Workspace・Tomos Publisherから記事を投稿するための共通トークンです。") !== false, 'Shared token explanatory copy is missing');
 assertSettings(strpos($security, '($obsidianView ? \'/post/obsidian/\' : \'/post/security/\')') !== false, 'Passkey reauth must return to initiating screen');
 assertSettings(strpos($security, '<?php if ($obsidianView && $authenticated): ?>') !== false, 'Obsidian token issuance must have dedicated view');
 assertSettings(strpos($security, '&& !$obsidianView') !== false, 'Old Security token requests must not silently invalidate tokens');

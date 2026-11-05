@@ -1429,13 +1429,13 @@ function renderSettingsHomeSection(string $token, array $config, string $returnT
             [$themeUrl, 'テーマ', '公開サイトのデザイン'],
         ]],
         ['連携', [
-            [$obsidianUrl, 'Obsidian', '投稿用トークンの発行・再発行'],
+            [$obsidianUrl, '投稿用トークン', 'Write・Workspace・Publisherで共通の投稿用トークン'],
             [$socialUrl, 'Bluesky', 'Bluesky接続・投稿設定'],
             [$analyticsUrl, 'Google Analytics', 'アクセス解析'],
         ]],
     ];
     $groupIcons = ['サイト' => 'site', '連携' => 'bluesky', 'Tomos' => 'settings'];
-    $linkIcons = ['サイト設定' => 'site', 'ナビゲーション' => 'navigation', 'テーマ' => 'theme', 'Obsidian' => 'edit', 'Bluesky' => 'bluesky', 'Google Analytics' => 'analytics', 'セキュリティ' => 'security', 'Tomos Update' => 'update'];
+    $linkIcons = ['サイト設定' => 'site', 'ナビゲーション' => 'navigation', 'テーマ' => 'theme', '投稿用トークン' => 'edit', 'Bluesky' => 'bluesky', 'Google Analytics' => 'analytics', 'セキュリティ' => 'security', 'Tomos Update' => 'update'];
     foreach ($groups as [$groupLabel, $links]) {
         echo '<section class="settings-group"><h3>' . tomosPostIcon($groupIcons[$groupLabel] ?? 'settings') . '<span>' . e($groupLabel) . '</span></h3>';
         foreach ($links as [$url, $label, $description]) {

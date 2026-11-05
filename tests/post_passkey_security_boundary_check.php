@@ -88,7 +88,9 @@ try {
  $r=endpointBoundary('post/obsidian/index.php',[],['_token'=>'csrf','action'=>'issue_inbox_api_token']);
  boundaryAssert($r['status']===302 || $r['status']===403,'anonymous Obsidian token page must require auth');
  $obsidianPage=endpointBoundary('post/obsidian/index.php',$passkey,[],[],[],'GET');
- boundaryAssert(strpos($obsidianPage['body'],'Obsidian投稿用トークン')!==false,'Obsidian integration token page renders for passkey session');
+ boundaryAssert(strpos($obsidianPage['body'],'投稿用トークン')!==false,'Shared publisher token page renders for passkey session');
+ boundaryAssert(strpos($obsidianPage['body'],'Tomos Write、Tomos Workspace、Tomos Publisher')!==false,'Shared token rotation warning is visible');
+ boundaryAssert(strpos($obsidianPage['body'],'issue_inbox_api_token')!==false,'Existing token issuance action remains');
  $r=endpointBoundary('post/index.php',[],[],[],[],'GET');
  boundaryAssert($r['status']===302,'passkey-only entry redirect');
  foreach (['options','complete','authorize'] as $api) {
