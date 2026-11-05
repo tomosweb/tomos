@@ -1,3 +1,17 @@
+## v1.1.14 - Release Candidate（2026-11-05準備）
+
+### Improved
+
+- Tomos Post「設定 → 連携」の「Obsidian」を「投稿用トークン」に変更しました。
+- トークン発行画面・発行後の案内・再発行時の注意を、Tomos Write、Tomos Workspace、Tomos Publisher共通の表現へ整理しました。
+
+### Compatibility / Update
+
+- 正式公開済みv1.1.13からv1.1.14への署名付きTomos Update候補です。
+- 既存の投稿用トークン、発行・再発行処理、認証方式、/post/obsidian/、/post/inbox/api/、Bluesky連携は変更しません。
+- config.php、記事、画像、利用者追加Theme、認証・運用データは更新時に保持します。
+- 本番署名・公開配布物・公式mirror・オンライン更新カタログの切替は正式リリース工程で行います。GitHubへのマージだけでは公開されません。
+
 ## v1.1.13 - Release Candidate（2026-11-02準備）
 
 ### Fixed
