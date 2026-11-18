@@ -116,6 +116,7 @@ final class ThemeContextBuilder
         $list = [
             'pages' => $listPages,
             'latest_pages' => $page['list']['latest_pages'] ?? '',
+            'latest_items' => $page['list']['latest_items'] ?? [],
         ];
 
         $faviconAsset = $this->faviconAsset();

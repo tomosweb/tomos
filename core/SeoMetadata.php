@@ -146,11 +146,16 @@ final class SeoMetadata
         return ($page['internal_url'] ?? $page['url'] ?? '/') === '/' ? 'website' : 'article';
     }
 
+    public static function articleImageUrl(string $target, string $pagePath, string $contentDir, string $publicBasePath): ?string
+    {
+        return self::socialImageUrl($target, $pagePath, $contentDir, null, $publicBasePath, null);
+    }
+
     private static function socialImageUrl(
         string $target,
         string $pagePath,
         string $contentDir,
-        string $siteUrl,
+        ?string $siteUrl,
         string $publicBasePath,
         ?string $defaultSocialImageUrl
     ): ?string {
@@ -176,7 +181,9 @@ final class SeoMetadata
                 return $defaultSocialImageUrl;
             }
 
-            return Security::absolutePublicUrl($siteUrl, '/' . $relative, $publicBasePath);
+            return $siteUrl === null
+                ? Security::publicUrl('/' . $relative, $publicBasePath)
+                : Security::absolutePublicUrl($siteUrl, '/' . $relative, $publicBasePath);
         }
 
         if (!Security::isSafeRelativePath($target)) {
@@ -200,7 +207,9 @@ final class SeoMetadata
         }
         $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($realCandidate, strlen(rtrim($realContentDir, DIRECTORY_SEPARATOR)) + 1));
 
-        return Security::absolutePublicUrl($siteUrl, '/content/' . $relative, $publicBasePath);
+        return $siteUrl === null
+            ? Security::publicUrl('/content/' . $relative, $publicBasePath)
+            : Security::absolutePublicUrl($siteUrl, '/content/' . $relative, $publicBasePath);
     }
 
     private static function isLocalImage(string $candidate, string $baseDir): bool

@@ -199,8 +199,24 @@ final class NavigationBuilder
 
     public function latestPageList(array $pages, int $limit = 12): string
     {
-        if ($limit < 1) {
+        $pages = $this->latestPages($pages, $limit);
+        if ($pages === []) {
             return '';
+        }
+
+        $html = '<ul class="page-list-items">';
+        foreach ($pages as $page) {
+            $html .= $this->pageListItem($page, '');
+        }
+        $html .= '</ul>';
+
+        return $html;
+    }
+
+    public function latestPages(array $pages, int $limit = 12): array
+    {
+        if ($limit < 1) {
+            return [];
         }
 
         $pages = array_values(array_filter($this->publicPages($pages), function ($page): bool {
@@ -213,19 +229,11 @@ final class NavigationBuilder
         }));
 
         if ($pages === []) {
-            return '';
+            return [];
         }
 
         usort($pages, [$this, 'comparePages']);
-        $pages = array_slice($pages, 0, $limit);
-
-        $html = '<ul class="page-list-items">';
-        foreach ($pages as $page) {
-            $html .= $this->pageListItem($page, '');
-        }
-        $html .= '</ul>';
-
-        return $html;
+        return array_slice($pages, 0, $limit);
     }
 
     public function folderPageList(array $pages, string $folder, int $currentPage = 1, int $perPage = 30): string

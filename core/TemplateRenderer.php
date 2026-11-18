@@ -202,6 +202,10 @@ final class TemplateRenderer
             $value = $this->stringValue($resolved['value']);
             if (isset($this->urlVariables[$name]) || $name === 'url') {
                 $value = Security::sanitizeAttributeUrl($value);
+            } elseif ($name === 'image_url') {
+                $value = preg_match('~^https?://~i', $value) === 1
+                    ? Security::safeHref($value)
+                    : Security::sanitizeAttributeUrl($value);
             } elseif (isset($this->absoluteUrlVariables[$name])) {
                 $value = Security::safeHref($value);
             }
