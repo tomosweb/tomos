@@ -73,6 +73,7 @@ core/PostImageUploadSessionStore.php
 core/SiteSettingsConfigWriter.php
 core/ThemeSettingsConfigWriter.php
 core/ThemeSettings.php
+core/HomeArticleList.php
 core/HomeNewsProvider.php
 core/ThemePackageException.php
 core/ThemePackageInstaller.php

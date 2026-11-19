@@ -41,6 +41,26 @@ final class ImageEmbedParser
         }, $markdown) ?? $markdown;
     }
 
+    /** @return array{url: string, alt: string}|null */
+    public function firstImage(string $markdown, string $currentPagePath): ?array
+    {
+        // Code examples are not article images.
+        $markdown = preg_replace('/^[ \t]*```[^\n]*\n.*?(?:^[ \t]*```[ \t]*(?:\n|$)|\z)/ms', '', $markdown) ?? $markdown;
+        $markdown = preg_replace('/(`+)[^`\n]*\1/', '', $markdown) ?? $markdown;
+        $replaced = $this->replace($markdown, $currentPagePath);
+        preg_match_all('/TOMOSIMAGE\d+TOKEN/', $replaced, $matches);
+        foreach ($matches[0] as $token) {
+            if (preg_match('/^<img src="([^"]+)" alt="([^"]*)">$/', $this->placeholders[$token] ?? '', $image) === 1) {
+                return [
+                    'url' => html_entity_decode($image[1], ENT_QUOTES, 'UTF-8'),
+                    'alt' => html_entity_decode($image[2], ENT_QUOTES, 'UTF-8'),
+                ];
+            }
+        }
+
+        return null;
+    }
+
     public function restore(string $html): string
     {
         if ($this->placeholders === []) {

@@ -223,6 +223,7 @@ final class TemplateRenderer
         $list = [
             'pages' => $listPages,
             'latest_pages' => $page['list']['latest_pages'] ?? '',
+            'latest_items' => $page['list']['latest_items'] ?? [],
         ];
         $faviconAsset = $this->faviconAsset();
         $brandingFavicon = $this->siteBrandingAssets->asset('favicon');
@@ -387,6 +388,10 @@ final class TemplateRenderer
             $value = $this->stringValue($resolved['value']);
             if (isset($this->urlVariables[$name]) || $name === 'url') {
                 $value = Security::sanitizeAttributeUrl($value);
+            } elseif ($name === 'image_url') {
+                $value = preg_match('~^https?://~i', $value) === 1
+                    ? Security::safeHref($value)
+                    : Security::sanitizeAttributeUrl($value);
             } elseif (isset($this->absoluteUrlVariables[$name])) {
                 $value = Security::safeHref($value);
             }

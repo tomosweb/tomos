@@ -1,0 +1,18 @@
+{
+  "name": "tomos-album",
+  "display_name": "Tomos Album",
+  "version": "1.0.0",
+  "description": "写真と短い文章を、新着順に一枚ずつ楽しめる写真日記のテーマです。",
+  "author": "Tomos Project",
+  "requires_tomos": "1.1.15",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "favicon": true,
+    "ogp": true,
+    "responsive": true
+  }
+}

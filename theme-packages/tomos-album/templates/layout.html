@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="{{ page.language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{{ site.analytics_html }}}
+  {{{ page.seo_head_html }}}
+  <link rel="icon" href="{{ theme.favicon_url }}" type="{{ theme.favicon_type }}">
+  <link rel="stylesheet" href="{{ theme.asset_url }}/style.css?v={{ theme.asset_version }}">
+</head>
+<body>
+  <header class="site-header shell">
+    <a class="site-title" href="{{ site.home_url }}">{{ site.name }}</a>
+    {{# site.description }}<p>{{ site.description }}</p>{{/ site.description }}
+    <nav aria-label="主要ページ">
+      {{# nav.primary_items }}<a href="{{ url }}">{{ label }}</a>{{/ nav.primary_items }}
+    </nav>
+  </header>
+  <main class="shell">{{{ page.body }}}</main>
+  <footer class="site-footer shell">
+    <a href="{{ site.home_url }}">{{ site.name }}</a>
+    {{# site.feed_url }}<a href="{{ site.feed_url }}">RSS</a>{{/ site.feed_url }}
+  </footer>
+</body>
+</html>

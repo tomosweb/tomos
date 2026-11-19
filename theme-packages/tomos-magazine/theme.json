@@ -1,0 +1,18 @@
+{
+  "name": "tomos-magazine",
+  "display_name": "Tomos Magazine",
+  "version": "1.0.0",
+  "description": "角丸の写真と見出しで、新着記事を街の雑誌のように並べるテーマです。",
+  "author": "Tomos Project",
+  "requires_tomos": "1.1.15",
+  "supports": {
+    "navigation": true,
+    "breadcrumbs": true,
+    "tags": true,
+    "search": true,
+    "rss": true,
+    "favicon": true,
+    "ogp": true,
+    "responsive": true
+  }
+}

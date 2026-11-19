@@ -227,6 +227,7 @@ NavigationBuilderが生成する値です。HTML値はcoreが生成するため�
 
 - `list.pages`: 現在の一覧ページのHTML
 - `list.latest_pages`: トップページ向けの最新12件のHTML
+- `list.latest_items`: トップページ向けの[画像・抜粋付き新着記事](home-article-list-v1.md)
 
 Virtual Folderでは、`list.html`が選択され、公開されたフォルダー直下記事の一覧が`list.pages`に渡されます。テーマ作者はVirtualFolderIndexや`pages.json`を直接扱いません。
 

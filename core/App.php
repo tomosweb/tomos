@@ -616,6 +616,9 @@ final class App
                 'pages' => $folder === null && isset($requiredVariables['list.pages'])
                     ? $navigation->pageList($pages)
                     : '',
+                'latest_items' => $currentUrl === '/' && isset($requiredVariables['list.latest_items'])
+                    ? HomeArticleList::items($navigation->latestPages($pages), (string) $this->config['paths']['content_dir'], $this->publicBasePath())
+                    : [],
                 'latest_pages' => isset($requiredVariables['list.latest_pages'])
                     ? $navigation->latestPageList($pages, 12)
                     : '',

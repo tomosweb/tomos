@@ -76,6 +76,7 @@ core/ConfigWriteLock.php
 core/SiteSettingsConfigWriter.php
 core/ThemeSettingsConfigWriter.php
 core/ThemeSettings.php
+core/HomeArticleList.php
 core/HomeNewsProvider.php
 core/PublicMetadataFreshener.php
 core/ThemePackageException.php

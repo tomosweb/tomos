@@ -1,0 +1,17 @@
+<h1 class="visually-hidden">{{ site.name }}</h1>
+<section class="feed" aria-label="新着記事">
+  {{# list.latest_items }}
+  <article class="entry{{# image_url }} with-image{{/ image_url }}">
+    <a class="entry-link" href="{{ url }}">
+      {{# image_url }}<img src="{{ image_url }}" alt="{{ image_alt }}" loading="lazy" decoding="async">{{/ image_url }}
+      <div class="entry-copy">
+        {{# date }}<time datetime="{{ date }}">{{ date_display }}</time>{{/ date }}
+        <h2>{{ title }}</h2>
+        {{# excerpt }}<p class="entry-excerpt">{{ excerpt }}</p>{{/ excerpt }}
+      </div>
+    </a>
+  </article>
+  {{/ list.latest_items }}
+</section>
+<p class="reading"><a href="{{ nav.all_url }}">すべての記事</a></p>
+<div class="reading prose home-content">{{{ page.content }}}</div>

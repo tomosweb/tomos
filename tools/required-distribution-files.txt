@@ -36,6 +36,7 @@ core/InstalledIntegrityVerifier.php
 core/UpdaterSelfUpdate.php
 core/required-installed-files.txt
 core/InitialBundledThemes.php
+core/HomeArticleList.php
 core/PostBasicPage.php
 core/PostAuthRememberToken.php
 core/PostAuthPolicy.php
